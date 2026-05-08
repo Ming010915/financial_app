@@ -1,0 +1,577 @@
+name,quantity,price,date,category
+Bauhaus,1,15.04,2024-01-01,Home & Living
+WMF,4,78.97,2024-01-01,Home & Living
+dm,2,18.3,2024-01-01,Health & Wellness
+Disney+,1,7.44,2024-01-01,Entertainment & Subscriptions
+Paul Bakery,3,9.02,2024-01-03,Food & Beverage
+Netflix,1,14.14,2024-01-03,Entertainment & Subscriptions
+Amazon Books,2,15.72,2024-01-03,Shopping
+FedEx,2,32.46,2024-01-03,Others
+Stadtapotheke,4,35.81,2024-01-05,Health & Wellness
+Airbnb,2,88.11,2024-01-05,Others
+Tchibo,1,26.03,2024-01-07,Home & Living
+Sephora,1,38.08,2024-01-07,Personal Care
+Paul Bakery,2,4.13,2024-01-07,Food & Beverage
+BVG,1,10.29,2024-01-07,Transport
+Casino München,1,23.5,2024-01-07,Others
+Kfz-Zulassung,1,147.94,2024-01-08,Others
+Müller,3,23.86,2024-01-09,Health & Wellness
+Otto,2,181.1,2024-01-11,Shopping
+McFit,1,49.92,2024-01-11,Health & Wellness
+Best Buy,1,72.73,2024-01-12,Shopping
+Miele Laundry,1,8.06,2024-01-14,Personal Care
+Douglas,2,51.75,2024-01-16,Personal Care
+U-Bahn,2,59.78,2024-01-17,Transport
+Apotheke am Markt,1,35.61,2024-01-17,Health & Wellness
+Pathé,4,20.76,2024-01-18,Entertainment & Subscriptions
+Disney+,2,6.67,2024-01-18,Entertainment & Subscriptions
+Notar Schreiber,1,240.21,2024-01-18,Others
+Just Eat,3,10.08,2024-01-19,Food & Beverage
+PetSmart,4,58.59,2024-01-19,Pet Supplies
+Lieferando,1,31.76,2024-01-20,Food & Beverage
+Great Clips,4,29.17,2024-01-20,Personal Care
+Lieferando,2,24.97,2024-01-21,Food & Beverage
+Costco,4,114.33,2024-01-21,Groceries
+Booking.com,2,115.16,2024-01-21,Others
+Sephora,1,26.76,2024-01-22,Personal Care
+Fressnapf,2,14.28,2024-01-23,Pet Supplies
+Supercuts,2,78.68,2024-01-23,Personal Care
+Nespresso,2,18.99,2024-01-25,Home & Living
+Amazon Books,4,19.28,2024-01-26,Shopping
+Intersport,2,174.3,2024-01-26,Shopping
+Nespresso,2,59.91,2024-01-26,Home & Living
+Vue Cinema,2,15.45,2024-01-27,Entertainment & Subscriptions
+DB Bahn Card,1,52.23,2024-01-27,Transport
+LMU Enrollment,2,77.52,2024-01-27,Others
+Fielmann,1,197.08,2024-01-28,Health & Wellness
+eBay,3,16.33,2024-01-30,Shopping
+Airbnb,1,188.51,2024-01-30,Others
+Netflix,1,8.43,2024-01-31,Entertainment & Subscriptions
+Müller,2,25.81,2024-02-02,Health & Wellness
+Dunkin',2,8.92,2024-02-02,Food & Beverage
+Apple Store,1,469.31,2024-02-02,Shopping
+Hotels.com,2,72.87,2024-02-02,Others
+Vue Cinema,2,12.06,2024-02-03,Entertainment & Subscriptions
+L'Osteria,4,45.15,2024-02-04,Food & Beverage
+Rechtsanwalt Müller,1,283.63,2024-02-04,Others
+Postbank,2,5.23,2024-02-05,Banking & Fees
+Amazon,1,28.55,2024-02-05,Shopping
+Apple Store,1,92.25,2024-02-05,Shopping
+Fressnapf,1,53.96,2024-02-06,Pet Supplies
+Dental Care,2,137.64,2024-02-07,Health & Wellness
+Hornbach,4,77.28,2024-02-07,Home & Living
+YouTube Premium,4,5.12,2024-02-08,Entertainment & Subscriptions
+Hugendubel,1,42.61,2024-02-09,Shopping
+Zooplus,1,23.22,2024-02-11,Pet Supplies
+Casino München,1,8.15,2024-02-11,Others
+Maisons du Monde,1,43.76,2024-02-12,Home & Living
+Adidas Store,1,134.82,2024-02-13,Shopping
+Coursera,1,82.97,2024-02-13,Others
+Vue Cinema,1,16.59,2024-02-14,Entertainment & Subscriptions
+Fressnapf,2,14.61,2024-02-15,Pet Supplies
+Hair & More,1,22.65,2024-02-15,Personal Care
+Nespresso,1,54.6,2024-02-16,Home & Living
+Just Eat,2,23.79,2024-02-17,Food & Beverage
+Thalia,3,13.92,2024-02-17,Shopping
+Zooplus,4,37.28,2024-02-17,Pet Supplies
+Holmes Place,2,36.58,2024-02-18,Health & Wellness
+Kodi,2,21.76,2024-02-18,Others
+Vapiano,4,36.95,2024-02-20,Food & Beverage
+Miele Laundry,1,22.98,2024-02-21,Personal Care
+UCI Kino,1,19.34,2024-02-22,Entertainment & Subscriptions
+Rosenthal,3,78.17,2024-02-23,Home & Living
+Casino München,1,36.37,2024-02-23,Others
+Maredo,4,67.55,2024-02-25,Food & Beverage
+The Body Shop,1,71.7,2024-02-25,Personal Care
+Uber Eats,2,29.56,2024-02-25,Food & Beverage
+The Body Shop,4,28.68,2024-02-26,Personal Care
+Bauhaus,1,52.08,2024-02-27,Home & Living
+Trivago,2,252.83,2024-02-27,Others
+CleanMate,4,9.45,2024-02-28,Personal Care
+Comdirect,4,13.74,2024-02-28,Banking & Fees
+The Body Shop,3,25.6,2024-02-29,Personal Care
+Backwerk,4,5.28,2024-02-29,Food & Beverage
+McCafe,2,6.16,2024-02-29,Food & Beverage
+U-Bahn,1,21.21,2024-02-29,Transport
+Subway,1,11.93,2024-02-29,Food & Beverage
+Kfz-Zulassung,1,137.36,2024-02-29,Others
+Kiko,2,42.52,2024-03-02,Personal Care
+Steuerberater Koch,1,276.64,2024-03-02,Others
+dm,4,20.98,2024-03-03,Health & Wellness
+Enterprise Rent-A-Car,2,143.51,2024-03-05,Transport
+Sport Scheck,2,88.28,2024-03-05,Shopping
+Sixt,2,116.68,2024-03-07,Transport
+Enterprise Rent-A-Car,4,117.73,2024-03-07,Transport
+Disney+,2,16.49,2024-03-08,Entertainment & Subscriptions
+Pull&Bear,2,51.1,2024-03-09,Shopping
+McCafe,1,5.11,2024-03-10,Food & Beverage
+Fielmann,1,84.59,2024-03-10,Health & Wellness
+Deutsche Bahn,1,42.97,2024-03-10,Transport
+WWF Donation,1,19.5,2024-03-10,Others
+Total,2,56.54,2024-03-12,Transport
+Shell,2,50.34,2024-03-13,Transport
+U-Bahn,1,56.87,2024-03-13,Transport
+CleanMate,1,14.54,2024-03-14,Personal Care
+Kieferorthopäde,4,220.69,2024-03-15,Health & Wellness
+Esso,2,77.38,2024-03-16,Transport
+TÜV Süd,2,111.95,2024-03-17,Others
+Kiko,2,72.85,2024-03-18,Personal Care
+Studierendenwerk,1,128.26,2024-03-18,Others
+Boots,1,20.25,2024-03-19,Health & Wellness
+Flixbus,4,40.79,2024-03-19,Transport
+Deutsche Bahn,1,50.75,2024-03-20,Transport
+Sport Scheck,2,24.31,2024-03-21,Shopping
+ASOS,1,137.65,2024-03-21,Shopping
+Apple TV+,2,7.04,2024-03-21,Entertainment & Subscriptions
+Udemy,1,61.14,2024-03-21,Others
+Lieferando,1,16.5,2024-03-22,Food & Beverage
+Lottery Ticket,1,42.38,2024-03-22,Others
+Backwerk,4,5.27,2024-03-23,Food & Beverage
+Pets at Home,4,23.91,2024-03-23,Pet Supplies
+Aral,2,81.75,2024-03-24,Transport
+Penny,1,83.15,2024-03-25,Groceries
+dm,3,32.34,2024-03-25,Health & Wellness
+Rewe Online,1,86.98,2024-03-25,Groceries
+Workshop Fee,2,51.7,2024-03-25,Others
+Udemy,2,47.0,2024-03-25,Others
+Supercuts,1,57.28,2024-03-26,Personal Care
+Hans im Glück,2,56.82,2024-03-26,Food & Beverage
+Backwerk,4,8.99,2024-03-27,Food & Beverage
+McFit,3,38.18,2024-03-28,Health & Wellness
+Bauhaus,1,95.56,2024-03-28,Home & Living
+Zahnarztpraxis,1,165.74,2024-03-28,Health & Wellness
+Otto,3,88.38,2024-03-30,Shopping
+Bäcker Ziegler,4,7.92,2024-03-30,Food & Beverage
+Spotify,4,6.53,2024-03-31,Entertainment & Subscriptions
+WMF,4,78.64,2024-04-01,Home & Living
+Charitable Donation,2,69.19,2024-04-02,Others
+Paul Bakery,1,4.27,2024-04-03,Food & Beverage
+Zahnarztpraxis,1,191.6,2024-04-03,Health & Wellness
+Charitable Donation,1,26.88,2024-04-03,Others
+Apotheke am Markt,2,48.84,2024-04-04,Health & Wellness
+Dental Care,4,177.57,2024-04-04,Health & Wellness
+Udemy,1,78.79,2024-04-04,Others
+Zara,2,133.45,2024-04-06,Shopping
+Kieferorthopäde,1,145.74,2024-04-06,Health & Wellness
+Lieferando,4,16.31,2024-04-06,Food & Beverage
+Zara,2,126.88,2024-04-07,Shopping
+Zara,3,95.01,2024-04-07,Shopping
+HelloFresh,2,38.95,2024-04-07,Groceries
+Zahnarztpraxis,1,248.78,2024-04-08,Health & Wellness
+Hotels.com,1,219.27,2024-04-08,Others
+Waterstones,4,31.22,2024-04-09,Shopping
+Adidas Store,2,144.11,2024-04-09,Shopping
+Europcar,2,58.66,2024-04-10,Transport
+Aral,1,68.43,2024-04-10,Transport
+Decathlon,1,171.61,2024-04-11,Shopping
+Spotify,1,8.97,2024-04-13,Entertainment & Subscriptions
+Hermes Paket,1,9.25,2024-04-13,Others
+Wolt,1,14.35,2024-04-15,Food & Beverage
+Lieferando,3,20.21,2024-04-15,Food & Beverage
+Intersport,1,66.6,2024-04-15,Shopping
+SmileDirect,2,190.6,2024-04-15,Health & Wellness
+Woolworth,1,14.5,2024-04-15,Others
+Costa Coffee,4,11.32,2024-04-16,Food & Beverage
+Kiko,1,56.28,2024-04-17,Personal Care
+Shell,3,67.23,2024-04-18,Transport
+L'Osteria,1,65.46,2024-04-20,Food & Beverage
+Pixum,1,16.52,2024-04-20,Others
+HelloFresh,2,77.56,2024-04-21,Groceries
+Maisons du Monde,2,185.42,2024-04-21,Home & Living
+KFC,3,23.15,2024-04-22,Food & Beverage
+Flixbus,2,31.03,2024-04-22,Transport
+DB Bahn Card,2,97.74,2024-04-22,Transport
+Butlers,1,126.69,2024-04-22,Home & Living
+Costa Coffee,4,11.66,2024-04-23,Food & Beverage
+Miele Laundry,3,24.99,2024-04-23,Personal Care
+Hair & More,4,54.57,2024-04-23,Personal Care
+Post & DHL,1,27.67,2024-04-23,Others
+Nespresso,3,42.94,2024-04-24,Home & Living
+Enterprise Rent-A-Car,2,43.59,2024-04-24,Transport
+Total,2,88.45,2024-04-26,Transport
+Anytime Fitness,3,30.0,2024-04-27,Health & Wellness
+Burger King,3,15.26,2024-04-29,Food & Beverage
+Deutsche Bahn,1,30.73,2024-05-02,Transport
+Photobox,2,16.32,2024-05-03,Others
+Wagamama,1,73.09,2024-05-05,Food & Beverage
+Miele Laundry,2,22.48,2024-05-06,Personal Care
+Notar Schreiber,2,198.05,2024-05-07,Others
+Domino's,1,28.03,2024-05-08,Food & Beverage
+Depot,3,90.85,2024-05-08,Home & Living
+Vapiano,1,45.82,2024-05-09,Food & Beverage
+Specsavers,4,212.46,2024-05-09,Health & Wellness
+Specsavers,3,288.53,2024-05-09,Health & Wellness
+B&Q,1,105.96,2024-05-10,Home & Living
+Decathlon,3,57.56,2024-05-10,Shopping
+ING,3,29.94,2024-05-11,Banking & Fees
+Dunkin',4,11.81,2024-05-12,Food & Beverage
+Netflix,3,11.66,2024-05-13,Entertainment & Subscriptions
+Lotto Bayern,1,38.71,2024-05-13,Others
+Zahnarztpraxis,4,59.2,2024-05-15,Health & Wellness
+Udemy,1,100.47,2024-05-15,Others
+Marley Spoon,2,51.51,2024-05-16,Groceries
+Maredo,2,49.21,2024-05-16,Food & Beverage
+UCI Kino,1,10.89,2024-05-16,Entertainment & Subscriptions
+Intersport,1,119.15,2024-05-16,Shopping
+C&A,2,38.61,2024-05-16,Shopping
+Disney+,3,11.89,2024-05-17,Entertainment & Subscriptions
+Netto,1,77.22,2024-05-17,Groceries
+Pathé,2,10.69,2024-05-18,Entertainment & Subscriptions
+Holmes Place,2,28.97,2024-05-18,Health & Wellness
+Hornbach,1,60.25,2024-05-18,Home & Living
+Backwerk,1,10.53,2024-05-19,Food & Beverage
+Steuerberater Koch,1,131.84,2024-05-21,Others
+Coursera,1,110.68,2024-05-21,Others
+CVS,2,25.02,2024-05-22,Health & Wellness
+SmileDirect,4,54.39,2024-05-22,Health & Wellness
+Odeon,2,12.67,2024-05-23,Entertainment & Subscriptions
+Miele Laundry,3,23.21,2024-05-24,Personal Care
+ADAC Membership,2,102.6,2024-05-24,Others
+Uniqlo,1,120.85,2024-05-25,Shopping
+Nike Store,1,55.04,2024-05-25,Shopping
+Kodi,1,27.02,2024-05-25,Others
+Nike Store,3,128.44,2024-05-26,Shopping
+Nespresso,3,53.98,2024-05-26,Home & Living
+Netflix,2,9.63,2024-05-26,Entertainment & Subscriptions
+Marley Spoon,1,73.94,2024-05-27,Groceries
+ING,2,13.17,2024-05-28,Banking & Fees
+Wolt,2,13.3,2024-05-29,Food & Beverage
+PetSmart,1,36.54,2024-05-29,Pet Supplies
+Great Clips,4,35.42,2024-05-31,Personal Care
+Uniqlo,1,117.05,2024-05-31,Shopping
+Wagamama,4,31.29,2024-06-01,Food & Beverage
+Nespresso,4,51.05,2024-06-01,Home & Living
+Volkshochschule,1,107.17,2024-06-01,Others
+Waschsalon,1,11.57,2024-06-03,Personal Care
+Kiko,4,10.2,2024-06-03,Personal Care
+Maredo,4,49.71,2024-06-03,Food & Beverage
+Lieferando,1,26.53,2024-06-04,Food & Beverage
+Vapiano,4,39.7,2024-06-05,Food & Beverage
+Müller,1,16.33,2024-06-05,Health & Wellness
+Apotheke am Markt,2,10.7,2024-06-05,Health & Wellness
+MediaMarkt,2,380.46,2024-06-06,Shopping
+Studierendenwerk,1,57.46,2024-06-07,Others
+Enterprise Rent-A-Car,1,86.72,2024-06-08,Transport
+Sixt,1,142.9,2024-06-10,Transport
+Maisons du Monde,3,70.8,2024-06-11,Home & Living
+Workshop Fee,2,106.05,2024-06-11,Others
+Costco,4,119.89,2024-06-12,Groceries
+BVG,2,41.79,2024-06-12,Transport
+Udemy,1,55.56,2024-06-12,Others
+B&Q,1,18.08,2024-06-13,Home & Living
+Apollo Optik,1,66.42,2024-06-13,Health & Wellness
+Sport Scheck,1,107.74,2024-06-13,Shopping
+Foto Porst,1,34.16,2024-06-13,Others
+U-Bahn,2,32.77,2024-06-14,Transport
+Cyberport,4,232.19,2024-06-14,Shopping
+Bauhaus,3,103.81,2024-06-14,Home & Living
+Zooplus,1,31.5,2024-06-15,Pet Supplies
+Aral,2,81.37,2024-06-15,Transport
+Shell,1,55.63,2024-06-17,Transport
+Vue Cinema,1,14.36,2024-06-18,Entertainment & Subscriptions
+Workshop Fee,1,88.5,2024-06-19,Others
+Odeon,4,9.14,2024-06-20,Entertainment & Subscriptions
+Starbucks,3,6.89,2024-06-20,Food & Beverage
+Butlers,2,165.18,2024-06-21,Home & Living
+Marley Spoon,2,70.2,2024-06-21,Groceries
+Notary Office München,1,166.96,2024-06-22,Others
+Anytime Fitness,3,46.04,2024-06-23,Health & Wellness
+Marley Spoon,1,66.02,2024-06-23,Groceries
+Notary Office München,1,146.31,2024-06-23,Others
+Domino's,1,19.16,2024-06-24,Food & Beverage
+Odeon,1,11.81,2024-06-26,Entertainment & Subscriptions
+Holmes Place,4,31.03,2024-06-26,Health & Wellness
+Stadtapotheke,4,41.32,2024-06-27,Health & Wellness
+Thalia,3,31.31,2024-06-29,Shopping
+Hair & More,1,21.74,2024-06-29,Personal Care
+Hornbach,1,111.37,2024-06-29,Home & Living
+Aldi,2,109.59,2024-06-29,Groceries
+Odeon,3,9.18,2024-06-30,Entertainment & Subscriptions
+Action,1,11.66,2024-07-02,Others
+Cyberport,4,121.13,2024-07-03,Shopping
+FitX,4,41.82,2024-07-03,Health & Wellness
+Spotify,1,8.54,2024-07-03,Entertainment & Subscriptions
+Stadtapotheke,1,12.81,2024-07-04,Health & Wellness
+Tchibo,4,22.4,2024-07-04,Home & Living
+Apple TV+,2,11.96,2024-07-05,Entertainment & Subscriptions
+Rosenthal,2,57.68,2024-07-06,Home & Living
+YouTube Premium,3,9.85,2024-07-07,Entertainment & Subscriptions
+Apollo Optik,2,159.94,2024-07-08,Health & Wellness
+Enterprise Rent-A-Car,2,123.52,2024-07-09,Transport
+Marley Spoon,1,60.44,2024-07-09,Groceries
+Europcar,1,24.89,2024-07-10,Transport
+Hair & More,4,24.6,2024-07-11,Personal Care
+Miele Laundry,2,17.3,2024-07-12,Personal Care
+Workshop Fee,1,137.52,2024-07-12,Others
+BVG,4,35.66,2024-07-13,Transport
+IKEA,4,98.2,2024-07-13,Home & Living
+eBay,2,74.48,2024-07-13,Shopping
+Saturn,2,480.13,2024-07-13,Shopping
+Subway,1,29.61,2024-07-14,Food & Beverage
+Saturn,3,48.4,2024-07-14,Shopping
+Europcar,2,88.13,2024-07-14,Transport
+Uber Eats,1,19.32,2024-07-14,Food & Beverage
+BVG,3,46.92,2024-07-14,Transport
+Decathlon,3,146.28,2024-07-15,Shopping
+Fielmann,2,132.42,2024-07-15,Health & Wellness
+Odeon,3,12.83,2024-07-16,Entertainment & Subscriptions
+Waschsalon,2,11.67,2024-07-17,Personal Care
+UCI Kino,1,23.58,2024-07-18,Entertainment & Subscriptions
+Lotto Bayern,2,47.62,2024-07-19,Others
+Apple TV+,3,6.93,2024-07-20,Entertainment & Subscriptions
+McCafe,3,8.03,2024-07-20,Food & Beverage
+UPS,2,32.23,2024-07-20,Others
+Sephora,3,66.92,2024-07-21,Personal Care
+Home Depot,3,20.28,2024-07-22,Home & Living
+TUM Semester Fee,1,170.19,2024-07-23,Others
+Eventbrite,1,103.35,2024-07-23,Others
+Esso,1,58.09,2024-07-24,Transport
+Dental Care,1,240.23,2024-07-24,Health & Wellness
+Rosenthal,1,23.44,2024-07-24,Home & Living
+Vapiano,4,36.27,2024-07-24,Food & Beverage
+Domino's,4,24.96,2024-07-25,Food & Beverage
+Maisons du Monde,1,21.98,2024-07-27,Home & Living
+Foto Porst,1,59.8,2024-07-28,Others
+Zooplus,1,39.86,2024-07-30,Pet Supplies
+Wolt,4,30.78,2024-07-30,Food & Beverage
+Eventbrite,1,119.21,2024-07-31,Others
+Friseur Zentralmarkt,1,55.8,2024-08-01,Personal Care
+Coursera,2,86.34,2024-08-01,Others
+YouTube Premium,3,13.63,2024-08-02,Entertainment & Subscriptions
+L'Osteria,2,43.61,2024-08-02,Food & Beverage
+McFit,1,37.12,2024-08-03,Health & Wellness
+Cinestar,1,16.9,2024-08-03,Entertainment & Subscriptions
+Cafe Nero,4,7.9,2024-08-04,Food & Beverage
+Cyberport,4,39.56,2024-08-04,Shopping
+Airbnb,1,99.36,2024-08-04,Others
+Zara,1,102.64,2024-08-05,Shopping
+Apotheke am Markt,1,21.07,2024-08-05,Health & Wellness
+FedEx,2,36.45,2024-08-06,Others
+McFit,3,41.99,2024-08-07,Health & Wellness
+Domino's,1,24.17,2024-08-07,Food & Beverage
+Steuerberater Koch,1,388.65,2024-08-07,Others
+Vapiano,1,39.38,2024-08-08,Food & Beverage
+Great Clips,3,69.82,2024-08-08,Personal Care
+Europcar,4,102.13,2024-08-10,Transport
+Vapiano,2,59.38,2024-08-11,Food & Beverage
+Marley Spoon,4,42.1,2024-08-12,Groceries
+Bäcker Ziegler,1,5.16,2024-08-12,Food & Beverage
+Best Buy,2,494.89,2024-08-13,Shopping
+Uniqlo,3,24.76,2024-08-13,Shopping
+Paul Bakery,4,5.57,2024-08-14,Food & Beverage
+Marley Spoon,4,46.39,2024-08-14,Groceries
+Anytime Fitness,3,46.68,2024-08-15,Health & Wellness
+Europcar,1,64.07,2024-08-15,Transport
+Pull&Bear,4,84.68,2024-08-16,Shopping
+TÜV Süd,1,112.24,2024-08-17,Others
+Apple Store,3,406.54,2024-08-19,Shopping
+Shell,4,61.53,2024-08-20,Transport
+Uber Eats,1,18.03,2024-08-20,Food & Beverage
+Pearle,2,126.62,2024-08-20,Health & Wellness
+Meetup Fee,1,112.54,2024-08-22,Others
+B&Q,2,28.33,2024-08-23,Home & Living
+Anytime Fitness,4,21.27,2024-08-24,Health & Wellness
+ING,2,20.37,2024-08-25,Banking & Fees
+Lotto Bayern,1,15.09,2024-08-25,Others
+Apotheke am Markt,3,8.38,2024-08-26,Health & Wellness
+Flixbus,3,31.76,2024-08-26,Transport
+UCI Kino,1,24.2,2024-08-26,Entertainment & Subscriptions
+CleanMate,1,5.7,2024-08-28,Personal Care
+Boots,2,17.68,2024-08-29,Health & Wellness
+HelloFresh,1,70.74,2024-08-29,Groceries
+Anytime Fitness,2,42.89,2024-08-29,Health & Wellness
+Wagamama,1,40.18,2024-08-29,Food & Beverage
+TUM Semester Fee,1,168.56,2024-08-29,Others
+Disney+,1,8.74,2024-08-30,Entertainment & Subscriptions
+ADAC Membership,1,97.6,2024-09-01,Others
+Sport Scheck,3,34.95,2024-09-02,Shopping
+Wolt,2,14.28,2024-09-03,Food & Beverage
+Maisons du Monde,2,77.46,2024-09-03,Home & Living
+Rewe Online,3,34.87,2024-09-04,Groceries
+WMF,4,55.58,2024-09-04,Home & Living
+Otto,1,129.35,2024-09-04,Shopping
+Pull&Bear,3,90.93,2024-09-04,Shopping
+Kfz-Zulassung,1,95.09,2024-09-04,Others
+Kieferorthopäde,4,98.98,2024-09-05,Health & Wellness
+Odeon,1,13.06,2024-09-06,Entertainment & Subscriptions
+Bauhaus,2,27.39,2024-09-07,Home & Living
+Mango,2,46.52,2024-09-09,Shopping
+L'Osteria,1,67.38,2024-09-09,Food & Beverage
+Butlers,1,195.44,2024-09-10,Home & Living
+WMF,1,46.05,2024-09-10,Home & Living
+Udemy,2,28.76,2024-09-10,Others
+Studierendenwerk,1,86.33,2024-09-10,Others
+Apollo Optik,1,166.62,2024-09-11,Health & Wellness
+Sixt,1,38.31,2024-09-12,Transport
+Kieferorthopäde,2,222.83,2024-09-13,Health & Wellness
+Rossmann,2,33.47,2024-09-13,Health & Wellness
+Airbnb,2,187.9,2024-09-13,Others
+Butlers,1,50.12,2024-09-14,Home & Living
+C&A,1,80.69,2024-09-15,Shopping
+Zara,2,31.71,2024-09-15,Shopping
+LMU Enrollment,2,153.58,2024-09-15,Others
+Best Buy,1,484.34,2024-09-16,Shopping
+Zalando,1,24.0,2024-09-16,Shopping
+C&A,3,134.7,2024-09-16,Shopping
+Odeon,1,12.86,2024-09-16,Entertainment & Subscriptions
+Miele Laundry,1,13.62,2024-09-17,Personal Care
+Butlers,1,156.31,2024-09-18,Home & Living
+Gousto,2,33.07,2024-09-18,Groceries
+Paul Bakery,1,7.53,2024-09-18,Food & Beverage
+U-Bahn,2,28.12,2024-09-19,Transport
+Apotheke am Markt,1,10.79,2024-09-22,Health & Wellness
+Flixbus,1,48.1,2024-09-24,Transport
+Hugendubel,1,36.42,2024-09-25,Shopping
+Sport Scheck,1,84.22,2024-09-25,Shopping
+Rewe Online,1,38.22,2024-09-27,Groceries
+Douglas,1,46.35,2024-09-27,Personal Care
+Pixum,1,71.1,2024-09-27,Others
+Woolworth,1,22.19,2024-09-27,Others
+Sport Scheck,2,42.36,2024-09-29,Shopping
+Apollo Optik,2,148.24,2024-09-29,Health & Wellness
+Butlers,2,124.84,2024-09-29,Home & Living
+Friseur Zentralmarkt,1,62.52,2024-09-30,Personal Care
+Breadway,1,10.28,2024-10-02,Food & Beverage
+ING,2,8.43,2024-10-03,Banking & Fees
+Pixum,1,41.98,2024-10-03,Others
+Pixum,1,57.09,2024-10-04,Others
+Maisons du Monde,1,59.27,2024-10-05,Home & Living
+Tedi,1,17.65,2024-10-07,Others
+Pathé,1,11.84,2024-10-09,Entertainment & Subscriptions
+Rewe Online,3,54.8,2024-10-09,Groceries
+Zara,1,108.55,2024-10-09,Shopping
+Edeka,1,118.23,2024-10-10,Groceries
+Total,1,63.87,2024-10-11,Transport
+WMF,3,32.48,2024-10-12,Home & Living
+Rewe Online,1,69.14,2024-10-13,Groceries
+Thalia,1,41.96,2024-10-15,Shopping
+BP,1,86.7,2024-10-15,Transport
+Friseur Zentralmarkt,1,67.28,2024-10-15,Personal Care
+Woolworth,1,24.4,2024-10-15,Others
+ING,1,26.92,2024-10-16,Banking & Fees
+Zahnarztpraxis,1,235.69,2024-10-16,Health & Wellness
+UNICEF,1,73.03,2024-10-16,Others
+Kieferorthopäde,2,247.82,2024-10-17,Health & Wellness
+Best Buy,1,447.95,2024-10-17,Shopping
+CleanMate,4,10.46,2024-10-17,Personal Care
+Finanzamt München,2,61.11,2024-10-17,Others
+Subway,2,11.57,2024-10-18,Food & Beverage
+Disney+,1,15.78,2024-10-18,Entertainment & Subscriptions
+TUM Semester Fee,2,164.87,2024-10-19,Others
+Butlers,2,161.29,2024-10-21,Home & Living
+UCI Kino,4,10.98,2024-10-21,Entertainment & Subscriptions
+Apple TV+,2,17.4,2024-10-22,Entertainment & Subscriptions
+Fielmann,1,150.21,2024-10-22,Health & Wellness
+Wolt,1,21.94,2024-10-22,Food & Beverage
+Lidl,2,70.69,2024-10-23,Groceries
+WMF,1,76.78,2024-10-24,Home & Living
+ASOS,3,17.12,2024-10-24,Shopping
+McFit,1,21.86,2024-10-24,Health & Wellness
+Enterprise Rent-A-Car,3,40.76,2024-10-25,Transport
+Casino München,2,25.18,2024-10-26,Others
+Apple Store,3,354.44,2024-10-27,Shopping
+ING,1,14.19,2024-10-28,Banking & Fees
+Rossmann,2,21.74,2024-10-29,Health & Wellness
+Maisons du Monde,3,84.12,2024-10-29,Home & Living
+Waterstones,4,36.51,2024-10-30,Shopping
+UCI Kino,3,20.95,2024-10-30,Entertainment & Subscriptions
+Tchibo,2,46.79,2024-10-30,Home & Living
+Hornbach,2,18.59,2024-10-30,Home & Living
+McDonald's,2,26.23,2024-10-31,Food & Beverage
+Breadway,4,3.65,2024-10-31,Food & Beverage
+HelloFresh,1,60.23,2024-11-01,Groceries
+Müller,2,16.16,2024-11-01,Health & Wellness
+WMF,1,26.58,2024-11-01,Home & Living
+Rechtsanwalt Müller,1,201.36,2024-11-01,Others
+Pathé,1,11.76,2024-11-02,Entertainment & Subscriptions
+Apotheke am Markt,2,30.05,2024-11-02,Health & Wellness
+Zooplus,2,41.3,2024-11-04,Pet Supplies
+Waterstones,1,11.64,2024-11-04,Shopping
+Apple TV+,1,16.79,2024-11-06,Entertainment & Subscriptions
+B&Q,1,54.91,2024-11-07,Home & Living
+Deutsche Bahn,2,45.76,2024-11-07,Transport
+Rossmann,3,15.53,2024-11-07,Health & Wellness
+Hans im Glück,2,70.31,2024-11-08,Food & Beverage
+Total,1,67.86,2024-11-08,Transport
+Deutsche Bahn,1,16.79,2024-11-09,Transport
+Netflix,4,18.83,2024-11-09,Entertainment & Subscriptions
+Fitnessstudio,4,36.07,2024-11-11,Health & Wellness
+Bäcker Ziegler,3,4.68,2024-11-11,Food & Beverage
+Sport Scheck,1,26.33,2024-11-12,Shopping
+Rechtsanwalt Müller,1,238.88,2024-11-12,Others
+Breadway,4,6.79,2024-11-13,Food & Beverage
+ING,1,12.58,2024-11-13,Banking & Fees
+Rechtsanwalt Müller,2,258.89,2024-11-15,Others
+TUM Semester Fee,1,187.71,2024-11-15,Others
+Breadway,1,11.62,2024-11-16,Food & Beverage
+Westwing,3,184.17,2024-11-16,Home & Living
+Booking.com,1,239.74,2024-11-16,Others
+Adidas Store,1,83.46,2024-11-17,Shopping
+Hugendubel,2,37.14,2024-11-17,Shopping
+Enterprise Rent-A-Car,1,60.09,2024-11-17,Transport
+Best Buy,4,249.02,2024-11-18,Shopping
+Casino München,1,40.77,2024-11-19,Others
+Casino München,1,25.65,2024-11-19,Others
+Westwing,1,155.9,2024-11-20,Home & Living
+DKB,2,14.27,2024-11-20,Banking & Fees
+HelloFresh,1,74.48,2024-11-21,Groceries
+Shop Apotheke,1,18.28,2024-11-21,Health & Wellness
+Woolworth,1,14.1,2024-11-21,Others
+Apollo Optik,4,144.96,2024-11-22,Health & Wellness
+CVS,3,24.27,2024-11-22,Health & Wellness
+Pearle,2,240.84,2024-11-22,Health & Wellness
+Westwing,3,100.25,2024-11-23,Home & Living
+Sephora,3,21.85,2024-11-23,Personal Care
+Waterstones,2,16.44,2024-11-25,Shopping
+Netflix,4,12.86,2024-11-25,Entertainment & Subscriptions
+Miele Laundry,3,23.9,2024-11-26,Personal Care
+Rewe Online,4,54.74,2024-11-27,Groceries
+Spotify,1,6.02,2024-11-29,Entertainment & Subscriptions
+Specsavers,1,238.9,2024-12-01,Health & Wellness
+Müller Drogerie,1,45.06,2024-12-02,Personal Care
+Rewe Online,4,56.23,2024-12-02,Groceries
+McCafe,2,8.45,2024-12-02,Food & Beverage
+Intersport,1,175.03,2024-12-02,Shopping
+Penny,2,61.87,2024-12-03,Groceries
+H&M,2,66.26,2024-12-03,Shopping
+BP,3,73.98,2024-12-03,Transport
+MVG,1,46.79,2024-12-03,Transport
+WWF Donation,1,58.93,2024-12-03,Others
+The Body Shop,1,59.92,2024-12-06,Personal Care
+Stadtapotheke,4,22.1,2024-12-06,Health & Wellness
+Spotify,1,16.09,2024-12-07,Entertainment & Subscriptions
+Fitnessstudio,1,22.75,2024-12-08,Health & Wellness
+Tedi,1,7.05,2024-12-08,Others
+Enterprise Rent-A-Car,1,118.98,2024-12-10,Transport
+Vapiano,2,30.31,2024-12-12,Food & Beverage
+Waterstones,1,13.62,2024-12-13,Shopping
+Holmes Place,2,22.79,2024-12-13,Health & Wellness
+Sephora,1,70.46,2024-12-14,Personal Care
+Kieferorthopäde,1,127.56,2024-12-15,Health & Wellness
+Kfz-Zulassung,1,66.15,2024-12-15,Others
+Maisons du Monde,1,182.46,2024-12-16,Home & Living
+ASOS,2,46.37,2024-12-17,Shopping
+Wolt,1,16.72,2024-12-18,Food & Beverage
+H&M,2,28.22,2024-12-18,Shopping
+Shop Apotheke,4,18.49,2024-12-18,Health & Wellness
+McCafe,1,5.27,2024-12-19,Food & Beverage
+Udemy,1,116.35,2024-12-20,Others
+Westwing,1,124.85,2024-12-21,Home & Living
+Charitable Donation,1,10.95,2024-12-21,Others
+DB Bahn Card,1,37.61,2024-12-23,Transport
+Booking.com,2,189.28,2024-12-23,Others
+Flixbus,2,50.81,2024-12-24,Transport
+Sephora,2,40.82,2024-12-24,Personal Care
+Great Clips,2,38.03,2024-12-25,Personal Care
+FedEx,1,17.07,2024-12-25,Others
+OBI,1,62.69,2024-12-26,Home & Living
+Flixbus,3,18.9,2024-12-27,Transport
+Apple TV+,4,19.52,2024-12-27,Entertainment & Subscriptions
+Boots,4,18.16,2024-12-27,Health & Wellness
+Douglas,2,35.55,2024-12-28,Personal Care
+Breadway,2,8.82,2024-12-28,Food & Beverage
+Penny,3,76.93,2024-12-28,Groceries
+Backwerk,4,9.98,2024-12-29,Food & Beverage
+Bauhaus,4,100.09,2024-12-29,Home & Living
+Douglas,1,57.11,2024-12-30,Personal Care
+Post & DHL,1,15.34,2024-12-31,Others
