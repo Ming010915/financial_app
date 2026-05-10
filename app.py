@@ -87,17 +87,31 @@ def save_centroids():
 
 # ── Core classifier ───────────────────────────────────────────────────────────
 
-def do_classify(name: str):
+def _parse_client_centroids(body):
+    """Extract per-request centroids sent by the browser. Returns (cents, ovrs) or (None, None)."""
+    cats = body.get("categories")
+    if not cats:
+        return None, None
+    local_cents = {
+        cat: {"centroid": np.array(v["centroid"]), "n": v["n"]}
+        for cat, v in cats.items()
+    }
+    return local_cents, body.get("overrides", {})
+
+
+def do_classify(name: str, local_cents=None, local_ovrs=None):
     """Return (prediction, confidence, embedding, top3_list)."""
+    cent      = local_cents if local_cents is not None else centroids
+    ovr       = local_ovrs  if local_ovrs  is not None else overrides
     m         = get_model()
     embedding = m.encode(name, normalize_embeddings=True)
-    override  = overrides.get(name.lower().strip())
+    override  = ovr.get(name.lower().strip())
     if override is not None:
         return override, 1.0, embedding, [{"category": override, "score": 1.0}]
-    if not centroids:
+    if not cent:
         return "Others", 0.0, embedding, []
-    cat_names = list(centroids.keys())
-    matrix    = np.stack([v["centroid"] for v in centroids.values()])
+    cat_names = list(cent.keys())
+    matrix    = np.stack([v["centroid"] for v in cent.values()])
     sims      = cosine_similarity(embedding.reshape(1, -1), matrix)[0]
     order     = np.argsort(sims)[::-1]
     best_idx  = int(order[0])
@@ -110,21 +124,22 @@ def do_classify(name: str):
     return pred, round(best_sim, 3), embedding, top3
 
 
-def do_update(category: str, embedding: np.ndarray):
+def do_update(category: str, embedding: np.ndarray, local_cents=None):
     """Incremental running-average centroid update."""
+    cent = local_cents if local_cents is not None else centroids
     if category == "Others":
         return
-    if category not in centroids:
-        centroids[category] = {"centroid": embedding.copy(), "n": 1}
+    if category not in cent:
+        cent[category] = {"centroid": embedding.copy(), "n": 1}
         return
-    old     = centroids[category]["centroid"]
-    n       = centroids[category]["n"]
+    old     = cent[category]["centroid"]
+    n       = cent[category]["n"]
     updated = (old * n + embedding) / (n + 1)
     norm    = np.linalg.norm(updated)
     if norm > 0:
         updated /= norm
-    centroids[category]["centroid"] = updated
-    centroids[category]["n"]        = n + 1
+    cent[category]["centroid"] = updated
+    cent[category]["n"]        = n + 1
 
 
 # ── JSON extraction helper ────────────────────────────────────────────────────
@@ -182,16 +197,42 @@ def api_classify():
     name = body.get("name", "").strip()
     if not name:
         return jsonify({"error": "Name is required"}), 400
-    pred, conf, emb, top3 = do_classify(name)
+    local_cents, local_ovrs = _parse_client_centroids(body)
+    pred, conf, emb, top3 = do_classify(name, local_cents, local_ovrs)
     embedding_cache[name] = emb
+    cent = local_cents if local_cents is not None else centroids
     return jsonify({
         "name":         name,
         "prediction":   pred,
         "confidence":   conf,
         "needs_review": conf < ASK_BELOW,
         "top3":         top3,
-        "categories":   list(centroids.keys()) + ["Others"],
+        "categories":   list(cent.keys()) + ["Others"],
     })
+
+
+def _centroids_payload(local_cents=None, local_ovrs=None):
+    """Serialize centroids for JSON transport."""
+    cent = local_cents if local_cents is not None else centroids
+    ovr  = local_ovrs  if local_ovrs  is not None else overrides
+    return {
+        "model":      MODEL_NAME,
+        "threshold":  THRESHOLD,
+        "categories": {
+            cat: {"centroid": d["centroid"].tolist(), "n": d["n"]}
+            for cat, d in cent.items()
+        },
+        "overrides": ovr,
+    }
+
+
+@app.route("/api/base_centroids", methods=["GET"])
+def api_base_centroids():
+    """Return the read-only base model from centroids.json for new users to bootstrap localStorage."""
+    if not os.path.exists(CENTROIDS_FILE):
+        return jsonify({"error": "no base model available"}), 404
+    with open(CENTROIDS_FILE) as f:
+        return jsonify(json.load(f))
 
 
 @app.route("/api/learn", methods=["POST"])
@@ -205,17 +246,22 @@ def api_learn():
     if not merchant or not category:
         return jsonify({"error": "merchant and category required"}), 400
 
+    local_cents, local_ovrs = _parse_client_centroids(body)
+    ovrs = local_ovrs if local_ovrs is not None else overrides
+
     emb = embedding_cache.pop(merchant, None)
     if emb is None:
-        _, _, emb, _ = do_classify(merchant)
-
-    do_update(category, emb)
+        _, _, emb, _ = do_classify(merchant, local_cents, ovrs)
 
     if bool(original) and category != original:
-        overrides[merchant.lower()] = category
+        ovrs[merchant.lower()] = category
 
-    save_centroids()
-    return jsonify({"success": True})
+    # Skip centroid update when an override exists — the override already
+    # takes priority in do_classify, so updating the centroid is unnecessary.
+    if merchant.lower() not in ovrs:
+        do_update(category, emb, local_cents)
+
+    return jsonify({"success": True, "centroids": _centroids_payload(local_cents, ovrs)})
 
 
 @app.route("/api/scan_receipt", methods=["POST"])
@@ -315,6 +361,8 @@ if __name__ == "__main__":
         load_centroids()
     elif os.path.exists("monthly_spending_2024.csv"):
         load_from_csv("monthly_spending_2024.csv")
+        save_centroids()
+        print(f"[data] Base model saved to {CENTROIDS_FILE}")
     else:
         print("[data] No data source found — starting with empty centroids.")
 
