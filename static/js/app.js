@@ -133,6 +133,127 @@ const state = {
 let pieChartInst = null;
 let lineChartInst = null;
 
+// ── Google Places (custom dropdown, no Autocomplete widget) ──────────────────
+let _gmapsLoadPromise = null;
+let _cachedPosition   = null;
+let _locationTimer    = null;
+
+async function loadGoogleMapsAPI() {
+  if (window.google?.maps?.places) return true;
+  const key = localStorage.getItem('placesApiKey') || '';
+  if (!key) return false;
+  if (_gmapsLoadPromise) return _gmapsLoadPromise;
+  _gmapsLoadPromise = new Promise(resolve => {
+    const cb = '_gmapsInit_' + Date.now();
+    window[cb] = () => resolve(true);
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&callback=${cb}`;
+    s.async = true;
+    s.onerror = () => { _gmapsLoadPromise = null; resolve(false); };
+    document.head.appendChild(s);
+  });
+  return _gmapsLoadPromise;
+}
+
+async function getPosition() {
+  if (_cachedPosition) return _cachedPosition;
+  try {
+    _cachedPosition = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000, maximumAge: 300000 })
+    );
+    return _cachedPosition;
+  } catch { return null; }
+}
+
+function _renderPlaceResults(inputId, resultsId, places, nameKey, addrKey) {
+  const resultsEl = document.getElementById(resultsId);
+  if (!places?.length) { resultsEl.classList.add('hidden'); return; }
+  resultsEl.innerHTML = places.slice(0, 12).map(place => {
+    const addr = place[addrKey] || '';
+    const val  = place.name + (addr ? ', ' + addr : '');
+    return `
+      <div class="px-3 py-2.5 hover:bg-indigo-50 active:bg-indigo-100 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
+           data-val="${esc(val)}"
+           onclick="selectNearbyPlace('${inputId}', '${resultsId}', this)">
+        <div class="text-sm font-medium text-gray-800 truncate">${esc(place.name)}</div>
+        <div class="text-xs text-gray-400 truncate">${esc(addr)}</div>
+      </div>`;
+  }).join('');
+}
+
+// Called by oninput on location fields — debounced textSearch biased to cached position
+async function onLocationInput(inputId, resultsId) {
+  const query     = (document.getElementById(inputId)?.value || '').trim();
+  const resultsEl = document.getElementById(resultsId);
+  clearTimeout(_locationTimer);
+  if (!query) { resultsEl.classList.add('hidden'); return; }
+
+  _locationTimer = setTimeout(async () => {
+    const ok = await loadGoogleMapsAPI();
+    if (!ok) return;
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Searching…</div>';
+    resultsEl.classList.remove('hidden');
+
+    const pos     = _cachedPosition;
+    const service = new google.maps.places.PlacesService(document.createElement('div'));
+    const opts    = { query };
+    if (pos) {
+      opts.location = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+      opts.radius   = 10000;
+    }
+    service.textSearch(opts, (results, status) => {
+      if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
+        resultsEl.classList.add('hidden');
+        return;
+      }
+      _renderPlaceResults(inputId, resultsId, results, 'name', 'formatted_address');
+    });
+  }, 350);
+}
+
+// "Near me" button — nearbySearch around the user's GPS position
+async function findNearbyPlaces(inputId, resultsId, btnEl) {
+  const resultsEl = document.getElementById(resultsId);
+  const origLabel = btnEl?.textContent ?? 'Near me';
+  const setBtn    = (lbl, off) => { if (btnEl) { btnEl.textContent = lbl; btnEl.disabled = off; } };
+
+  setBtn('…', true);
+  resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Getting your location…</div>';
+  resultsEl.classList.remove('hidden');
+
+  const position = await getPosition();
+  if (!position) {
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-red-500 text-center">Location access denied or unavailable</div>';
+    setBtn(origLabel, false);
+    return;
+  }
+
+  const ok = await loadGoogleMapsAPI();
+  if (!ok) {
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-amber-500 text-center">Add a Google Places API key in Settings to enable this</div>';
+    setBtn(origLabel, false);
+    return;
+  }
+
+  resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Searching nearby…</div>';
+
+  const loc     = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+  const service = new google.maps.places.PlacesService(document.createElement('div'));
+  service.nearbySearch({ location: loc, radius: 500, type: 'establishment' }, (results, status) => {
+    setBtn(origLabel, false);
+    if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
+      resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">No nearby places found</div>';
+      return;
+    }
+    _renderPlaceResults(inputId, resultsId, results, 'name', 'vicinity');
+  });
+}
+
+function selectNearbyPlace(inputId, resultsId, el) {
+  document.getElementById(inputId).value = el.dataset.val;
+  document.getElementById(resultsId).classList.add('hidden');
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function catColor(cat)      { return CAT_COLOR[cat]  || "#64748b"; }
 function catEmoji(cat)      { return CAT_EMOJI[cat]  || "💳"; }
@@ -580,6 +701,8 @@ function resetForm() {
   document.getElementById("f-cur-sym").textContent = curSym(defaultCurrency);
   document.getElementById("f-date").value          = new Date().toISOString().split("T")[0];
   document.getElementById("f-notes").value         = "";
+  document.getElementById("f-location").value      = "";
+  document.getElementById("f-nearby-results").classList.add("hidden");
   const rateRow = document.getElementById("f-rate-row");
   if (rateRow) rateRow.style.display = "none";
   state.selectedCategory = null;
@@ -810,6 +933,7 @@ async function saveExpense() {
   const currency       = document.getElementById("f-currency").value || "EUR";
   const date_val       = document.getElementById("f-date").value;
   const notes          = document.getElementById("f-notes").value.trim();
+  const location       = document.getElementById("f-location").value.trim();
   let   category       = state.selectedCategory;
   const payment_method = state.selectedPayment || "";
   const defCur         = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
@@ -859,6 +983,7 @@ async function saveExpense() {
       confidence,
       payment_method,
       notes,
+      location,
       items:          (state.isReceipt || state.isVoice) ? state.receiptItems : [],
       source:         state.isReceipt ? "receipt" : state.isVoice ? "voice" : "manual",
       created_at:     new Date().toISOString(),
@@ -1017,6 +1142,14 @@ function _renderDetailView(exp) {
     notesRow.classList.add("hidden");
   }
 
+  const locationRow = document.getElementById("det-location-row");
+  if (exp.location) {
+    locationRow.classList.remove("hidden");
+    document.getElementById("det-location").textContent = exp.location;
+  } else {
+    locationRow.classList.add("hidden");
+  }
+
   const isReceipt = exp.source === "receipt";
   document.getElementById("det-source-icon").textContent = isReceipt ? "📷" : "💳";
   document.getElementById("det-source").textContent      = isReceipt ? "Scanned receipt" : "Manual entry";
@@ -1058,6 +1191,7 @@ function openEdit() {
   document.getElementById("edit-cur-sym").textContent  = curSym(cur);
   document.getElementById("edit-date").value           = exp.date || "";
   document.getElementById("edit-notes").value          = exp.notes || "";
+  document.getElementById("edit-location").value       = exp.location || "";
   updateRateRow("edit", cur, defCur, exp.rate ?? null);
 
   state.editCategory = exp.category || null;
@@ -1145,6 +1279,7 @@ async function saveEdit() {
   const currency       = document.getElementById("edit-currency").value.trim().toUpperCase() || "EUR";
   const date_val       = document.getElementById("edit-date").value;
   const notes          = document.getElementById("edit-notes").value.trim();
+  const location       = document.getElementById("edit-location").value.trim();
   const category       = state.editCategory;
   const payment_method = state.editPayment || "";
   const defCurE        = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
@@ -1183,6 +1318,7 @@ async function saveEdit() {
       date:           date_val,
       category:       category || oldCat,
       notes,
+      location,
       payment_method,
       items,
       updated_at:     new Date().toISOString(),
@@ -1357,6 +1493,21 @@ async function loadSettingsView() {
       statusEl.textContent = "";
     }
   } catch (e) { console.error("loadSettings:", e); }
+
+  const placesKey   = localStorage.getItem("placesApiKey") || "";
+  const placesStatus = document.getElementById("s-places-status");
+  if (placesStatus) {
+    if (placesKey) {
+      const preview = placesKey.length > 10
+        ? placesKey.slice(0, 6) + "…" + placesKey.slice(-4)
+        : "***";
+      placesStatus.textContent = `Saved key: ${preview}`;
+      placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
+    } else {
+      placesStatus.textContent = "No key saved — location autocomplete will be a plain text field.";
+      placesStatus.className   = "text-xs text-amber-500 mt-1.5";
+    }
+  }
 
   const storedCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("s-currency", storedCurrency);
@@ -1583,6 +1734,26 @@ function toggleApiVis() {
   hideEye.classList.toggle("hidden", !isHidden);
 }
 
+function savePlacesApiKey() {
+  const key = document.getElementById("s-places-key").value.trim();
+  if (!key) return;
+  localStorage.setItem("placesApiKey", key);
+  _gmapsLoadPromise = null; // reset so the next autocomplete init picks up the new key
+  document.getElementById("s-places-key").value = "";
+  showToast("Places API key saved.");
+  loadSettingsView();
+}
+
+function togglePlacesKeyVis() {
+  const input   = document.getElementById("s-places-key");
+  const showEye = document.getElementById("places-eye-show");
+  const hideEye = document.getElementById("places-eye-hide");
+  const isHidden = input.type === "password";
+  input.type = isHidden ? "text" : "password";
+  showEye.classList.toggle("hidden", isHidden);
+  hideEye.classList.toggle("hidden", !isHidden);
+}
+
 // ── Export / Import ───────────────────────────────────────────────────────────
 function exportJSON() {
   const expenses = getExpenses();
@@ -1599,7 +1770,7 @@ function exportJSON() {
 function exportCSV() {
   const expenses = getExpenses();
   if (!expenses.length) { showToast("No expenses to export", true); return; }
-  const headers = ["date", "merchant", "amount", "currency", "category", "payment_method", "notes", "source", "created_at"];
+  const headers = ["date", "merchant", "amount", "currency", "category", "payment_method", "notes", "location", "source", "created_at"];
   const escape  = v => {
     const s = String(v ?? "").replace(/"/g, '""');
     return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s}"` : s;
@@ -1659,6 +1830,20 @@ function init() {
   syncDarkToggle();
   hydrateCentroids();
   loadHome();
+
+  // Close nearby-results dropdowns when clicking outside their wrapper
+  document.addEventListener('click', e => {
+    for (const [wrapId, resultsId] of [
+      ['f-location-wrap', 'f-nearby-results'],
+      ['edit-location-wrap', 'edit-nearby-results'],
+    ]) {
+      const wrap = document.getElementById(wrapId);
+      const res  = document.getElementById(resultsId);
+      if (res && !res.classList.contains('hidden') && !wrap?.contains(e.target)) {
+        res.classList.add('hidden');
+      }
+    }
+  });
   loadCategoriesIntoButtons();
   const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("f-currency", defaultCurrency);
