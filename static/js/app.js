@@ -131,6 +131,7 @@ const state = {
 
 let pieChartInst = null;
 let lineChartInst = null;
+let agentMapRenderSequence = 0;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function catColor(cat)      { return CAT_COLOR[cat]  || "#64748b"; }
@@ -1493,6 +1494,472 @@ function onImportFile(event) {
   reader.readAsText(file);
 }
 
+// ── LLM Agent ────────────────────────────────────────────────────────────────
+const agentState = {
+  socket: null,
+  clientId: null,
+  activeJobId: null,
+  activeOutput: "",
+  activeMapPlaces: [],
+  backgroundJobs: new Set(),
+  recorder: null,
+  recorderStream: null,
+  audioChunks: [],
+  speak: localStorage.getItem("flo_agent_speak") === "1",
+  loading: false,
+};
+
+function getStoredAgentState() {
+  try {
+    return JSON.parse(localStorage.getItem("flo_agent_state") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredAgentState(agent) {
+  localStorage.setItem("flo_agent_state", JSON.stringify(agent || {}));
+}
+
+function collectAgentClientState() {
+  return {
+    expenses: getExpenses(),
+    defaultCurrency: (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase(),
+    categories: getAllCategories(),
+    agent: getStoredAgentState(),
+  };
+}
+
+function applyAgentStatePatch(patch) {
+  if (!patch) return;
+  if (Array.isArray(patch.expenses)) {
+    saveExpenses(patch.expenses);
+    patch.expenses.forEach(e => { if (e.id) state.expenseMap[e.id] = e; });
+  }
+  if (patch.agent) saveStoredAgentState(patch.agent);
+
+  loadHome();
+  if (document.getElementById("view-history").classList.contains("active")) loadHistory();
+  if (document.getElementById("view-summary").classList.contains("active")) loadSummary();
+}
+
+function initAgent() {
+  const form = document.getElementById("agent-form");
+  if (!form) return;
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = document.getElementById("agent-input");
+    const message = input.value.trim();
+    if (!message || agentState.loading) return;
+    runAgent(message);
+  });
+
+  document.getElementById("agent-record-btn").addEventListener("click", toggleAgentRecording);
+  document.getElementById("agent-speak-btn").addEventListener("click", () => {
+    agentState.speak = !agentState.speak;
+    localStorage.setItem("flo_agent_speak", agentState.speak ? "1" : "0");
+    syncAgentSpeakButton();
+  });
+  syncAgentSpeakButton();
+  connectAgentRealtime();
+}
+
+async function connectAgentRealtime() {
+  const status = document.getElementById("agent-realtime-status");
+  if (!("WebSocket" in window)) {
+    status.textContent = "no ws";
+    return;
+  }
+
+  try {
+    const config = await fetch("/api/agent/realtime").then(r => r.json());
+    if (!config.started && !config.enabled) {
+      status.textContent = "ws off";
+      return;
+    }
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    agentState.socket = new WebSocket(`${protocol}://${window.location.hostname}:${config.port}/ws`);
+    status.textContent = "ws…";
+
+    agentState.socket.addEventListener("message", event => {
+      handleAgentRealtimeEvent(JSON.parse(event.data));
+    });
+    agentState.socket.addEventListener("open", () => { status.textContent = "ws"; });
+    agentState.socket.addEventListener("close", () => {
+      agentState.clientId = null;
+      status.textContent = "reconnect";
+      setTimeout(connectAgentRealtime, 1500);
+    });
+    agentState.socket.addEventListener("error", () => { status.textContent = "ws err"; });
+  } catch {
+    status.textContent = "ws off";
+  }
+}
+
+function handleAgentRealtimeEvent(event) {
+  if (event.type === "ws_connected") {
+    agentState.clientId = event.clientId;
+    document.getElementById("agent-realtime-status").textContent = "live";
+    return;
+  }
+
+  if (event.type === "job_started") {
+    if (event.job?.type === "assistant_request") {
+      agentState.activeJobId = event.job.id;
+      agentState.activeOutput = "";
+      agentState.activeMapPlaces = [];
+      setAgentProgress("Routing your request...");
+    }
+    if (event.job?.type === "discount_lookup") {
+      agentState.backgroundJobs.add(event.job.id);
+      setAgentProgress("Background discount lookup is still running...");
+      appendAgentOutput(`\n\nDiscount lookup started: ${event.job.label.replace(/^Discount check:\s*/, "")}`);
+    }
+    return;
+  }
+
+  if (event.type === "job_progress") {
+    const stageLabel = formatAgentStage(event.stage);
+    document.getElementById("agent-realtime-status").textContent = stageLabel || "live";
+    setAgentProgress(buildAgentProgressMessage(event, stageLabel));
+    if (event.data?.mapPlaces?.length) {
+      agentState.activeMapPlaces = normalizeAgentMapPlaces(event.data.mapPlaces);
+      renderAgentOutput(agentState.activeOutput || "Places found. Waiting for answer...", agentState.activeMapPlaces);
+    }
+    return;
+  }
+
+  if (event.type === "llm_token") {
+    setAgentProgress("Generating answer...");
+    if (!agentState.activeJobId || event.jobId === agentState.activeJobId) {
+      agentState.activeOutput = event.accumulatedText || `${agentState.activeOutput}${event.text || ""}`;
+      renderAgentOutput(agentState.activeOutput, agentState.activeMapPlaces);
+    } else if (event.accumulatedText) {
+      renderAgentOutput(`${agentState.activeOutput}\n\n${event.accumulatedText}`, agentState.activeMapPlaces);
+    }
+    return;
+  }
+
+  if (event.type === "job_completed") {
+    document.getElementById("agent-realtime-status").textContent = "live";
+    if (event.jobId && agentState.backgroundJobs.has(event.jobId)) {
+      agentState.backgroundJobs.delete(event.jobId);
+      setAgentProgress("Background lookup finished.", "done");
+      setTimeout(() => { if (!agentState.loading && agentState.backgroundJobs.size === 0) hideAgentProgress(); }, 1600);
+    } else if (event.jobId === agentState.activeJobId) {
+      if (agentState.backgroundJobs.size > 0) {
+        setAgentProgress("Answer ready. Background lookup is still running...");
+      } else {
+        setAgentProgress("Answer ready.", "done");
+        setTimeout(() => { if (!agentState.loading && agentState.backgroundJobs.size === 0) hideAgentProgress(); }, 1200);
+      }
+    }
+    if (event.result?.discountInsight?.message) {
+      appendAgentOutput(`\n\n${event.result.discountInsight.message}`, event.result.discountInsight.mapPlaces || []);
+    }
+    return;
+  }
+
+  if (event.type === "job_failed") {
+    document.getElementById("agent-realtime-status").textContent = "failed";
+    if (event.jobId) agentState.backgroundJobs.delete(event.jobId);
+    setAgentProgress(event.error || "Request failed.", "error");
+    if (event.error) appendAgentOutput(`\n\n${event.error}`);
+  }
+}
+
+async function runAgent(message, options = {}) {
+  setAgentLoading(true);
+  agentState.activeOutput = "";
+  agentState.activeMapPlaces = [];
+  setAgentProgress("Starting request...");
+  renderAgentOutput("Thinking...");
+
+  try {
+    const response = await fetch("/api/agent/assistant", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        message,
+        inputMode: options.inputMode || "text",
+        speak: options.forceSpeech || agentState.speak,
+        clientId: agentState.clientId,
+        responseLanguage: localStorage.getItem("flo_agent_language") || "zh",
+        state: collectAgentClientState(),
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || payload.error || "Request failed");
+
+    applyAgentStatePatch(payload.statePatch);
+    agentState.activeMapPlaces = collectAgentMapPlaces(payload);
+    renderAgentOutput(payload.result?.message || payload.finalResponse?.message || "", agentState.activeMapPlaces);
+    (payload.backgroundJobs || []).forEach(job => {
+      if (job.jobId) agentState.backgroundJobs.add(job.jobId);
+    });
+    if (agentState.backgroundJobs.size > 0) {
+      setAgentProgress("Answer ready. Background lookup is still running...");
+    } else {
+      setAgentProgress("Answer ready.", "done");
+      setTimeout(() => { if (!agentState.loading && agentState.backgroundJobs.size === 0) hideAgentProgress(); }, 1200);
+    }
+    playAgentAudio(payload.speech);
+    document.getElementById("agent-input").value = "";
+  } catch (error) {
+    renderAgentOutput(error.message);
+    setAgentProgress(error.message, "error");
+  } finally {
+    setAgentLoading(false);
+    if (agentState.backgroundJobs.size === 0) {
+      setTimeout(() => { if (!agentState.loading && agentState.backgroundJobs.size === 0) hideAgentProgress(); }, 1500);
+    }
+  }
+}
+
+function setAgentLoading(loading) {
+  agentState.loading = loading;
+  document.getElementById("agent-input").disabled = loading;
+  document.getElementById("agent-send-btn").disabled = loading;
+}
+
+function setAgentProgress(message, tone = "active") {
+  const box = document.getElementById("agent-progress");
+  const text = document.getElementById("agent-progress-text");
+  if (!box || !text) return;
+  text.textContent = message || "Working...";
+  box.classList.remove("hidden", "done", "error");
+  if (tone === "done") box.classList.add("done");
+  if (tone === "error") box.classList.add("error");
+}
+
+function hideAgentProgress() {
+  const box = document.getElementById("agent-progress");
+  if (!box) return;
+  box.classList.add("hidden");
+  box.classList.remove("done", "error");
+}
+
+function formatAgentStage(stage) {
+  return String(stage || "").replaceAll("_", " ");
+}
+
+function buildAgentProgressMessage(event, stageLabel) {
+  if (event.stage === "places_search_done" && event.data?.mapPlaces?.length) {
+    return `Found ${event.data.mapPlaces.length} Munich place(s). Continuing search and answer generation...`;
+  }
+  if (event.stage === "official_page_fetching") return "Checking official pages...";
+  if (event.stage === "grounding_started") return "Searching live web sources...";
+  if (event.stage === "final_response_started") return "Generating final answer...";
+  if (event.stage === "discount_summary_started") return "Summarizing discount results...";
+  if (event.stage === "speech_started") return "Generating voice reply...";
+  if (event.message) return event.message;
+  return stageLabel ? `${stageLabel}...` : "Working...";
+}
+
+function renderAgentOutput(text, mapPlaces = []) {
+  const el = document.getElementById("agent-output");
+  const places = normalizeAgentMapPlaces(mapPlaces);
+  const mapId = places.length ? `places-map-${Date.now()}-${agentMapRenderSequence++}` : "";
+  el.classList.toggle("has-map", places.length > 0);
+  el.innerHTML = renderAgentMessage(text || "") + (places.length ? renderAgentMapBlock(mapId, places) : "");
+  if (places.length) {
+    requestAnimationFrame(() => renderAgentMap(mapId, places));
+  }
+  el.scrollTop = el.scrollHeight;
+}
+
+function appendAgentOutput(text, mapPlaces = []) {
+  const current = document.getElementById("agent-output").textContent || "";
+  const places = normalizeAgentMapPlaces([...(agentState.activeMapPlaces || []), ...(mapPlaces || [])]);
+  agentState.activeMapPlaces = places;
+  renderAgentOutput(`${current}${text}`, places);
+}
+
+function renderAgentMessage(text) {
+  const escaped = esc(text);
+  return escaped
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+}
+
+function collectAgentMapPlaces(payload) {
+  return normalizeAgentMapPlaces([
+    ...(payload.result?.mapPlaces || []),
+    ...(payload.result?.retailSearch?.mapPlaces || []),
+    ...(payload.result?.retailOffers?.mapPlaces || []),
+    ...(payload.result?.localDeals?.mapPlaces || []),
+    ...(payload.result?.postActionResult?.mapPlaces || []),
+  ]).slice(0, 8);
+}
+
+function normalizeAgentMapPlaces(places) {
+  const seen = new Set();
+  return (places || []).map(place => {
+    const latitude = parseFloat(place?.latitude);
+    const longitude = parseFloat(place?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return {
+      placeId: place.placeId || "",
+      name: place.name || "Place",
+      address: place.address || "",
+      latitude,
+      longitude,
+      googleMapsUri: place.googleMapsUri || "",
+      websiteUri: place.websiteUri || "",
+    };
+  }).filter(place => {
+    if (!place) return false;
+    const key = place.placeId || `${place.name.toLowerCase()}|${place.address.toLowerCase()}|${place.latitude.toFixed(5)},${place.longitude.toFixed(5)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function renderAgentMapBlock(mapId, places) {
+  const items = places.map((place, index) => `
+    <li>
+      <span class="map-place-index">${index + 1}</span>
+      <div>
+        <strong>${esc(place.name)}</strong>
+        ${place.address ? `<small>${esc(place.address)}</small>` : ""}
+        ${place.googleMapsUri ? `<a href="${esc(place.googleMapsUri)}" target="_blank" rel="noopener noreferrer">Open in Google Maps</a>` : ""}
+      </div>
+    </li>
+  `).join("");
+
+  return `
+    <section class="map-panel" aria-label="Places mentioned in this answer">
+      <div class="map-header">
+        <p class="code-label">Places Map</p>
+        <span>${places.length} place${places.length === 1 ? "" : "s"}</span>
+      </div>
+      <div class="places-map" id="${esc(mapId)}"></div>
+      <ol class="map-place-list">${items}</ol>
+    </section>
+  `;
+}
+
+function renderAgentMap(mapId, places) {
+  const el = document.getElementById(mapId);
+  if (!el || !window.L) return;
+
+  const map = window.L.map(el, { scrollWheelZoom: false });
+  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(map);
+
+  const positions = [];
+  places.forEach((place, index) => {
+    const position = [place.latitude, place.longitude];
+    positions.push(position);
+    const link = place.googleMapsUri
+      ? `<p><a href="${esc(place.googleMapsUri)}" target="_blank" rel="noopener noreferrer">Open in Google Maps</a></p>`
+      : "";
+    window.L.marker(position).addTo(map).bindPopup(`
+      <strong>${index + 1}. ${esc(place.name)}</strong>
+      ${place.address ? `<p>${esc(place.address)}</p>` : ""}
+      ${link}
+    `);
+  });
+
+  if (positions.length === 1) {
+    map.setView(positions[0], 14);
+  } else {
+    map.fitBounds(window.L.latLngBounds(positions), { padding: [18, 18], maxZoom: 14 });
+  }
+}
+
+function syncAgentSpeakButton() {
+  const btn = document.getElementById("agent-speak-btn");
+  if (!btn) return;
+  btn.classList.toggle("active", agentState.speak);
+}
+
+async function toggleAgentRecording() {
+  if (agentState.recorder && agentState.recorder.state === "recording") {
+    agentState.recorder.stop();
+    return;
+  }
+  await startAgentRecording();
+}
+
+async function startAgentRecording() {
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    showToast("Voice input is not supported in this browser.", true);
+    return;
+  }
+  try {
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "";
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    agentState.recorder = recorder;
+    agentState.recorderStream = stream;
+    agentState.audioChunks = [];
+    recorder.addEventListener("dataavailable", event => {
+      if (event.data.size) agentState.audioChunks.push(event.data);
+    });
+    recorder.addEventListener("stop", finishAgentRecording);
+    recorder.start();
+    document.getElementById("agent-record-btn").classList.add("recording");
+    renderAgentOutput("Listening...");
+  } catch (error) {
+    showToast("Microphone failed: " + error.message, true);
+  }
+}
+
+async function finishAgentRecording() {
+  document.getElementById("agent-record-btn").classList.remove("recording");
+  if (agentState.recorderStream) {
+    agentState.recorderStream.getTracks().forEach(track => track.stop());
+  }
+  const blob = new Blob(agentState.audioChunks, { type: agentState.recorder?.mimeType || "audio/webm" });
+  agentState.audioChunks = [];
+  agentState.recorder = null;
+  agentState.recorderStream = null;
+
+  if (!blob.size) return;
+
+  try {
+    renderAgentOutput("Transcribing...");
+    const audioBase64 = await blobToBase64(blob);
+    const response = await fetch("/api/agent/transcribe", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ audioBase64, mimeType: blob.type || "audio/webm" }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || payload.error || "Transcription failed");
+    if (!payload.supportedLanguage) {
+      renderAgentOutput("Voice input currently supports English commands only.");
+      return;
+    }
+    document.getElementById("agent-input").value = payload.transcript;
+    await runAgent(payload.transcript, { inputMode: "voice", forceSpeech: true });
+  } catch (error) {
+    renderAgentOutput(error.message);
+  }
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function playAgentAudio(speech) {
+  if (!speech?.ok || !speech.audioBase64) return;
+  const audio = new Audio(`data:${speech.mimeType || "audio/wav"};base64,${speech.audioBase64}`);
+  audio.play().catch(() => {});
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function hydrateCentroids() {
   if (getCentroids()) return;
@@ -1516,6 +1983,7 @@ function init() {
   populateCurrencySelect("f-currency", defaultCurrency);
   document.getElementById("f-cur-sym").textContent = curSym(defaultCurrency);
   renderPaymentButtons(null, "payment-buttons");
+  initAgent();
 }
 
 init();

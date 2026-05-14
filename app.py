@@ -9,6 +9,8 @@ import urllib.request
 
 from flask import Flask, render_template, request, jsonify
 
+import agent_realtime
+import agent_service
 import classifier
 import receipt
 from config import ASK_BELOW, CENTROIDS_FILE, MONTHLY_SPENDING_DATASET
@@ -138,11 +140,42 @@ def api_exchange_rates():
         return jsonify({"error": str(exc)}), 502
 
 
+# ── LLM Agent API ─────────────────────────────────────────────────────────────
+
+@app.route("/api/agent/realtime")
+def api_agent_realtime():
+    if not agent_realtime.get_realtime_config().get("started"):
+        agent_realtime.start_realtime_server()
+    return jsonify(agent_realtime.get_realtime_config())
+
+
+@app.route("/api/agent/assistant", methods=["POST"])
+def api_agent_assistant():
+    payload, status = agent_service.handle_assistant_request(request.get_json(silent=True) or {})
+    return jsonify(payload), status
+
+
+@app.route("/api/agent/transcribe", methods=["POST"])
+def api_agent_transcribe():
+    body = request.get_json(silent=True) or {}
+    try:
+        return jsonify(agent_service.transcribe_audio(
+            audio_base64=body.get("audioBase64", ""),
+            mime_type=body.get("mimeType", ""),
+        ))
+    except Exception as exc:
+        return jsonify({"error": "transcription_failed", "message": str(exc)}), 500
+
+
 # ── Settings API ──────────────────────────────────────────────────────────────
 
 @app.route("/api/settings")
 def api_get_settings():
-    return jsonify({"env_key_set": bool(os.environ.get("GOOGLE_API_KEY", ""))})
+    return jsonify({
+        "env_key_set": bool(os.environ.get("GOOGLE_API_KEY", "")),
+        "agent_key_set": bool(os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")),
+        "agent_realtime": agent_realtime.get_realtime_config(),
+    })
 
 
 # ── Startup ───────────────────────────────────────────────────────────────────
@@ -168,4 +201,5 @@ if __name__ == "__main__":
     print(f"\n  Categories ({len(classifier.centroids)}): {list(classifier.centroids.keys())}")
     print(f"\n  Open http://localhost:5000 in your browser")
     print("=" * 55 + "\n")
+    agent_realtime.start_realtime_server()
     app.run(debug=False, port=5000)

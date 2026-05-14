@@ -31,6 +31,8 @@ All expense records live in the **browser's localStorage**. The server is statel
 | **Summary** | Spending by category (doughnut chart) and last-7-days line chart |
 | **Settings** | Dark mode toggle, Google AI Studio API key, default currency, JSON/CSV export & import |
 
+The Home view also includes one small **Ask Flo** input/output panel. It is the only UI added for the LLM agent: typed or voice input goes in, streamed assistant text and optional voice output come back out.
+
 ---
 
 ## Processes
@@ -71,6 +73,20 @@ Every time the user saves an expense (manual or receipt):
    The result is L2-normalised and `n` is incremented.
 3. If the user **corrected** the predicted category, the merchant name (lowercased) is added to the `overrides` dict — future classifications of that exact name always return the corrected category with confidence 1.0.
 4. The updated state is flushed to `centroids.json`.
+
+### 5. LLM Agent
+
+The embedded agent keeps the Flask startup command unchanged. `python app.py` still starts the app on port `5000`; it also starts a lightweight WebSocket bridge on `AGENT_WS_PORT` or `5001` for progress events and chunk-by-chunk LLM output.
+
+The agent can:
+
+- create or delete expenses in the same `flo_expenses` localStorage dataset used by the existing UI
+- answer spending summaries and profile/wishlist questions
+- use Gemini function calling and final response generation when `GEMINI_API_KEY` is configured
+- transcribe English voice commands and synthesize voice replies through Gemini speech models
+- run Munich retailer/product/local merchant discount lookup with optional Google Places support
+
+For local development, the app loads environment variables from `financial_app/.env` if present, then from the sibling `FinancialApp/.env` if present. Environment variables already exported in the shell take priority. Secrets are intentionally not committed.
 
 ---
 
@@ -134,6 +150,9 @@ A JSON array of expense objects. Each object has:
 | `POST` | `/api/learn` | Updates the ML centroid; body: `{merchant, category, original_category}` |
 | `POST` | `/api/scan_receipt` | Scans a receipt image; multipart with `image` file and `api_key` field |
 | `GET` | `/api/settings` | Returns `{env_key_set: bool}` — whether `GOOGLE_API_KEY` is set server-side |
+| `GET` | `/api/agent/realtime` | Returns WebSocket bridge status and starts it lazily if needed |
+| `POST` | `/api/agent/assistant` | Runs the LLM agent on a text command and returns state patches for localStorage |
+| `POST` | `/api/agent/transcribe` | Transcribes browser-recorded audio for voice input |
 
 ---
 
@@ -149,6 +168,17 @@ To enable receipt scanning without entering the key in the UI every time:
 
 ```bash
 export GOOGLE_API_KEY=AIza...
+python app.py
+```
+
+To enable the full agent, set:
+
+```bash
+export GEMINI_API_KEY=...
+export GEMINI_MODEL=gemini-2.5-flash
+export RETAIL_SEARCH_MODEL=gemini-2.5-flash
+# optional for map-backed retailer/local deal lookup
+export GOOGLE_PLACES_API_KEY=...
 python app.py
 ```
 
