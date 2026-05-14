@@ -11,6 +11,7 @@ from flask import Flask, render_template, request, jsonify
 
 import classifier
 import receipt
+import voice
 from config import ASK_BELOW, CENTROIDS_FILE, MONTHLY_SPENDING_DATASET
 
 app = Flask(__name__)
@@ -119,6 +120,32 @@ def api_scan_receipt():
         return jsonify({"success": True, "data": data})
     except Exception as e:
         return jsonify({"error": f"Receipt processing failed: {str(e)}"}), 500
+
+
+# ── Voice input API ───────────────────────────────────────────────────────────
+
+@app.route("/api/voice_input", methods=["POST"])
+def api_voice_input():
+    api_key = (
+        request.form.get("api_key", "").strip()
+        or os.environ.get("GOOGLE_API_KEY", "")
+    )
+    if not api_key:
+        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file uploaded"}), 400
+
+    file       = request.files["audio"]
+    audio_data = file.read()
+    if not audio_data:
+        return jsonify({"error": "Empty audio file"}), 400
+
+    try:
+        data = voice.process_voice_input(audio_data, file.content_type or "audio/webm", api_key)
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"error": f"Voice processing failed: {str(e)}"}), 500
 
 
 # ── Exchange Rates API ────────────────────────────────────────────────────────

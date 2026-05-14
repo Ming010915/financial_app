@@ -119,6 +119,7 @@ const state = {
   originalCategory: null,
   selectedPayment:  null,
   isReceipt:        false,
+  isVoice:          false,
   receiptFile:      null,
   receiptItems:     [],
   expenseMap:       {},   // id → full expense object
@@ -557,12 +558,14 @@ function handleFile(file) {
 function clearScan() {
   state.receiptFile  = null;
   state.isReceipt    = false;
+  state.isVoice      = false;
   state.receiptItems = [];
   document.getElementById("receipt-file").value = "";
   document.getElementById("preview-img").src    = "";
   document.getElementById("upload-zone").classList.remove("hidden");
   document.getElementById("preview-zone").classList.add("hidden");
   document.getElementById("receipt-banner").classList.add("hidden");
+  document.getElementById("voice-banner").classList.add("hidden");
   document.getElementById("items-section").classList.add("hidden");
   document.getElementById("save-label").textContent = "Add Expense";
   document.getElementById("cat-confidence").classList.add("hidden");
@@ -658,6 +661,148 @@ function populateFormFromReceipt(data) {
   document.getElementById("save-label").textContent = "Confirm & Save";
 }
 
+// ── Voice input ───────────────────────────────────────────────────────────────
+let _mediaRecorder = null;
+let _audioChunks   = [];
+let _isRecording   = false;
+
+async function toggleVoiceRecording() {
+  if (_isRecording) {
+    stopVoiceRecording();
+  } else {
+    await startVoiceRecording();
+  }
+}
+
+async function startVoiceRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    _audioChunks   = [];
+    _mediaRecorder = new MediaRecorder(stream);
+    _mediaRecorder.ondataavailable = e => { if (e.data.size > 0) _audioChunks.push(e.data); };
+    _mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      sendVoiceToServer();
+    };
+    _mediaRecorder.start();
+    _isRecording = true;
+
+    const btn = document.getElementById("voice-btn");
+    btn.classList.add("voice-recording");
+    btn.classList.remove("voice-idle");
+    document.getElementById("voice-icon").textContent  = "⏹";
+    document.getElementById("voice-label").textContent = "Tap to stop";
+    const status = document.getElementById("voice-status");
+    status.textContent = "Listening…";
+    status.classList.remove("hidden");
+  } catch (e) {
+    showToast("Microphone access denied: " + e.message, true);
+  }
+}
+
+function stopVoiceRecording() {
+  if (_mediaRecorder && _isRecording) {
+    _mediaRecorder.stop();
+    _isRecording = false;
+    document.getElementById("voice-icon").textContent  = "🎤";
+    document.getElementById("voice-label").textContent = "Processing…";
+    document.getElementById("voice-status").textContent = "Analyzing with AI…";
+  }
+}
+
+async function sendVoiceToServer() {
+  const blob     = new Blob(_audioChunks, { type: "audio/webm" });
+  const formData = new FormData();
+  formData.append("audio", blob, "voice.webm");
+  formData.append("api_key", localStorage.getItem("googleApiKey") || "");
+
+  const btn = document.getElementById("voice-btn");
+  btn.disabled = true;
+
+  try {
+    const r    = await fetch("/api/voice_input", { method: "POST", body: formData });
+    const resp = await r.json();
+    if (!r.ok || resp.error) throw new Error(resp.error || "Unknown error");
+    populateFormFromVoice(resp.data);
+    showToast("Voice input captured!");
+  } catch (e) {
+    showToast("Voice failed: " + e.message, true);
+    resetVoiceBtn();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function resetVoiceBtn() {
+  _isRecording = false;
+  const btn = document.getElementById("voice-btn");
+  btn.classList.remove("voice-recording");
+  btn.classList.add("voice-idle");
+  document.getElementById("voice-icon").textContent  = "🎤";
+  document.getElementById("voice-label").textContent = "Voice Input";
+  const status = document.getElementById("voice-status");
+  status.classList.add("hidden");
+  status.textContent = "";
+}
+
+function populateFormFromVoice(data) {
+  state.isVoice      = true;
+  state.isReceipt    = false;
+  state.receiptItems = data.items || [];
+  document.getElementById("receipt-banner").classList.add("hidden");
+
+  document.getElementById("f-merchant").value = data.merchant || "";
+  if (data.total != null) document.getElementById("f-amount").value = Number(data.total).toFixed(2);
+
+  if (data.currency) {
+    const code   = data.currency.toUpperCase();
+    const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+    const sel    = document.getElementById("f-currency");
+    if ([...sel.options].some(o => o.value === code)) sel.value = code;
+    document.getElementById("f-cur-sym").textContent = curSym(code);
+    updateRateRow("f", code, defCur, null);
+  }
+  if (data.date)  document.getElementById("f-date").value  = data.date;
+  if (data.notes) document.getElementById("f-notes").value = data.notes;
+
+  const pm = data.payment_method && getPaymentMethods().includes(data.payment_method) ? data.payment_method : null;
+  state.selectedPayment = pm;
+  renderPaymentButtons(pm, "payment-buttons");
+
+  const cat = data.predicted_category || "Others";
+  selectCategory(cat);
+  state.originalCategory = cat;
+
+  const confEl = document.getElementById("cat-confidence");
+  const pct    = Math.round((data.confidence || 0) * 100);
+  confEl.textContent = `Voice: ${pct}% confidence`;
+  confEl.className   = `text-xs ${(data.confidence || 0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
+  confEl.classList.remove("hidden");
+
+  if (state.receiptItems.length > 0) {
+    document.getElementById("items-section").classList.remove("hidden");
+    document.getElementById("items-list").innerHTML = state.receiptItems.map(item => {
+      const price = item.price != null
+        ? `<span class="font-semibold">${fmtAmount(item.price, document.getElementById("f-currency").value)}</span>` : "";
+      return `<div class="flex items-center justify-between py-0.5 border-b border-gray-100 last:border-0">
+        <span class="truncate mr-2">${esc(item.name || "")}</span>${price}</div>`;
+    }).join("");
+  }
+
+  document.getElementById("voice-banner").classList.remove("hidden");
+  document.getElementById("save-label").textContent = "Confirm & Save";
+  resetVoiceBtn();
+}
+
+function clearVoice() {
+  state.isVoice = false;
+  document.getElementById("voice-banner").classList.add("hidden");
+  document.getElementById("cat-confidence").classList.add("hidden");
+  document.getElementById("save-label").textContent = "Add Expense";
+  resetVoiceBtn();
+  resetForm();
+}
+
 // ── Save expense ──────────────────────────────────────────────────────────────
 async function saveExpense() {
   const merchant       = document.getElementById("f-merchant").value.trim();
@@ -714,8 +859,8 @@ async function saveExpense() {
       confidence,
       payment_method,
       notes,
-      items:          state.isReceipt ? state.receiptItems : [],
-      source:         state.isReceipt ? "receipt" : "manual",
+      items:          (state.isReceipt || state.isVoice) ? state.receiptItems : [],
+      source:         state.isReceipt ? "receipt" : state.isVoice ? "voice" : "manual",
       created_at:     new Date().toISOString(),
     };
 
@@ -791,7 +936,10 @@ function historyExpenseCard(exp) {
   const col    = catColor(exp.category);
   const em     = catEmoji(exp.category);
   const badge  = exp.source === "receipt"
-    ? `<span class="text-[9px] bg-blue-100 text-blue-500 px-1 py-0.5 rounded font-bold ml-1">📷</span>` : "";
+    ? `<span class="text-[9px] bg-blue-100 text-blue-500 px-1 py-0.5 rounded font-bold ml-1">📷</span>`
+    : exp.source === "voice"
+    ? `<span class="text-[9px] bg-rose-100 text-rose-500 px-1 py-0.5 rounded font-bold ml-1">🎤</span>`
+    : "";
   const notes  = exp.notes
     ? `<span class="text-gray-400 text-xs truncate ml-1">· ${esc(exp.notes)}</span>` : "";
   const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
