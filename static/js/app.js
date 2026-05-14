@@ -785,9 +785,11 @@ function populateFormFromReceipt(data) {
 }
 
 // ── Voice input ───────────────────────────────────────────────────────────────
-let _mediaRecorder = null;
-let _audioChunks   = [];
-let _isRecording   = false;
+let _mediaRecorder    = null;
+let _audioChunks      = [];
+let _isRecording      = false;
+let _recognition      = null;
+let _liveTranscript   = '';
 
 async function toggleVoiceRecording() {
   if (_isRecording) {
@@ -810,6 +812,28 @@ async function startVoiceRecording() {
     _mediaRecorder.start();
     _isRecording = true;
 
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      _liveTranscript = '';
+      _recognition = new SpeechRecognition();
+      _recognition.continuous     = true;
+      _recognition.interimResults = true;
+      _recognition.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const t = event.results[i][0].transcript;
+          if (event.results[i].isFinal) _liveTranscript += t + ' ';
+          else interim = t;
+        }
+        const sub = document.getElementById('voice-subtitle');
+        sub.innerHTML = esc(_liveTranscript) +
+          (interim ? `<em class="text-gray-400">${esc(interim)}</em>` : '');
+        sub.classList.remove('hidden');
+      };
+      _recognition.onerror = (e) => { console.warn('SpeechRecognition:', e.error); };
+      _recognition.start();
+    }
+
     const btn = document.getElementById("voice-btn");
     btn.classList.add("voice-recording");
     btn.classList.remove("voice-idle");
@@ -827,8 +851,9 @@ function stopVoiceRecording() {
   if (_mediaRecorder && _isRecording) {
     _mediaRecorder.stop();
     _isRecording = false;
-    document.getElementById("voice-icon").textContent  = "🎤";
-    document.getElementById("voice-label").textContent = "Processing…";
+    if (_recognition) { try { _recognition.stop(); } catch {} _recognition = null; }
+    document.getElementById("voice-icon").textContent   = "🎤";
+    document.getElementById("voice-label").textContent  = "Processing…";
     document.getElementById("voice-status").textContent = "Analyzing with AI…";
   }
 }
@@ -857,7 +882,8 @@ async function sendVoiceToServer() {
 }
 
 function resetVoiceBtn() {
-  _isRecording = false;
+  _isRecording  = false;
+  _liveTranscript = '';
   const btn = document.getElementById("voice-btn");
   btn.classList.remove("voice-recording");
   btn.classList.add("voice-idle");
@@ -866,6 +892,9 @@ function resetVoiceBtn() {
   const status = document.getElementById("voice-status");
   status.classList.add("hidden");
   status.textContent = "";
+  const sub = document.getElementById("voice-subtitle");
+  sub.classList.add("hidden");
+  sub.innerHTML = "";
 }
 
 function populateFormFromVoice(data) {

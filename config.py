@@ -1,5 +1,6 @@
-MODEL_NAME     = "paraphrase-multilingual-mpnet-base-v2"
-GEMINI_MODEL   = "gemini-2.5-flash"
+MODEL_NAME       = "paraphrase-multilingual-mpnet-base-v2"
+GEMINI_MODEL     = "gemini-2.5-flash"
+GEMINI_LIVE_MODEL = "gemini-3.1-flash-live-preview"
 THRESHOLD      = 0.3
 ASK_BELOW      = 0.6
 CENTROIDS_FILE = "dataset/centroids.json"

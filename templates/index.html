@@ -6,8 +6,8 @@
   <title>Flo</title>
   <!-- Set dark mode before styles to avoid flash -->
   <script>if (localStorage.getItem('darkMode') !== '0') document.documentElement.classList.add('dark');</script>
-  <script>tailwind.config = { darkMode: 'class' }</script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
@@ -118,6 +118,7 @@
             <div class="text-xs text-gray-400">Tap to describe your expense</div>
           </button>
           <p id="voice-status" class="hidden mt-2 text-center text-xs font-medium text-rose-500"></p>
+          <div id="voice-subtitle" class="hidden mt-2 px-3 py-2 bg-rose-50 border border-rose-100 rounded-xl text-xs text-gray-700 leading-relaxed min-h-[2rem]"></div>
         </div>
 
         <div id="voice-banner" class="hidden mx-4 mb-4 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 flex items-center gap-2">
