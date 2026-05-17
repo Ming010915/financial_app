@@ -131,7 +131,6 @@ const state = {
 
 let pieChartInst = null;
 let lineChartInst = null;
-let agentMapRenderSequence = 0;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function catColor(cat)      { return CAT_COLOR[cat]  || "#64748b"; }
@@ -1495,13 +1494,21 @@ function onImportFile(event) {
 }
 
 // ── LLM Agent ────────────────────────────────────────────────────────────────
+const AGENT_MESSAGES_KEY = "flo_agent_messages";
+const AGENT_MAX_MESSAGES = 36;
+
 const agentState = {
   socket: null,
   clientId: null,
   activeJobId: null,
+  activeMessageId: null,
   activeOutput: "",
   activeMapPlaces: [],
+  activeProductImages: [],
   backgroundJobs: new Set(),
+  backgroundMessageIds: {},
+  messages: loadAgentMessages(),
+  transientMessageId: null,
   recorder: null,
   recorderStream: null,
   audioChunks: [],
@@ -1546,6 +1553,8 @@ function applyAgentStatePatch(patch) {
 function initAgent() {
   const form = document.getElementById("agent-form");
   if (!form) return;
+
+  renderAgentConversation();
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -1609,12 +1618,18 @@ function handleAgentRealtimeEvent(event) {
       agentState.activeJobId = event.job.id;
       agentState.activeOutput = "";
       agentState.activeMapPlaces = [];
+      agentState.activeProductImages = [];
+      setActiveAgentOutput("Thinking...");
       setAgentProgress("Routing your request...");
     }
     if (event.job?.type === "discount_lookup") {
       agentState.backgroundJobs.add(event.job.id);
+      const label = String(event.job.label || "discount lookup").replace(/^Discount check:\s*/, "");
+      agentState.backgroundMessageIds[event.job.id] = addAgentMessage(
+        "assistant",
+        `Discount lookup started: ${label}`
+      );
       setAgentProgress("Background discount lookup is still running...");
-      appendAgentOutput(`\n\nDiscount lookup started: ${event.job.label.replace(/^Discount check:\s*/, "")}`);
     }
     return;
   }
@@ -1625,7 +1640,7 @@ function handleAgentRealtimeEvent(event) {
     setAgentProgress(buildAgentProgressMessage(event, stageLabel));
     if (event.data?.mapPlaces?.length) {
       agentState.activeMapPlaces = normalizeAgentMapPlaces(event.data.mapPlaces);
-      renderAgentOutput(agentState.activeOutput || "Places found. Waiting for answer...", agentState.activeMapPlaces);
+      setActiveAgentOutput(agentState.activeOutput || "Places found. Waiting for answer...", agentState.activeMapPlaces);
     }
     return;
   }
@@ -1634,9 +1649,12 @@ function handleAgentRealtimeEvent(event) {
     setAgentProgress("Generating answer...");
     if (!agentState.activeJobId || event.jobId === agentState.activeJobId) {
       agentState.activeOutput = event.accumulatedText || `${agentState.activeOutput}${event.text || ""}`;
-      renderAgentOutput(agentState.activeOutput, agentState.activeMapPlaces);
+      setActiveAgentOutput(agentState.activeOutput, agentState.activeMapPlaces, agentState.activeProductImages);
     } else if (event.accumulatedText) {
-      renderAgentOutput(`${agentState.activeOutput}\n\n${event.accumulatedText}`, agentState.activeMapPlaces);
+      const messageId = agentState.backgroundMessageIds[event.jobId]
+        || addAgentMessage("assistant", "Working on the background lookup...");
+      agentState.backgroundMessageIds[event.jobId] = messageId;
+      updateAgentMessage(messageId, event.accumulatedText);
     }
     return;
   }
@@ -1656,7 +1674,16 @@ function handleAgentRealtimeEvent(event) {
       }
     }
     if (event.result?.discountInsight?.message) {
-      appendAgentOutput(`\n\n${event.result.discountInsight.message}`, event.result.discountInsight.mapPlaces || []);
+      const messageId = agentState.backgroundMessageIds[event.jobId]
+        || addAgentMessage("assistant", "");
+      agentState.backgroundMessageIds[event.jobId] = messageId;
+      updateAgentMessage(
+        messageId,
+        event.result.discountInsight.message,
+        event.result.discountInsight.mapPlaces || [],
+        event.result.discountInsight.productImages || []
+      );
+      delete agentState.backgroundMessageIds[event.jobId];
     }
     return;
   }
@@ -1665,16 +1692,24 @@ function handleAgentRealtimeEvent(event) {
     document.getElementById("agent-realtime-status").textContent = "failed";
     if (event.jobId) agentState.backgroundJobs.delete(event.jobId);
     setAgentProgress(event.error || "Request failed.", "error");
-    if (event.error) appendAgentOutput(`\n\n${event.error}`);
+    if (event.error) {
+      const messageId = agentState.backgroundMessageIds[event.jobId] || agentState.activeMessageId;
+      appendAgentMessage(messageId, `\n\n${event.error}`);
+      if (event.jobId) delete agentState.backgroundMessageIds[event.jobId];
+    }
   }
 }
 
 async function runAgent(message, options = {}) {
+  const conversation = buildAgentConversationPayload();
+  addAgentMessage("user", message);
+  agentState.activeMessageId = addAgentMessage("assistant", "Thinking...");
   setAgentLoading(true);
   agentState.activeOutput = "";
   agentState.activeMapPlaces = [];
+  agentState.activeProductImages = [];
   setAgentProgress("Starting request...");
-  renderAgentOutput("Thinking...");
+  document.getElementById("agent-input").value = "";
 
   try {
     const response = await fetch("/api/agent/assistant", {
@@ -1686,6 +1721,7 @@ async function runAgent(message, options = {}) {
         speak: options.forceSpeech || agentState.speak,
         clientId: agentState.clientId,
         responseLanguage: localStorage.getItem("flo_agent_language") || "zh",
+        conversation,
         state: collectAgentClientState(),
       }),
     });
@@ -1694,7 +1730,12 @@ async function runAgent(message, options = {}) {
 
     applyAgentStatePatch(payload.statePatch);
     agentState.activeMapPlaces = collectAgentMapPlaces(payload);
-    renderAgentOutput(payload.result?.message || payload.finalResponse?.message || "", agentState.activeMapPlaces);
+    agentState.activeProductImages = collectAgentProductImages(payload);
+    setActiveAgentOutput(
+      payload.result?.message || payload.finalResponse?.message || "",
+      agentState.activeMapPlaces,
+      agentState.activeProductImages
+    );
     (payload.backgroundJobs || []).forEach(job => {
       if (job.jobId) agentState.backgroundJobs.add(job.jobId);
     });
@@ -1705,9 +1746,8 @@ async function runAgent(message, options = {}) {
       setTimeout(() => { if (!agentState.loading && agentState.backgroundJobs.size === 0) hideAgentProgress(); }, 1200);
     }
     playAgentAudio(payload.speech);
-    document.getElementById("agent-input").value = "";
   } catch (error) {
-    renderAgentOutput(error.message);
+    setActiveAgentOutput(error.message);
     setAgentProgress(error.message, "error");
   } finally {
     setAgentLoading(false);
@@ -1757,30 +1797,187 @@ function buildAgentProgressMessage(event, stageLabel) {
   return stageLabel ? `${stageLabel}...` : "Working...";
 }
 
-function renderAgentOutput(text, mapPlaces = []) {
+function loadAgentMessages() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(AGENT_MESSAGES_KEY) || "[]");
+    if (!Array.isArray(raw)) return [];
+    return raw.map(normalizeStoredAgentMessage).filter(Boolean).slice(-AGENT_MAX_MESSAGES);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeStoredAgentMessage(message) {
+  if (!message || typeof message !== "object") return null;
+  const role = message.role === "user" ? "user" : "assistant";
+  const text = String(message.text || "");
+  const mapPlaces = normalizeAgentMapPlaces(message.mapPlaces || []);
+  const productImages = normalizeAgentProductImages(message.productImages || []);
+  if (!text.trim() && !mapPlaces.length && !productImages.length) return null;
+  return {
+    id: String(message.id || generateId()),
+    role,
+    text,
+    mapPlaces,
+    productImages,
+    ts: message.ts || new Date().toISOString(),
+  };
+}
+
+function saveAgentMessages() {
+  agentState.messages = agentState.messages.slice(-AGENT_MAX_MESSAGES);
+  localStorage.setItem(AGENT_MESSAGES_KEY, JSON.stringify(agentState.messages.map(message => ({
+    id: message.id,
+    role: message.role,
+    text: message.text,
+    mapPlaces: message.mapPlaces || [],
+    productImages: message.productImages || [],
+    ts: message.ts,
+  }))));
+}
+
+function buildAgentConversationPayload(limit = 10) {
+  const transientText = new Set(["Thinking...", "Listening...", "Transcribing..."]);
+  return agentState.messages
+    .filter(message => (
+      (message.role === "user" || message.role === "assistant")
+      && message.text
+      && !transientText.has(message.text.trim())
+    ))
+    .slice(-limit)
+    .map(message => ({
+      role: message.role,
+      text: message.text.slice(0, 2400),
+      ts: message.ts,
+    }));
+}
+
+function addAgentMessage(role, text, mapPlaces = [], productImages = []) {
+  const message = {
+    id: generateId(),
+    role: role === "user" ? "user" : "assistant",
+    text: String(text || ""),
+    mapPlaces: normalizeAgentMapPlaces(mapPlaces),
+    productImages: normalizeAgentProductImages(productImages),
+    ts: new Date().toISOString(),
+  };
+  agentState.messages.push(message);
+  saveAgentMessages();
+  renderAgentConversation();
+  return message.id;
+}
+
+function updateAgentMessage(id, text, mapPlaces, productImages) {
+  const message = agentState.messages.find(item => item.id === id);
+  if (!message) return null;
+  message.text = String(text || "");
+  if (mapPlaces !== undefined) message.mapPlaces = normalizeAgentMapPlaces(mapPlaces);
+  if (productImages !== undefined) message.productImages = normalizeAgentProductImages(productImages);
+  saveAgentMessages();
+  renderAgentConversation();
+  return message.id;
+}
+
+function appendAgentMessage(id, text, mapPlaces = [], productImages = []) {
+  let message = agentState.messages.find(item => item.id === id);
+  if (!message) {
+    return addAgentMessage("assistant", text, mapPlaces, productImages);
+  }
+  message.text = `${message.text || ""}${text || ""}`;
+  message.mapPlaces = normalizeAgentMapPlaces([...(message.mapPlaces || []), ...(mapPlaces || [])]);
+  message.productImages = normalizeAgentProductImages([...(message.productImages || []), ...(productImages || [])]);
+  saveAgentMessages();
+  renderAgentConversation();
+  return message.id;
+}
+
+function removeAgentMessage(id) {
+  if (!id) return;
+  agentState.messages = agentState.messages.filter(message => message.id !== id);
+  saveAgentMessages();
+  renderAgentConversation();
+}
+
+function setActiveAgentOutput(text, mapPlaces = agentState.activeMapPlaces, productImages = agentState.activeProductImages) {
+  if (!agentState.activeMessageId) {
+    agentState.activeMessageId = addAgentMessage("assistant", text, mapPlaces, productImages);
+    return agentState.activeMessageId;
+  }
+  return updateAgentMessage(agentState.activeMessageId, text, mapPlaces, productImages);
+}
+
+function showAgentStatusMessage(text) {
+  if (agentState.transientMessageId) {
+    updateAgentMessage(agentState.transientMessageId, text);
+    return;
+  }
+  agentState.transientMessageId = addAgentMessage("assistant", text);
+}
+
+function clearAgentStatusMessage() {
+  removeAgentMessage(agentState.transientMessageId);
+  agentState.transientMessageId = null;
+}
+
+function renderAgentConversation() {
   const el = document.getElementById("agent-output");
-  const places = normalizeAgentMapPlaces(mapPlaces);
-  const mapId = places.length ? `places-map-${Date.now()}-${agentMapRenderSequence++}` : "";
-  el.classList.toggle("has-map", places.length > 0);
-  el.innerHTML = renderAgentMessage(text || "") + (places.length ? renderAgentMapBlock(mapId, places) : "");
-  if (places.length) {
-    requestAnimationFrame(() => renderAgentMap(mapId, places));
+  if (!el) return;
+
+  const messages = agentState.messages.filter(message => message.text.trim() || message.mapPlaces?.length || message.productImages?.length);
+  if (!messages.length) {
+    el.classList.remove("has-map");
+    el.innerHTML = '<div class="agent-empty">Ask a finance question or record an expense.</div>';
+    return;
+  }
+
+  const mapJobs = [];
+  el.classList.toggle("has-map", messages.some(message => message.mapPlaces?.length || message.productImages?.length));
+  el.innerHTML = messages.map(message => renderAgentMessageBubble(message, mapJobs)).join("");
+  if (mapJobs.length) {
+    requestAnimationFrame(() => {
+      mapJobs.forEach(({ mapId, places }) => renderAgentMap(mapId, places));
+    });
   }
   el.scrollTop = el.scrollHeight;
 }
 
-function appendAgentOutput(text, mapPlaces = []) {
-  const current = document.getElementById("agent-output").textContent || "";
-  const places = normalizeAgentMapPlaces([...(agentState.activeMapPlaces || []), ...(mapPlaces || [])]);
-  agentState.activeMapPlaces = places;
-  renderAgentOutput(`${current}${text}`, places);
+function renderAgentMessageBubble(message, mapJobs) {
+  const places = normalizeAgentMapPlaces(message.mapPlaces || []);
+  const productImages = normalizeAgentProductImages(message.productImages || []);
+  const hasInlineImages = messageHasMarkdownImages(message.text || "");
+  const cleanId = String(message.id).replace(/[^a-zA-Z0-9_-]/g, "");
+  const mapId = places.length ? `agent-map-${cleanId}` : "";
+  if (mapId) mapJobs.push({ mapId, places });
+  return `
+    <div class="agent-message-row ${message.role}${places.length || productImages.length ? " has-map" : ""}">
+      <div class="agent-bubble">
+        <div class="agent-message-meta">${message.role === "user" ? "You" : "Flo"}</div>
+        <div class="agent-message-text">${renderAgentMessage(message.text || "")}</div>
+        ${productImages.length && !hasInlineImages ? renderAgentImageBlock(productImages) : ""}
+        ${places.length ? renderAgentMapBlock(mapId, places) : ""}
+      </div>
+    </div>
+  `;
+}
+
+function renderAgentOutput(text, mapPlaces = [], productImages = []) {
+  setActiveAgentOutput(text, mapPlaces, productImages);
+}
+
+function appendAgentOutput(text, mapPlaces = [], productImages = []) {
+  appendAgentMessage(agentState.activeMessageId, text, mapPlaces, productImages);
 }
 
 function renderAgentMessage(text) {
   const escaped = esc(text);
   return escaped
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g, '<img class="agent-inline-image" src="$2" alt="$1" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />')
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+}
+
+function messageHasMarkdownImages(text) {
+  return /!\[[^\]]*\]\(https?:\/\/[^)\s]+\)/.test(String(text || ""));
 }
 
 function collectAgentMapPlaces(payload) {
@@ -1790,6 +1987,16 @@ function collectAgentMapPlaces(payload) {
     ...(payload.result?.retailOffers?.mapPlaces || []),
     ...(payload.result?.localDeals?.mapPlaces || []),
     ...(payload.result?.postActionResult?.mapPlaces || []),
+  ]).slice(0, 8);
+}
+
+function collectAgentProductImages(payload) {
+  return normalizeAgentProductImages([
+    ...(payload.result?.productImages || []),
+    ...(payload.result?.retailSearch?.productImages || []),
+    ...(payload.result?.retailOffers?.productImages || []),
+    ...(payload.result?.localDeals?.productImages || []),
+    ...(payload.result?.postActionResult?.productImages || []),
   ]).slice(0, 8);
 }
 
@@ -1815,6 +2022,44 @@ function normalizeAgentMapPlaces(places) {
     seen.add(key);
     return true;
   });
+}
+
+function normalizeAgentProductImages(images) {
+  const seen = new Set();
+  return (images || []).map(image => {
+    const url = String(image?.url || "").trim();
+    if (!/^https?:\/\//i.test(url)) return null;
+    return {
+      url,
+      alt: String(image.alt || image.sourceTitle || "Product image").trim().slice(0, 120),
+      sourceUrl: String(image.sourceUrl || "").trim(),
+      sourceTitle: String(image.sourceTitle || "").trim().slice(0, 140),
+    };
+  }).filter(image => {
+    if (!image) return false;
+    if (seen.has(image.url)) return false;
+    seen.add(image.url);
+    return true;
+  });
+}
+
+function renderAgentImageBlock(images) {
+  const items = images.map((image, index) => `
+    <a class="agent-image-card" href="${esc(image.sourceUrl || image.url)}" target="_blank" rel="noopener noreferrer">
+      <img src="${esc(image.url)}" alt="${esc(image.alt || `Product image ${index + 1}`)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.agent-image-card').remove()" />
+      <span>${esc(image.alt || image.sourceTitle || "Product image")}</span>
+    </a>
+  `).join("");
+
+  return `
+    <section class="agent-image-panel" aria-label="Product images">
+      <div class="agent-image-header">
+        <p class="code-label">Images</p>
+        <span>${images.length} image${images.length === 1 ? "" : "s"}</span>
+      </div>
+      <div class="agent-image-grid">${items}</div>
+    </section>
+  `;
 }
 
 function renderAgentMapBlock(mapId, places) {
@@ -1906,7 +2151,7 @@ async function startAgentRecording() {
     recorder.addEventListener("stop", finishAgentRecording);
     recorder.start();
     document.getElementById("agent-record-btn").classList.add("recording");
-    renderAgentOutput("Listening...");
+    showAgentStatusMessage("Listening...");
   } catch (error) {
     showToast("Microphone failed: " + error.message, true);
   }
@@ -1925,7 +2170,7 @@ async function finishAgentRecording() {
   if (!blob.size) return;
 
   try {
-    renderAgentOutput("Transcribing...");
+    showAgentStatusMessage("Transcribing...");
     const audioBase64 = await blobToBase64(blob);
     const response = await fetch("/api/agent/transcribe", {
       method: "POST",
@@ -1935,13 +2180,16 @@ async function finishAgentRecording() {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.message || payload.error || "Transcription failed");
     if (!payload.supportedLanguage) {
-      renderAgentOutput("Voice input currently supports English commands only.");
+      showAgentStatusMessage("Voice input currently supports English commands only.");
+      agentState.transientMessageId = null;
       return;
     }
+    clearAgentStatusMessage();
     document.getElementById("agent-input").value = payload.transcript;
     await runAgent(payload.transcript, { inputMode: "voice", forceSpeech: true });
   } catch (error) {
-    renderAgentOutput(error.message);
+    showAgentStatusMessage(error.message);
+    agentState.transientMessageId = null;
   }
 }
 

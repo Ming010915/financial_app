@@ -9,6 +9,7 @@ response -> optional TTS and background discount lookup.
 from __future__ import annotations
 
 import base64
+import html as html_lib
 import json
 import os
 import re
@@ -193,6 +194,7 @@ def handle_assistant_request(body: dict[str, Any]) -> tuple[dict[str, Any], int]
     input_mode = "voice" if body.get("inputMode") == "voice" else "text"
     response_language = normalize_response_language(body.get("responseLanguage"))
     client_state = normalize_client_state(body.get("state") or {})
+    conversation_history = normalize_conversation_history(body.get("conversation") or [])
 
     job = realtime.create_job(
         client_id=client_id,
@@ -215,7 +217,7 @@ def handle_assistant_request(body: dict[str, Any]) -> tuple[dict[str, Any], int]
             stage="function_calling_started",
             message="Routing user input with Gemini function calling.",
         )
-        parsed = parse_assistant_function_call(message, client_state)
+        parsed = parse_assistant_function_call(message, client_state, conversation_history)
         realtime.emit_progress(
             job,
             stage="function_call_selected",
@@ -244,6 +246,7 @@ def handle_assistant_request(body: dict[str, Any]) -> tuple[dict[str, Any], int]
         realtime.emit_progress(job, stage="final_response_started", message="Synthesizing final answer.")
         final_response = compose_final_response_stream(
             input_text=message,
+            conversation_history=conversation_history,
             function_call=parsed["functionCall"],
             execution=execution,
             response_language=response_language,
@@ -251,21 +254,27 @@ def handle_assistant_request(body: dict[str, Any]) -> tuple[dict[str, Any], int]
         )
         _raise_if_cancelled(job)
 
+        spoken_message = final_response["message"]
+        display_message = append_product_image_markdown(spoken_message, execution["result"])
+        final_response["displayMessage"] = display_message
+
         result = {
             **execution["result"],
             "toolMessage": execution["result"].get("message", ""),
-            "message": final_response["message"],
+            "message": display_message,
+            "textMessage": spoken_message,
         }
 
         post_result = maybe_send_final_answer_by_email(
             input_text=message,
-            final_message=final_response["message"],
+            final_message=spoken_message,
             client_state=client_state,
         )
         if post_result:
             result["postToolMessage"] = post_result["result"]["message"]
             result["postActionResult"] = post_result["result"]
             result["message"] = f"{result['message']}\n\n{post_result['result']['message']}"
+            spoken_message = f"{spoken_message}\n\n{post_result['result']['message']}"
 
         should_speak = bool(body.get("speak") or input_mode == "voice")
         realtime.emit_progress(
@@ -273,7 +282,7 @@ def handle_assistant_request(body: dict[str, Any]) -> tuple[dict[str, Any], int]
             stage="speech_started" if should_speak else "response_ready",
             message="Generating speech reply." if should_speak else "Response is ready.",
         )
-        speech = synthesize_speech(result["message"], {"responseLanguage": response_language}) if should_speak else None
+        speech = synthesize_speech(spoken_message, {"responseLanguage": response_language}) if should_speak else None
         background_job = maybe_start_discount_lookup_job(
             client_id=client_id,
             execution=execution,
@@ -319,14 +328,19 @@ def handle_assistant_request(body: dict[str, Any]) -> tuple[dict[str, Any], int]
         }, 500
 
 
-def parse_assistant_function_call(input_text: str, client_state: dict[str, Any]) -> dict[str, Any]:
+def parse_assistant_function_call(
+    input_text: str,
+    client_state: dict[str, Any],
+    conversation_history: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     categories = client_state.get("categories") or DEFAULT_CATEGORIES
     system_instruction = build_system_instruction(categories)
     function_declarations = build_function_declarations(categories)
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    contextual_input = build_contextual_user_input(input_text, conversation_history or [])
 
     if not api_key:
-        function_call = normalize_function_call(parse_with_rules(input_text, client_state), categories)
+        function_call = normalize_function_call(parse_with_rules(input_text, client_state, conversation_history), categories)
         return {
             "provider": "local",
             "model": "rule-parser",
@@ -351,7 +365,7 @@ def parse_assistant_function_call(input_text: str, client_state: dict[str, Any])
                 )
             ),
         )
-        response = client.models.generate_content(model=model, contents=input_text, config=config)
+        response = client.models.generate_content(model=model, contents=contextual_input, config=config)
         function_call = normalize_function_call(extract_function_call(response), categories)
         return {
             "provider": "gemini",
@@ -359,7 +373,7 @@ def parse_assistant_function_call(input_text: str, client_state: dict[str, Any])
             "functionCall": function_call,
         }
     except Exception as exc:
-        function_call = normalize_function_call(parse_with_rules(input_text, client_state), categories)
+        function_call = normalize_function_call(parse_with_rules(input_text, client_state, conversation_history), categories)
         return {
             "provider": "local",
             "model": "rule-parser",
@@ -555,6 +569,7 @@ def lookup_store_product_action(
             "message": result.get("answer") or result.get("message", ""),
             "retailSearch": result,
             "mapPlaces": result.get("mapPlaces", []),
+            "productImages": result.get("productImages", []),
         },
         "statePatch": build_state_patch(client_state),
     }
@@ -573,6 +588,7 @@ def lookup_retail_offers_action(
             "message": result.get("answer") or result.get("message", ""),
             "retailOffers": result,
             "mapPlaces": result.get("mapPlaces", []),
+            "productImages": result.get("productImages", []),
         },
         "statePatch": build_state_patch(client_state),
     }
@@ -591,6 +607,7 @@ def lookup_local_deals_action(
             "message": result.get("answer") or result.get("message", ""),
             "localDeals": result,
             "mapPlaces": result.get("mapPlaces", []),
+            "productImages": result.get("productImages", []),
         },
         "statePatch": build_state_patch(client_state),
     }
@@ -719,6 +736,7 @@ def unsupported(args: dict[str, Any], client_state: dict[str, Any]) -> dict[str,
 def compose_final_response_stream(
     *,
     input_text: str,
+    conversation_history: list[dict[str, str]] | None = None,
     function_call: dict[str, Any],
     execution: dict[str, Any],
     response_language: str,
@@ -737,8 +755,12 @@ def compose_final_response_stream(
             "warning": "GEMINI_API_KEY is not set. Used the tool message directly.",
         }
 
+    conversation_context = format_conversation_history(conversation_history or [])
     prompt = f"""
 Output language: {language_label}
+
+Recent conversation context:
+{conversation_context or "(none)"}
 
 User input:
 {input_text}
@@ -929,15 +951,19 @@ def lookup_store_product(args: dict[str, Any], job: dict[str, Any] | None = None
     emit_places_progress(job, product_query=product_query, map_places=places)
     sources = collect_retail_sources(retailers)
     official_pages = fetch_source_pages(sources[:8])
+    product_images = collect_product_images(official_pages, product_query)
+    checked_pages = compact_source_pages(official_pages)
     prompt = f"""
 Research current product price, stock, availability, or useful official evidence.
 Product: {product_query}
 Retailers: {retailer_names or 'supported Munich retailers'}
 Location: {location}
 Official/source pages already checked:
-{json.dumps(official_pages, ensure_ascii=False)}
+{json.dumps(checked_pages, ensure_ascii=False)}
 Nearby mapped stores:
 {json.dumps(places[:8], ensure_ascii=False)}
+Product/source images found:
+{json.dumps(product_images[:8], ensure_ascii=False)}
 
 Use Google Search grounding if available. Separate confirmed physical-store availability from online-only or unconfirmed evidence. Include source URLs.
 """.strip()
@@ -948,7 +974,8 @@ Use Google Search grounding if available. Separate confirmed physical-store avai
         "answer": answer or "No grounded product lookup result was available.",
         "message": answer or "No grounded product lookup result was available.",
         "sources": sources,
-        "checkedPages": official_pages,
+        "checkedPages": checked_pages,
+        "productImages": product_images,
         "mapPlaces": places,
         "retrievedAt": datetime.now(timezone.utc).isoformat(),
     }
@@ -964,15 +991,19 @@ def lookup_retail_offers(args: dict[str, Any], job: dict[str, Any] | None = None
     emit_places_progress(job, product_query=retailer_names or "Retail offers", map_places=places)
     sources = collect_retail_sources(retailers, offers_only=True)
     pages = fetch_source_pages(sources[:10])
+    product_images = collect_product_images(pages, retailer_names or "offers")
+    checked_pages = compact_source_pages(pages)
     prompt = f"""
 Look up current or recent retailer discounts, weekly offers, Angebote, promotions, or prospect pages.
 Retailers: {retailer_names}
 Location: {location}
 Period: {args.get('period') or 'current_week'}
 Official/source pages already checked:
-{json.dumps(pages, ensure_ascii=False)}
+{json.dumps(checked_pages, ensure_ascii=False)}
 Nearby mapped stores:
 {json.dumps(places[:8], ensure_ascii=False)}
+Product/source images found:
+{json.dumps(product_images[:8], ensure_ascii=False)}
 
 Explain confirmed offer items with prices separately from pages that were found but not parseable. Include source URLs.
 """.strip()
@@ -983,7 +1014,8 @@ Explain confirmed offer items with prices separately from pages that were found 
         "answer": answer or "No current retailer offer could be confirmed from available sources.",
         "message": answer or "No current retailer offer could be confirmed from available sources.",
         "sources": sources,
-        "officialOfferPages": pages,
+        "officialOfferPages": checked_pages,
+        "productImages": product_images,
         "mapPlaces": places,
         "retrievedAt": datetime.now(timezone.utc).isoformat(),
     }
@@ -999,6 +1031,8 @@ def lookup_local_deals(args: dict[str, Any], job: dict[str, Any] | None = None) 
     emit_places_progress(job, product_query=display_name, map_places=places)
     sources = list(merchant.get("dealPages", []) if merchant else [])
     pages = fetch_source_pages(sources[:8])
+    product_images = collect_product_images(pages, product_query or display_name)
+    checked_pages = compact_source_pages(pages)
     prompt = f"""
 Look up current or recent discounts, coupons, app offers, meal deals, Gutscheine, Aktionen, or promotions.
 Merchant: {display_name}
@@ -1006,9 +1040,11 @@ Product/context: {product_query or 'general deal lookup'}
 Location: {location}
 Period: {args.get('period') or 'current_week'}
 Official/source pages already checked:
-{json.dumps(pages, ensure_ascii=False)}
+{json.dumps(checked_pages, ensure_ascii=False)}
 Nearby mapped stores:
 {json.dumps(places[:8], ensure_ascii=False)}
+Product/source images found:
+{json.dumps(product_images[:8], ensure_ascii=False)}
 
 Explain whether current food/restaurant/app discounts were confirmed, only found as official app/deal pages, or not confirmed. Include source URLs.
 """.strip()
@@ -1019,7 +1055,8 @@ Explain whether current food/restaurant/app discounts were confirmed, only found
         "answer": answer or "No current local merchant deal could be confirmed from available sources.",
         "message": answer or "No current local merchant deal could be confirmed from available sources.",
         "sources": sources,
-        "officialDealPages": pages,
+        "officialDealPages": checked_pages,
+        "productImages": product_images,
         "mapPlaces": places,
         "retrievedAt": datetime.now(timezone.utc).isoformat(),
     }
@@ -1077,20 +1114,26 @@ def _run_discount_lookup_job(job: dict[str, Any], candidate: dict[str, Any], res
                     "message": lookup_result.get("answer") or lookup_result.get("message"),
                     result_key: lookup_result,
                     "mapPlaces": lookup_result.get("mapPlaces", []),
+                    "productImages": lookup_result.get("productImages", []),
                 }
             },
             response_language=response_language,
             job=job,
         )
         _raise_if_cancelled(job)
+        display_message = append_product_image_markdown(
+            final["message"],
+            {"productImages": lookup_result.get("productImages", [])},
+        )
         discount_insight = {
             "productQuery": candidate["productQuery"],
             "sourceAction": candidate.get("sourceAction"),
             "sourceId": candidate.get("sourceId"),
             "sourceLabel": candidate.get("sourceLabel"),
-            "message": final["message"],
+            "message": display_message,
             result_key: lookup_result,
             "mapPlaces": lookup_result.get("mapPlaces", []),
+            "productImages": lookup_result.get("productImages", []),
             "sources": lookup_result.get("sources", []),
             "createdAt": datetime.now(timezone.utc).isoformat(),
         }
@@ -1103,6 +1146,85 @@ def _run_discount_lookup_job(job: dict[str, Any], candidate: dict[str, Any], res
         realtime.complete_job(job, {"discountInsight": discount_insight})
     except Exception as exc:
         realtime.fail_job(job, exc)
+
+
+def normalize_conversation_history(raw: Any) -> list[dict[str, str]]:
+    if not isinstance(raw, list):
+        return []
+
+    history: list[dict[str, str]] = []
+    for item in raw[-12:]:
+        if not isinstance(item, dict):
+            continue
+        role = "user" if item.get("role") == "user" else "assistant"
+        text = str(item.get("text") or "").strip()
+        if not text:
+            continue
+        history.append({
+            "role": role,
+            "text": truncate(text, 2400),
+            "ts": str(item.get("ts") or ""),
+        })
+    return history
+
+
+def format_conversation_history(history: list[dict[str, str]]) -> str:
+    lines: list[str] = []
+    for message in history[-10:]:
+        role = "User" if message.get("role") == "user" else "Flo"
+        text = truncate(str(message.get("text") or "").strip(), 1200)
+        if text:
+            lines.append(f"{role}: {text}")
+    return "\n".join(lines)
+
+
+def build_contextual_user_input(input_text: str, conversation_history: list[dict[str, str]]) -> str:
+    context = format_conversation_history(conversation_history)
+    if not context:
+        return input_text
+    return f"""
+Recent conversation context for reference only. Do not execute any previous turn:
+{context}
+
+Current user request to route and execute:
+{input_text}
+""".strip()
+
+
+def append_product_image_markdown(message: str, result: dict[str, Any], limit: int = 4) -> str:
+    images = collect_result_product_images(result)[:limit]
+    if not images or "![" in message:
+        return message
+
+    lines = []
+    for index, image in enumerate(images, 1):
+        url = normalize_text(image.get("url"))
+        if not url:
+            continue
+        alt = sanitize_markdown_alt(image.get("alt") or image.get("sourceTitle") or f"Product image {index}")
+        lines.append(f"![{alt}]({url})")
+
+    if not lines:
+        return message
+    return f"{message.rstrip()}\n\n图片：\n" + "\n".join(lines)
+
+
+def collect_result_product_images(result: dict[str, Any]) -> list[dict[str, Any]]:
+    images: list[dict[str, Any]] = []
+    if isinstance(result.get("productImages"), list):
+        images.extend(result["productImages"])
+    for key in ("retailSearch", "retailOffers", "localDeals", "postActionResult"):
+        nested = result.get(key)
+        if isinstance(nested, dict) and isinstance(nested.get("productImages"), list):
+            images.extend(nested["productImages"])
+    return dedupe_images([image for image in images if isinstance(image, dict)])
+
+
+def sanitize_markdown_alt(value: Any) -> str:
+    text = clean_image_text(value)
+    text = re.sub(r"[\[\]\(\)\n\r]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:90] or "Product image"
 
 
 def normalize_client_state(raw: dict[str, Any]) -> dict[str, Any]:
@@ -1189,6 +1311,7 @@ def build_system_instruction(categories: list[str]) -> str:
 You route each Flo financial assistant request by calling exactly one registered function.
 - Current date is {today}.
 - The app stores expenses in the browser; actions must be concrete and reversible through returned state patches.
+- If recent conversation context is provided, use it only to resolve references in the current request. Execute only the current user request, never old turns.
 - Use EUR when the user says euro, euros, €, 欧, or 欧元. Use USD for dollar, dollars, or $.
 - If the user says 块 or 块钱 without RMB/人民币/CNY, default to EUR for this Munich-based app.
 - Use one of these expense categories when possible: {", ".join(categories)}.
@@ -1196,9 +1319,9 @@ You route each Flo financial assistant request by calling exactly one registered
 - If the user asks for summaries, profile, wishlist, or deleting an expense, call the matching finance function.
 - If the user asks to send email, extract every requested recipient email, a short subject, and the plain-text body.
 - If a request asks to look up information and then email the final answer, first call the information lookup function; post-response email is handled separately.
-- For retailer discounts, offers, Angebote, Prospekt, 打折, 优惠, or product price/stock in Munich, use lookup_retail_offers, lookup_local_deals, or lookup_store_product.
+- For retailer discounts, offers, Angebote, Prospekt, 打折, 优惠, where-to-buy, 哪里有卖, or product price/stock in Munich, use lookup_retail_offers, lookup_local_deals, or lookup_store_product.
 - For named restaurant, cafe, food chain, or local merchant discounts, call lookup_local_deals.
-- For current product price, stock, or availability at Munich retailers, call lookup_store_product.
+- For current product price, stock, availability, or where a product is sold at Munich retailers, call lookup_store_product.
 - For consumer electronics, default unspecified retailers to mediamarkt and saturn.
 """.strip()
 
@@ -1208,8 +1331,9 @@ def build_final_response_system_instruction(response_language: str) -> str:
     return f"""
 You write the final user-facing response after a registered app function has executed.
 Respond in {language}.
+Use recent conversation context only for continuity and pronoun/reference resolution.
 Use only the tool result and source URLs provided by the app. Do not invent prices, stock, stores, or actions.
-Use concise Markdown. For retail/deal lookup, distinguish confirmed evidence from uncertainty and include concise source links when available.
+Use concise Markdown. For retail/deal lookup, distinguish confirmed evidence from uncertainty and include concise source links when available. If productImages are present, mention that image cards are shown below instead of listing raw image URLs.
 For finance actions, summarize the completed action directly.
 """.strip()
 
@@ -1268,7 +1392,7 @@ def build_function_declarations(categories: list[str]) -> list[dict[str, Any]]:
         ),
         function_decl(
             "lookup_store_product",
-            "Look up current product price, stock, availability, or product information for Munich retailers.",
+            "Look up where a product is sold, plus current product price, stock, availability, or product information for Munich retailers.",
             {
                 "productQuery": string_schema("Product or product category to look up."),
                 "retailers": array_schema(enum_schema(SUPPORTED_RETAILER_IDS, "Supported retailer id."), "Retailer ids."),
@@ -1367,7 +1491,11 @@ def array_schema(items: dict[str, Any], description: str) -> dict[str, Any]:
     return {"type": "array", "items": items, "description": description}
 
 
-def parse_with_rules(input_text: str, client_state: dict[str, Any]) -> dict[str, Any]:
+def parse_with_rules(
+    input_text: str,
+    client_state: dict[str, Any],
+    conversation_history: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     text = input_text.strip()
     lower = text.lower()
     amount = extract_amount(text)
@@ -1428,7 +1556,7 @@ def parse_with_rules(input_text: str, client_state: dict[str, Any]) -> dict[str,
             },
         }
 
-    if looks_like_summary_request(lower):
+    if looks_like_summary_request(lower) or looks_like_summary_followup(lower, conversation_history or []):
         return {"name": "get_spending_summary", "args": {"period": extract_period(lower), "category": extract_category(text, client_state["categories"])}}
 
     if looks_like_overview_request(lower):
@@ -1713,6 +1841,13 @@ def fetch_source_pages(urls: list[str]) -> list[dict[str, Any]]:
     return pages
 
 
+def compact_source_pages(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    compacted = []
+    for page in pages or []:
+        compacted.append({key: value for key, value in page.items() if key != "images"})
+    return compacted
+
+
 def fetch_source_page(url: str) -> dict[str, Any]:
     try:
         request = urllib.request.Request(
@@ -1731,7 +1866,15 @@ def fetch_source_page(url: str) -> dict[str, Any]:
 
     title = extract_title(raw)
     snippets = extract_offer_snippets(raw)
-    return {"url": url, "ok": 200 <= status < 400, "status": status, "title": title, "snippets": snippets[:10]}
+    images = extract_page_images(raw, url)
+    return {
+        "url": url,
+        "ok": 200 <= status < 400,
+        "status": status,
+        "title": title,
+        "snippets": snippets[:10],
+        "images": images[:20],
+    }
 
 
 def extract_title(html: str) -> str | None:
@@ -1761,6 +1904,204 @@ def extract_offer_snippets(html: str) -> list[str]:
         if len(snippets) >= 20:
             break
     return snippets
+
+
+def extract_page_images(html: str, page_url: str) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+
+    for tag in re.findall(r"<meta\b[^>]*>", html, flags=re.I | re.S):
+        attrs = parse_html_tag_attrs(tag)
+        key = (attrs.get("property") or attrs.get("name") or "").lower()
+        if key not in {"og:image", "og:image:url", "og:image:secure_url", "twitter:image", "twitter:image:src"}:
+            continue
+        image_url = normalize_image_url(attrs.get("content"), page_url)
+        if image_url:
+            candidates.append({
+                "url": image_url,
+                "alt": attrs.get("alt") or key,
+                "sourceUrl": page_url,
+                "kind": "metadata",
+            })
+
+    for script in re.findall(
+        r"<script\b[^>]*type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script>",
+        html,
+        flags=re.I | re.S,
+    ):
+        try:
+            payload = json.loads(html_lib.unescape(script.strip()))
+        except Exception:
+            continue
+        for item in iter_jsonld_images(payload):
+            image_url = normalize_image_url(item.get("url"), page_url)
+            if image_url:
+                candidates.append({
+                    "url": image_url,
+                    "alt": item.get("name") or "Product image",
+                    "sourceUrl": page_url,
+                    "kind": "structured_data",
+                })
+
+    for tag in re.findall(r"<img\b[^>]*>", html, flags=re.I | re.S):
+        attrs = parse_html_tag_attrs(tag)
+        src = attrs.get("src") or first_srcset_url(attrs.get("srcset") or attrs.get("data-srcset"))
+        if not src:
+            src = attrs.get("data-src") or attrs.get("data-original") or attrs.get("data-lazy-src")
+        image_url = normalize_image_url(src, page_url)
+        if not image_url:
+            continue
+        candidates.append({
+            "url": image_url,
+            "alt": clean_image_text(attrs.get("alt") or attrs.get("title") or attrs.get("aria-label")),
+            "sourceUrl": page_url,
+            "kind": "page_image",
+        })
+
+    return dedupe_images(candidates)
+
+
+def parse_html_tag_attrs(tag: str) -> dict[str, str]:
+    attrs: dict[str, str] = {}
+    for match in re.finditer(
+        r"([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*(\"([^\"]*)\"|'([^']*)'|([^\s\"'=<>`]+))",
+        tag,
+        flags=re.S,
+    ):
+        value = match.group(3) if match.group(3) is not None else match.group(4) if match.group(4) is not None else match.group(5)
+        attrs[match.group(1).lower()] = html_lib.unescape(value or "").strip()
+    return attrs
+
+
+def first_srcset_url(srcset: str | None) -> str | None:
+    if not srcset:
+        return None
+    first = srcset.split(",", 1)[0].strip()
+    return first.split()[0] if first else None
+
+
+def normalize_image_url(value: Any, page_url: str) -> str | None:
+    raw = html_lib.unescape(str(value or "")).strip()
+    if not raw or raw.startswith("data:"):
+        return None
+    if raw.startswith("//"):
+        raw = f"https:{raw}"
+    image_url = urllib.parse.urljoin(page_url, raw)
+    parsed = urllib.parse.urlparse(image_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    lowered = image_url.lower()
+    if any(token in lowered for token in ("favicon", "sprite", "tracking", "analytics", "pixel", "placeholder")):
+        return None
+    return image_url
+
+
+def clean_image_text(value: Any) -> str:
+    return re.sub(r"\s+", " ", html_lib.unescape(str(value or ""))).strip()[:140]
+
+
+def iter_jsonld_images(payload: Any) -> list[dict[str, str]]:
+    found: list[dict[str, str]] = []
+
+    def visit(node: Any, inherited_name: str = "") -> None:
+        if isinstance(node, list):
+            for item in node:
+                visit(item, inherited_name)
+            return
+        if not isinstance(node, dict):
+            return
+
+        name = clean_image_text(node.get("name")) or inherited_name
+        image = node.get("image")
+        if isinstance(image, str):
+            found.append({"url": image, "name": name})
+        elif isinstance(image, list):
+            for item in image:
+                if isinstance(item, str):
+                    found.append({"url": item, "name": name})
+                elif isinstance(item, dict):
+                    found.append({"url": item.get("url") or item.get("contentUrl"), "name": clean_image_text(item.get("name")) or name})
+        elif isinstance(image, dict):
+            found.append({"url": image.get("url") or image.get("contentUrl"), "name": clean_image_text(image.get("name")) or name})
+
+        for value in node.values():
+            if isinstance(value, (dict, list)):
+                visit(value, name)
+
+    visit(payload)
+    return found
+
+
+def collect_product_images(pages: list[dict[str, Any]], product_query: str) -> list[dict[str, Any]]:
+    tokens = product_query_tokens(product_query)
+    scored: list[tuple[int, int, dict[str, Any]]] = []
+    for page_index, page in enumerate(pages or []):
+        source_url = page.get("url") or ""
+        source_title = page.get("title") or ""
+        for image in page.get("images") or []:
+            if not isinstance(image, dict):
+                continue
+            score = score_product_image(image, tokens, source_title, source_url)
+            if score <= 0:
+                continue
+            scored.append((
+                score,
+                -page_index,
+                {
+                    "url": image.get("url"),
+                    "alt": clean_image_text(image.get("alt")) or source_title or "Product image",
+                    "sourceUrl": image.get("sourceUrl") or source_url,
+                    "sourceTitle": source_title,
+                    "kind": image.get("kind") or "page_image",
+                },
+            ))
+
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return dedupe_images([item[2] for item in scored])[:8]
+
+
+def product_query_tokens(product_query: str) -> list[str]:
+    lowered = normalize_text(product_query).lower()
+    tokens = re.findall(r"[a-z0-9]{3,}|[\u4e00-\u9fff]{2,}", lowered)
+    stop = {"where", "buy", "sold", "sell", "store", "stores", "shop", "shops", "product", "price", "stock"}
+    return [token for token in dict.fromkeys(tokens) if token not in stop]
+
+
+def score_product_image(image: dict[str, Any], tokens: list[str], source_title: str, source_url: str) -> int:
+    url = str(image.get("url") or "")
+    lowered_url = url.lower()
+    alt = clean_image_text(image.get("alt")).lower()
+    source_text = f"{source_title} {source_url}".lower()
+
+    if not url:
+        return 0
+    if any(token in lowered_url for token in ("logo", "icon", "svg+xml", ".svg", "1x1", "transparent")) and not any(token in alt for token in tokens):
+        return 0
+
+    score = 1
+    if image.get("kind") in {"structured_data", "metadata"}:
+        score += 3
+    for token in tokens:
+        if token in alt:
+            score += 5
+        if token in lowered_url:
+            score += 3
+        if token in source_text:
+            score += 1
+    if not tokens and image.get("kind") in {"structured_data", "metadata"}:
+        score += 2
+    return score
+
+
+def dedupe_images(images: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen = set()
+    deduped = []
+    for image in images:
+        url = normalize_text(image.get("url"))
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        deduped.append({**image, "url": url})
+    return deduped
 
 
 def build_discount_candidate(execution: dict[str, Any]) -> dict[str, Any] | None:
@@ -1927,7 +2268,12 @@ def extract_note(text: str) -> str:
 
 
 def extract_product_query(text: str) -> str:
-    cleaned = re.sub(r"(discounts|discount|deals|deal|coupons|coupon|offers|offer|angebote|angebot|price|stock|availability|available|lookup|look up|check|current|today|打折|优惠|折扣|价格|库存|查询|查一下|有没有)", " ", text, flags=re.I)
+    cleaned = re.sub(
+        r"(discounts|discount|deals|deal|coupons|coupon|offers|offer|angebote|angebot|price|stock|availability|available|lookup|look up|check|current|today|where\s+(?:can\s+i\s+)?buy|where\s+to\s+buy|where\s+is|where|who\s+sells|which\s+stores?|sold|sells?|shops?|stores?|buy|打折|优惠|折扣|价格多少|什么价格|多少钱|多少价钱|什么价|价格|价钱|库存|查询|查一下|有没有|在哪里有卖|在哪里可以买|哪里有卖|哪儿有卖|哪里可以买|在哪里买|在哪买|在哪儿买|有卖吗|有卖|买得到|卖吗|哪里|哪儿)",
+        " ",
+        text,
+        flags=re.I,
+    )
     for retailer in RETAILERS.values():
         cleaned = re.sub(re.escape(retailer["name"]), " ", cleaned, flags=re.I)
     cleaned = re.sub(r"\b(in|at|near|munich|germany|慕尼黑|德国)\b", " ", cleaned, flags=re.I)
@@ -2045,7 +2391,7 @@ def find_known_local_merchant(text: str) -> dict[str, Any] | None:
 
 
 def looks_like_deal_request(text: str) -> bool:
-    return bool(re.search(r"(discount|deal|coupon|offer|angebote|angebot|promotion|price|stock|availability|打折|折扣|优惠|促销|价格|库存|有货)", text, flags=re.I))
+    return bool(re.search(r"(discount|deal|coupon|offer|angebote|angebot|promotion|price|stock|availability|where\s+(?:can\s+i\s+)?buy|where\s+to\s+buy|where\s+is\s+.+sold|who\s+sells|which\s+stores?\s+(?:sell|carry|have)|sold\s+(?:at|in)|available\s+(?:at|in)|打折|折扣|优惠|促销|价格|价钱|多少钱|多少价钱|什么价|库存|有货|哪里.*(?:卖|买)|哪[里儿].*(?:卖|买)|在哪.*买|在哪里.*(?:卖|买)|有卖|买得到|卖吗)", text, flags=re.I))
 
 
 def looks_like_offer_request(text: str) -> bool:
@@ -2073,7 +2419,32 @@ def looks_like_list_request(lower: str) -> bool:
 
 
 def looks_like_summary_request(lower: str) -> bool:
-    return "spent" in lower and "how" in lower or "summary" in lower or "spending" in lower or "花费" in lower or "支出" in lower and "多少" in lower
+    return (
+        ("spent" in lower and "how" in lower)
+        or "summary" in lower
+        or "spending" in lower
+        or (("花费" in lower or "支出" in lower or "花了" in lower) and "多少" in lower)
+    )
+
+
+def looks_like_summary_followup(lower: str, conversation_history: list[dict[str, str]]) -> bool:
+    if not conversation_history:
+        return False
+    followup_tokens = [
+        "那", "呢", "这个月", "本月", "这月", "今天", "本周", "这周",
+        "month", "week", "today", "how about", "what about",
+    ]
+    if not any(token in lower for token in followup_tokens):
+        return False
+    recent = " ".join(str(message.get("text") or "").lower() for message in conversation_history[-4:])
+    return (
+        looks_like_summary_request(recent)
+        or "spending for" in recent
+        or "spending is" in recent
+        or "花了" in recent
+        or "花费" in recent
+        or "支出" in recent
+    )
 
 
 def looks_like_overview_request(lower: str) -> bool:
