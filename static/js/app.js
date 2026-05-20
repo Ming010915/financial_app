@@ -134,13 +134,21 @@ let pieChartInst = null;
 let lineChartInst = null;
 
 // ── Google Places (custom dropdown, no Autocomplete widget) ──────────────────
-let _gmapsLoadPromise = null;
-let _cachedPosition   = null;
-let _locationTimer    = null;
+let _gmapsLoadPromise  = null;
+let _cachedPosition    = null;
+let _locationTimer     = null;
+let _serverPlacesKey   = null;
 
 async function loadGoogleMapsAPI() {
   if (window.google?.maps?.places) return true;
-  const key = localStorage.getItem('placesApiKey') || '';
+  if (_serverPlacesKey === null) {
+    try {
+      const r = await fetch('/api/settings');
+      const d = await r.json();
+      _serverPlacesKey = d.places_server_key || '';
+    } catch { _serverPlacesKey = ''; }
+  }
+  const key = localStorage.getItem('placesApiKey') || _serverPlacesKey;
   if (!key) return false;
   if (_gmapsLoadPromise) return _gmapsLoadPromise;
   _gmapsLoadPromise = new Promise(resolve => {
@@ -785,11 +793,14 @@ function populateFormFromReceipt(data) {
 }
 
 // ── Voice input ───────────────────────────────────────────────────────────────
-let _mediaRecorder    = null;
-let _audioChunks      = [];
-let _isRecording      = false;
-let _recognition      = null;
-let _liveTranscript   = '';
+let _mediaRecorder  = null;
+let _audioChunks    = [];
+let _isRecording    = false;
+let _liveWS         = null;
+let _audioCtx       = null;
+let _audioProcessor = null;
+let _liveTranscript = '';
+let _interimTranscript = '';
 
 async function toggleVoiceRecording() {
   if (_isRecording) {
@@ -801,7 +812,10 @@ async function toggleVoiceRecording() {
 
 async function startVoiceRecording() {
   try {
+    const apiKey = localStorage.getItem('googleApiKey') || '';
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+    // MediaRecorder captures the audio for server-side expense extraction (unchanged).
     _audioChunks   = [];
     _mediaRecorder = new MediaRecorder(stream);
     _mediaRecorder.ondataavailable = e => { if (e.data.size > 0) _audioChunks.push(e.data); };
@@ -810,40 +824,83 @@ async function startVoiceRecording() {
       sendVoiceToServer();
     };
     _mediaRecorder.start();
-    _isRecording = true;
+    _isRecording       = true;
+    _liveTranscript    = '';
+    _interimTranscript = '';
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      _liveTranscript = '';
-      _recognition = new SpeechRecognition();
-      _recognition.continuous     = true;
-      _recognition.interimResults = true;
-      _recognition.onresult = (event) => {
-        let interim = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const t = event.results[i][0].transcript;
-          if (event.results[i].isFinal) _liveTranscript += t + ' ';
-          else interim = t;
-        }
-        const sub = document.getElementById('voice-subtitle');
-        sub.innerHTML = esc(_liveTranscript) +
-          (interim ? `<em class="text-gray-400">${esc(interim)}</em>` : '');
-        sub.classList.remove('hidden');
+    // AudioContext captures PCM for Gemini Live subtitles.
+    // Create it now so we know the actual sample rate before opening the socket.
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    if (_audioCtx.state === 'suspended') {
+      await _audioCtx.resume();
+    }
+    const actualRate = _audioCtx.sampleRate;
+
+    {
+      const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      _liveWS = new WebSocket(`${wsProto}//${location.host}/ws/voice_live`);
+      console.log('[Live] WebSocket opening, apiKey set:', !!apiKey);
+
+      _liveWS.onopen = () => {
+        console.log('[Live] WebSocket connected, sample_rate:', actualRate);
+        // Send init: API key (may be empty; server falls back to its own key) + actual PCM sample rate.
+        _liveWS.send(JSON.stringify({ api_key: apiKey, sample_rate: actualRate }));
+
+        // Wire up the PCM audio graph.
+        const source = _audioCtx.createMediaStreamSource(stream);
+        _audioProcessor = _audioCtx.createScriptProcessor(4096, 1, 1);
+        source.connect(_audioProcessor);
+        _audioProcessor.connect(_audioCtx.destination);
+
+        _audioProcessor.onaudioprocess = ev => {
+          if (!_liveWS || _liveWS.readyState !== WebSocket.OPEN) return;
+          const f32  = ev.inputBuffer.getChannelData(0);
+          const i16  = new Int16Array(f32.length);
+          for (let i = 0; i < f32.length; i++) {
+            i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i] * 32767)));
+          }
+          // Convert to base64.
+          const bytes = new Uint8Array(i16.buffer);
+          let bin = '';
+          for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+          _liveWS.send(JSON.stringify({ type: 'audio', data: btoa(bin) }));
+        };
       };
-      _recognition.onerror = (e) => { console.warn('SpeechRecognition:', e.error); };
-      _recognition.start();
+
+      _liveWS.onmessage = ev => {
+        try {
+          const msg = JSON.parse(ev.data);
+          console.log('[Live] message received:', msg);
+          if (msg.transcript !== undefined) {
+            _liveTranscript = msg.transcript;
+            const sub = document.getElementById('voice-subtitle');
+            document.getElementById('voice-subtitle-final').textContent = _liveTranscript;
+            document.getElementById('voice-subtitle-interim').textContent = '';
+            sub.classList.remove('hidden');
+            sub.scrollTop = sub.scrollHeight;
+          } else if (msg.error) {
+            console.warn('[Live] Gemini error:', msg.error);
+            showToast('Live transcription error: ' + msg.error, true);
+          }
+        } catch {}
+      };
+
+      _liveWS.onerror = ev => console.warn('[Live] WS error:', ev);
+      _liveWS.onclose = () => {
+        if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+      };
     }
 
-    const btn = document.getElementById("voice-btn");
-    btn.classList.add("voice-recording");
-    btn.classList.remove("voice-idle");
-    document.getElementById("voice-icon").textContent  = "⏹";
-    document.getElementById("voice-label").textContent = "Tap to stop";
-    const status = document.getElementById("voice-status");
-    status.textContent = "Listening…";
-    status.classList.remove("hidden");
+    const btn = document.getElementById('voice-btn');
+    btn.classList.add('voice-recording');
+    btn.classList.remove('voice-idle');
+    document.getElementById('voice-icon').textContent  = '⏹';
+    document.getElementById('voice-label').textContent = 'Tap to stop';
+    const status = document.getElementById('voice-status');
+    status.textContent = 'Listening…';
+    status.classList.remove('hidden');
   } catch (e) {
-    showToast("Microphone access denied: " + e.message, true);
+    showToast('Microphone access denied: ' + e.message, true);
   }
 }
 
@@ -851,10 +908,19 @@ function stopVoiceRecording() {
   if (_mediaRecorder && _isRecording) {
     _mediaRecorder.stop();
     _isRecording = false;
-    if (_recognition) { try { _recognition.stop(); } catch {} _recognition = null; }
-    document.getElementById("voice-icon").textContent   = "🎤";
-    document.getElementById("voice-label").textContent  = "Processing…";
-    document.getElementById("voice-status").textContent = "Analyzing with AI…";
+
+    // Tear down Gemini Live connection.
+    if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+    if (_audioCtx)       { _audioCtx.close();            _audioCtx       = null; }
+    if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
+      try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
+      _liveWS.close();
+    }
+    _liveWS = null;
+
+    document.getElementById('voice-icon').textContent   = '🎤';
+    document.getElementById('voice-label').textContent  = 'Processing…';
+    document.getElementById('voice-status').textContent = 'Analyzing with AI…';
   }
 }
 
@@ -882,19 +948,24 @@ async function sendVoiceToServer() {
 }
 
 function resetVoiceBtn() {
-  _isRecording  = false;
-  _liveTranscript = '';
-  const btn = document.getElementById("voice-btn");
-  btn.classList.remove("voice-recording");
-  btn.classList.add("voice-idle");
-  document.getElementById("voice-icon").textContent  = "🎤";
-  document.getElementById("voice-label").textContent = "Voice Input";
-  const status = document.getElementById("voice-status");
-  status.classList.add("hidden");
-  status.textContent = "";
-  const sub = document.getElementById("voice-subtitle");
-  sub.classList.add("hidden");
-  sub.innerHTML = "";
+  _isRecording       = false;
+  _liveTranscript    = '';
+  _interimTranscript = '';
+  _liveWS            = null;
+  _audioCtx          = null;
+  _audioProcessor    = null;
+  const btn = document.getElementById('voice-btn');
+  btn.classList.remove('voice-recording');
+  btn.classList.add('voice-idle');
+  document.getElementById('voice-icon').textContent  = '🎤';
+  document.getElementById('voice-label').textContent = 'Voice Input';
+  const status = document.getElementById('voice-status');
+  status.classList.add('hidden');
+  status.textContent = '';
+  const sub = document.getElementById('voice-subtitle');
+  sub.classList.add('hidden');
+  document.getElementById('voice-subtitle-final').textContent = '';
+  document.getElementById('voice-subtitle-interim').textContent = '';
 }
 
 function populateFormFromVoice(data) {
@@ -1523,7 +1594,7 @@ async function loadSettingsView() {
     }
   } catch (e) { console.error("loadSettings:", e); }
 
-  const placesKey   = localStorage.getItem("placesApiKey") || "";
+  const placesKey    = localStorage.getItem("placesApiKey") || "";
   const placesStatus = document.getElementById("s-places-status");
   if (placesStatus) {
     if (placesKey) {
@@ -1531,6 +1602,9 @@ async function loadSettingsView() {
         ? placesKey.slice(0, 6) + "…" + placesKey.slice(-4)
         : "***";
       placesStatus.textContent = `Saved key: ${preview}`;
+      placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
+    } else if (data.places_server_key) {
+      placesStatus.textContent = "Using server-provided Places API key.";
       placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
     } else {
       placesStatus.textContent = "No key saved — location autocomplete will be a plain text field.";

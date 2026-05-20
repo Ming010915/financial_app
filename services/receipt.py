@@ -6,7 +6,7 @@ Depends on classifier for merchant prediction after OCR.
 import json
 from datetime import date
 
-import classifier
+from services import classifier
 from config import GEMINI_MODEL, ASK_BELOW
 
 

@@ -6,7 +6,7 @@ One expense entry per shopping trip/merchant, with individual items listed.
 
 from datetime import date
 
-import classifier
+from services import classifier
 from config import GEMINI_MODEL, ASK_BELOW
 
 
