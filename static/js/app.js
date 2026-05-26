@@ -17,11 +17,22 @@ function getPaymentMethods() {
   return s ? JSON.parse(s) : ["Cash","Debit Card","Credit Card","Mobile Pay","Bank Transfer"];
 }
 function savePaymentMethods(m) { localStorage.setItem('flo_payment_methods', JSON.stringify(m)); }
+function getPaymentEmojis() {
+  const s = localStorage.getItem('flo_payment_emojis');
+  return s ? JSON.parse(s) : {};
+}
+function savePaymentEmojis(e) { localStorage.setItem('flo_payment_emojis', JSON.stringify(e)); }
 function getCustomCurrencies() {
   const s = localStorage.getItem('flo_custom_currencies');
   return s ? JSON.parse(s) : [];
 }
 function saveCustomCurrencies(c) { localStorage.setItem('flo_custom_currencies', JSON.stringify(c)); }
+function getBudget() {
+  const v = localStorage.getItem('flo_budget');
+  return v ? parseFloat(v) : null;
+}
+function saveBudget(amount) { localStorage.setItem('flo_budget', String(amount)); }
+function clearBudget()      { localStorage.removeItem('flo_budget'); }
 
 function generateId() {
   return crypto.randomUUID
@@ -39,6 +50,23 @@ function computeSummary() {
 
   const todayTotal = expenses.filter(e => e.date === today).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
   const monthTotal = expenses.filter(e => (e.date || '').startsWith(thisMonth)).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+
+  // This week (Mon → today)
+  const dow       = new Date().getDay(); // 0=Sun
+  const daysBack  = dow === 0 ? 6 : dow - 1;
+  const weekStart = new Date(Date.now() - daysBack * 86400000).toISOString().split('T')[0];
+  const weekTotal = expenses
+    .filter(e => (e.date || '') >= weekStart && (e.date || '') <= today)
+    .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+
+  // Last calendar month total (for trend badge)
+  const lastMonthDate = new Date();
+  lastMonthDate.setDate(1);
+  lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+  const lastMonthStr   = lastMonthDate.toISOString().slice(0, 7);
+  const lastMonthTotal = expenses
+    .filter(e => (e.date || '').startsWith(lastMonthStr))
+    .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   const catBreakdown = {};
   expenses.filter(e => (e.date || '').startsWith(thisMonth)).forEach(e => {
@@ -63,8 +91,10 @@ function computeSummary() {
     .slice(0, 5);
 
   return {
-    today_total:        Math.round(todayTotal * 100) / 100,
-    month_total:        Math.round(monthTotal * 100) / 100,
+    today_total:       Math.round(todayTotal * 100) / 100,
+    month_total:       Math.round(monthTotal * 100) / 100,
+    week_total:        Math.round(weekTotal * 100) / 100,
+    last_month_total:  Math.round(lastMonthTotal * 100) / 100,
     category_breakdown: Object.fromEntries(
       Object.entries(catBreakdown).map(([k, v]) => [k, Math.round(v * 100) / 100])
     ),
@@ -176,15 +206,22 @@ async function getPosition() {
 function _renderPlaceResults(inputId, resultsId, places, nameKey, addrKey) {
   const resultsEl = document.getElementById(resultsId);
   if (!places?.length) { resultsEl.classList.add('hidden'); return; }
+  const bg      = isDark() ? '#141414' : 'white';
+  const bgHover = isDark() ? '#1e1e1e' : '#f0fdf9';
+  const textCol = isDark() ? '#e0e0e0' : '#1f2937';
+  const subCol  = isDark() ? '#686868' : '#9ca3af';
   resultsEl.innerHTML = places.slice(0, 12).map(place => {
     const addr = place[addrKey] || '';
     const val  = place.name + (addr ? ', ' + addr : '');
     return `
-      <div class="px-3 py-2.5 hover:bg-indigo-50 active:bg-indigo-100 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
+      <div class="px-3 py-2.5 cursor-pointer border-b border-[#e8e9ea] last:border-0 transition-colors"
+           style="background:${bg}"
+           onmouseover="this.style.background='${bgHover}'"
+           onmouseout="this.style.background='${bg}'"
            data-val="${esc(val)}"
            onclick="selectNearbyPlace('${inputId}', '${resultsId}', this)">
-        <div class="text-sm font-medium text-gray-800 truncate">${esc(place.name)}</div>
-        <div class="text-xs text-gray-400 truncate">${esc(addr)}</div>
+        <div class="text-sm font-medium truncate" style="color:${textCol}">${esc(place.name)}</div>
+        <div class="text-xs truncate" style="color:${subCol}">${esc(addr)}</div>
       </div>`;
   }).join('');
 }
@@ -264,9 +301,20 @@ function selectNearbyPlace(inputId, resultsId, el) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function catColor(cat)      { return CAT_COLOR[cat]  || "#64748b"; }
-function catEmoji(cat)      { return CAT_EMOJI[cat]  || "💳"; }
+function catEmoji(cat) {
+  // User overrides always win over built-in defaults
+  const data   = getCentroids();
+  const custom = (data?.custom_category_emojis || {})[cat];
+  if (custom) return custom;
+  return CAT_EMOJI[cat] || "📦";
+}
 function curSym(code)       { return CUR_SYM[(code||"EUR").toUpperCase()] || code || "€"; }
-function paymentIcon(m)     { return PAYMENT_ICONS[m] || "💳"; }
+function paymentIcon(m) {
+  // User overrides always win over built-in defaults
+  const custom = getPaymentEmojis()[m];
+  if (custom) return custom;
+  return PAYMENT_ICONS[m] || "💳";
+}
 function isDark()           { return document.documentElement.classList.contains("dark"); }
 
 function catBg(col) { return col + (isDark() ? "44" : "22"); }
@@ -465,8 +513,63 @@ async function loadHome() {
   await loadRates();
   const data   = computeSummary();
   const defCur = localStorage.getItem("defaultCurrency") || "EUR";
-  document.getElementById("home-today").textContent = fmtAmount(data.today_total, defCur);
+
+  // ── Main amount
   document.getElementById("home-month").textContent = fmtAmount(data.month_total, defCur);
+  document.getElementById("home-today").textContent = fmtAmount(data.today_total, defCur);
+  document.getElementById("home-week").textContent  = fmtAmount(data.week_total,  defCur);
+
+  // ── Trend badge vs last month
+  const trendEl = document.getElementById("home-trend-badge");
+  if (data.last_month_total > 0) {
+    const diff = data.month_total - data.last_month_total;
+    const pct  = Math.round(Math.abs(diff / data.last_month_total) * 100);
+    if (diff <= 0) {
+      trendEl.textContent   = `↘ ${pct}% lower`;
+      trendEl.style.cssText = isDark()
+        ? "background:#0d2e28;color:#6dfad2"
+        : "background:#f0fdf9;color:#006b55";
+    } else {
+      trendEl.textContent   = `↗ ${pct}% higher`;
+      trendEl.style.cssText = isDark()
+        ? "background:#2d1a08;color:#fb923c"
+        : "background:#fff7ed;color:#ea580c";
+    }
+    trendEl.classList.remove("hidden");
+  } else {
+    trendEl.classList.add("hidden");
+  }
+
+  // ── Budget progress
+  const budget         = getBudget();
+  const budgetSection  = document.getElementById("home-budget-section");
+  const homeLeftEl     = document.getElementById("home-left");
+
+  if (budget && budget > 0) {
+    budgetSection.classList.remove("hidden");
+    const spent     = data.month_total;
+    const pct       = Math.min(Math.round((spent / budget) * 100), 100);
+    const remaining = Math.max(budget - spent, 0);
+
+    document.getElementById("home-budget-pct").textContent      = `${pct}% used`;
+    document.getElementById("home-budget-limit").textContent     = `Limit: ${fmtAmount(budget, defCur)}`;
+    document.getElementById("home-budget-remaining").textContent = `${fmtAmount(remaining, defCur)} remaining`;
+    homeLeftEl.textContent                                        = fmtAmount(remaining, defCur);
+
+    // Bar colour: green → orange → red as budget fills up
+    const barEl = document.getElementById("home-budget-bar");
+    const barColour = pct >= 90 ? "#ef4444" : pct >= 75 ? "#f97316" : "#006b55";
+    barEl.style.background = barColour;
+    const accentCol = isDark() ? "#6dfad2" : "#006b55";
+    document.getElementById("home-budget-remaining").style.color = pct >= 90 ? "#ef4444" : accentCol;
+    homeLeftEl.style.color = pct >= 90 ? "#ef4444" : accentCol;
+    setTimeout(() => { barEl.style.width = pct + "%"; }, 80);
+  } else {
+    budgetSection.classList.add("hidden");
+    homeLeftEl.textContent  = "—";
+    homeLeftEl.style.color  = isDark() ? "#6dfad2" : "#006b55";
+  }
+
   data.recent.forEach(e => { state.expenseMap[e.id] = e; });
   renderDailyChart(data.daily_chart);
   renderCategoryBreakdown(data.category_breakdown, data.month_total, defCur);
@@ -483,15 +586,15 @@ function renderDailyChart(data) {
     const pct     = Math.max(Math.round((d.total / maxVal) * 100), d.total > 0 ? 4 : 0);
     const isToday = d.date === today;
     return `<div class="flex-1 flex flex-col justify-end h-full">
-        <div class="w-full rounded-t-md bar-fill ${isToday ? "bg-indigo-500" : "bg-indigo-200"}"
-             style="height:0%" data-h="${pct}%"></div>
+        <div class="w-full rounded-t-md bar-fill"
+             style="height:0%;background:${isToday ? "#006b55" : "#6dfad2"}" data-h="${pct}%"></div>
       </div>`;
   }).join("");
 
   labelsEl.innerHTML = data.map(d => {
     const isToday = d.date === today;
     const day = new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" }).slice(0,2);
-    return `<div class="flex-1 text-center text-[10px] font-semibold ${isToday ? "text-indigo-600" : "text-gray-400"}">${day}</div>`;
+    return `<div class="flex-1 text-center text-[10px] font-semibold" style="color:${isToday ? "#006b55" : "#44474a"}">${day}</div>`;
   }).join("");
 
   setTimeout(() => {
@@ -546,7 +649,7 @@ function miniExpenseCard(exp) {
   const col    = catColor(exp.category);
   const em     = catEmoji(exp.category);
   const badge  = exp.source === "receipt"
-    ? `<span class="text-[9px] bg-blue-100 text-blue-500 px-1 py-0.5 rounded font-semibold ml-1">📷</span>` : "";
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>` : "";
   const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
@@ -620,9 +723,10 @@ function renderPaymentButtons(selected, containerId) {
   el.innerHTML = getPaymentMethods().map(m => {
     const isChosen = m === selected;
     return `<button type="button" onclick="selectPayment('${m}', '${containerId}')"
-      class="cat-chip px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${isChosen
-        ? 'bg-indigo-600 text-white border-indigo-600 selected'
+      class="cat-chip px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all border ${isChosen
+        ? 'text-white selected'
         : 'bg-white text-gray-600 border-gray-200 opacity-60'}"
+      style="${isChosen ? 'background:#006b55;border-color:#006b55' : ''}"
     >${paymentIcon(m)} ${m}</button>`;
   }).join("");
 }
@@ -1161,7 +1265,7 @@ function historyExpenseCard(exp) {
   const col    = catColor(exp.category);
   const em     = catEmoji(exp.category);
   const badge  = exp.source === "receipt"
-    ? `<span class="text-[9px] bg-blue-100 text-blue-500 px-1 py-0.5 rounded font-bold ml-1">📷</span>`
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-bold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>`
     : exp.source === "voice"
     ? `<span class="text-[9px] bg-rose-100 text-rose-500 px-1 py-0.5 rounded font-bold ml-1">🎤</span>`
     : "";
@@ -1347,10 +1451,10 @@ function renderEditItems() {
     <div class="flex items-center gap-2">
       <input type="text" value="${esc(item.name)}" placeholder="Item name"
              oninput="state.editItems[${idx}].name = this.value"
-             class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white min-w-0" />
+             class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white min-w-0" />
       <input type="number" value="${item.price ?? ""}" placeholder="0.00" min="0" step="0.01"
              oninput="state.editItems[${idx}].price = this.value === '' ? null : parseFloat(this.value)"
-             class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white flex-shrink-0" />
+             class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
       <button type="button" onclick="removeEditItem(${idx})"
               class="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 flex-shrink-0 transition-colors text-sm">✕</button>
     </div>`).join("");
@@ -1478,7 +1582,7 @@ function renderPieChart(breakdown, defCur = "EUR") {
         data:            entries.map(([, amt]) => amt),
         backgroundColor: entries.map(([cat]) => catColor(cat)),
         borderWidth:     2,
-        borderColor:     dark ? "#1e293b" : "#ffffff",
+        borderColor:     dark ? "#141414" : "#ffffff",
         hoverOffset:     6,
       }],
     },
@@ -1490,7 +1594,7 @@ function renderPieChart(breakdown, defCur = "EUR") {
           position: "bottom",
           labels: {
             font:            { size: 11 },
-            color:           dark ? "#cbd5e1" : "#374151",
+            color:           dark ? "#b0b0b0" : "#44474a",
             padding:         10,
             usePointStyle:   true,
             pointStyleWidth: 10,
@@ -1526,7 +1630,7 @@ function renderBarChart(dailyData, defCur = "EUR") {
         label:           "Spending",
         data:            dailyData.map(d => d.total),
         backgroundColor: dailyData.map(d =>
-          d.date === today ? "#4f46e5" : (dark ? "#4338ca88" : "#a5b4fc")),
+          d.date === today ? "#006b55" : (dark ? "#6dfad235" : "#6dfad2")),
         borderRadius:    6,
         borderSkipped:   false,
       }],
@@ -1543,12 +1647,12 @@ function renderBarChart(dailyData, defCur = "EUR") {
       scales: {
         x: {
           grid:  { display: false },
-          ticks: { color: dark ? "#64748b" : "#9ca3af", font: { size: 10 } },
+          ticks: { color: dark ? "#686868" : "#44474a", font: { size: 10 } },
         },
         y: {
-          grid:  { color: dark ? "#334155" : "#f3f4f6" },
+          grid:  { color: dark ? "#222222" : "#edeeef" },
           ticks: {
-            color:    dark ? "#64748b" : "#9ca3af",
+            color:    dark ? "#686868" : "#44474a",
             font:     { size: 10 },
             callback: v => curSym(defCur) + v,
           },
@@ -1571,9 +1675,10 @@ function showToast(msg, isError = false) {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 async function loadSettingsView() {
+  let data = {};
   try {
-    const r    = await fetch("/api/settings");
-    const data = await r.json();
+    const r = await fetch("/api/settings");
+    data = await r.json();
     if (data.env_key_set) {
       document.getElementById("s-env-notice").classList.remove("hidden");
     }
@@ -1603,7 +1708,7 @@ async function loadSettingsView() {
         : "***";
       placesStatus.textContent = `Saved key: ${preview}`;
       placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
-    } else if (data.places_server_key) {
+    } else if (data?.places_server_key) {
       placesStatus.textContent = "Using server-provided Places API key.";
       placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
     } else {
@@ -1615,6 +1720,7 @@ async function loadSettingsView() {
   const storedCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("s-currency", storedCurrency);
   renderCustomCurrenciesSettings();
+  _refreshBudgetStatus();
 
   const rateEl  = document.getElementById("s-rates-date");
   const cached  = localStorage.getItem("flo_rates_" + storedCurrency);
@@ -1676,6 +1782,53 @@ function saveCurrency() {
   showToast("Currency saved.");
 }
 
+function saveBudgetLimit() {
+  const val = parseFloat(document.getElementById("s-budget").value);
+  if (!val || val <= 0) { showToast("Enter a valid budget amount", true); return; }
+  saveBudget(val);
+  document.getElementById("s-budget").value = "";
+  _refreshBudgetStatus();
+  showToast("Budget saved!");
+  loadHome();
+}
+
+function clearBudgetLimit() {
+  showConfirm({
+    title:   "Clear monthly budget?",
+    message: "The budget progress bar will be hidden from the home screen.",
+    okLabel: "Clear",
+    okColor: "bg-[#006b55] hover:bg-[#004d3f]",
+    onOk: () => {
+      clearBudget();
+      _refreshBudgetStatus();
+      loadHome();
+      showToast("Budget cleared.");
+    },
+  });
+}
+
+function _refreshBudgetStatus() {
+  const budget    = getBudget();
+  const statusEl  = document.getElementById("s-budget-status");
+  const clearBtn  = document.getElementById("s-budget-clear");
+  const symEl     = document.getElementById("s-budget-sym");
+  const defCur    = localStorage.getItem("defaultCurrency") || "EUR";
+  if (symEl) symEl.textContent = curSym(defCur);
+  if (budget && budget > 0) {
+    if (statusEl) {
+      statusEl.textContent = `Current budget: ${fmtAmount(budget, defCur)} / month`;
+      statusEl.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
+    }
+    clearBtn?.classList.remove("hidden");
+  } else {
+    if (statusEl) {
+      statusEl.textContent = "No budget set — progress bar will be hidden.";
+      statusEl.className   = "text-xs text-[#44474a] mt-1.5";
+    }
+    clearBtn?.classList.add("hidden");
+  }
+}
+
 function loadOverrides() {
   const data    = getCentroids();
   const ovrs    = data?.overrides || {};
@@ -1688,7 +1841,7 @@ function loadOverrides() {
         <div class="flex items-center gap-3 px-4 py-3">
           <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${merchant}</span>
           <select onchange="updateOverride('${merchant.replace(/'/g, "\\'")}', this.value)"
-                  class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]">
             ${allCats.map(c => `<option value="${c}"${c === cat ? " selected" : ""}>${c}</option>`).join("")}
           </select>
           <button onclick="deleteOverride('${merchant.replace(/'/g, "\\'")}')"
@@ -1710,13 +1863,18 @@ function loadCategoriesView() {
   list.innerHTML = all.length
     ? all.map(cat => {
         const isCustom = custom.has(cat) && !model.has(cat);
-        const tag      = isCustom
-          ? `<span class="text-[10px] font-semibold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full">custom</span>`
-          : ``;
+        const emoji    = catEmoji(cat);
+        const tag     = isCustom
+          ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="color:${isDark()?"#6dfad2":"#006b55"};background:${isDark()?"#1e1e1e":"#f0fdf9"}">custom</span>`
+          : `<span class="text-[10px] text-[#c5c6ca]">built-in</span>`;
+        const emojiEl = `<input type="text" value="${esc(emoji)}"
+                    title="Tap to change emoji"
+                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0"
+                    onchange="updateCategoryEmoji('${cat.replace(/'/g, "\\'")}', this.value)" />`;
         return `
           <div class="flex items-center gap-3 px-4 py-3">
-            <span class="text-base">${catEmoji(cat)}</span>
-            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${cat}</span>
+            ${emojiEl}
+            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(cat)}</span>
             ${tag}
             <button onclick="deleteCategory('${cat.replace(/'/g, "\\'")}')"
                     class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>
@@ -1725,8 +1883,22 @@ function loadCategoriesView() {
     : `<div class="px-4 py-6 text-sm text-gray-400 text-center">No categories yet.</div>`;
 }
 
+function updateCategoryEmoji(cat, newEmoji) {
+  const emoji = (newEmoji || "").trim() || "📦";
+  const data  = getCentroids();
+  if (!data) return;
+  data.custom_category_emojis      = data.custom_category_emojis || {};
+  data.custom_category_emojis[cat] = emoji;
+  saveCentroids(data);
+  loadCategoriesIntoButtons();
+  showToast("Emoji updated!");
+}
+
 function addCustomCategory() {
-  const name = document.getElementById("new-category-name").value.trim();
+  const nameInput  = document.getElementById("new-category-name");
+  const emojiInput = document.getElementById("new-category-emoji");
+  const name  = nameInput.value.trim();
+  const emoji = (emojiInput?.value || "").trim() || "📦";
   if (!name) return;
   const data = getCentroids();
   if (!data) { showToast("No model loaded yet.", true); return; }
@@ -1734,11 +1906,14 @@ function addCustomCategory() {
   if (existing.includes(name)) { showToast("Category already exists.", true); return; }
   data.custom_categories = data.custom_categories || [];
   data.custom_categories.push(name);
+  data.custom_category_emojis = data.custom_category_emojis || {};
+  data.custom_category_emojis[name] = emoji;
   saveCentroids(data);
-  document.getElementById("new-category-name").value = "";
+  nameInput.value = "";
+  if (emojiInput) emojiInput.value = "";
   loadCategoriesView();
   loadCategoriesIntoButtons();
-  showToast(`"${name}" added.`);
+  showToast(`"${emoji} ${name}" added.`);
 }
 
 function deleteCategory(name) {
@@ -1750,7 +1925,8 @@ function deleteCategory(name) {
       const data = getCentroids();
       if (!data) return;
       data.custom_categories = (data.custom_categories || []).filter(c => c !== name);
-      if (data.categories?.[name]) delete data.categories[name];
+      if (data.categories?.[name])             delete data.categories[name];
+      if (data.custom_category_emojis?.[name]) delete data.custom_category_emojis[name];
       saveCentroids(data);
       loadCategoriesView();
       loadCategoriesIntoButtons();
@@ -1775,30 +1951,59 @@ function deleteOverride(merchant) {
 }
 
 function loadPaymentMethodsView() {
-  const methods = getPaymentMethods();
-  const list    = document.getElementById("payment-methods-list");
+  const methods  = getPaymentMethods();
+  const builtins = new Set(Object.keys(PAYMENT_ICONS));
+  const list     = document.getElementById("payment-methods-list");
   list.innerHTML = methods.length
-    ? methods.map(m => `
-        <div class="flex items-center gap-3 px-4 py-3">
-          <span class="text-base">${paymentIcon(m)}</span>
-          <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(m)}</span>
-          <button onclick="deletePaymentMethod('${m.replace(/'/g, "\\'")}')"
-                  class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>
-        </div>`).join("")
+    ? methods.map(m => {
+        const isCustom = !builtins.has(m);
+        const emoji    = paymentIcon(m);
+        const tag     = isCustom
+          ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="color:${isDark()?"#6dfad2":"#006b55"};background:${isDark()?"#1e1e1e":"#f0fdf9"}">custom</span>`
+          : `<span class="text-[10px] text-[#c5c6ca]">built-in</span>`;
+        const emojiEl = `<input type="text" value="${esc(emoji)}"
+                    title="Tap to change emoji"
+                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0"
+                    onchange="updatePaymentMethodEmoji('${m.replace(/'/g, "\\'")}', this.value)" />`;
+        return `
+          <div class="flex items-center gap-3 px-4 py-3">
+            ${emojiEl}
+            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(m)}</span>
+            ${tag}
+            <button onclick="deletePaymentMethod('${m.replace(/'/g, "\\'")}')"
+                    class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>
+          </div>`;
+      }).join("")
     : `<div class="px-4 py-6 text-sm text-gray-400 text-center">No payment methods.</div>`;
 }
 
+function updatePaymentMethodEmoji(method, newEmoji) {
+  const emoji  = (newEmoji || "").trim() || "💳";
+  const emojis = getPaymentEmojis();
+  emojis[method] = emoji;
+  savePaymentEmojis(emojis);
+  renderPaymentButtons(state.selectedPayment, "payment-buttons");
+  if (state.editPayment !== undefined) renderPaymentButtons(state.editPayment, "edit-payment-buttons");
+  showToast("Emoji updated!");
+}
+
 function addCustomPaymentMethod() {
-  const input  = document.getElementById("new-payment-method");
-  const name   = (input.value || "").trim();
+  const nameInput  = document.getElementById("new-payment-method");
+  const emojiInput = document.getElementById("new-payment-emoji");
+  const name  = (nameInput.value || "").trim();
+  const emoji = (emojiInput?.value || "").trim() || "💳";
   if (!name) return;
   const methods = getPaymentMethods();
   if (methods.includes(name)) { showToast("Method already exists.", true); return; }
   methods.push(name);
   savePaymentMethods(methods);
-  input.value = "";
+  const emojis = getPaymentEmojis();
+  emojis[name] = emoji;
+  savePaymentEmojis(emojis);
+  nameInput.value = "";
+  if (emojiInput) emojiInput.value = "";
   loadPaymentMethodsView();
-  showToast(`"${name}" added.`);
+  showToast(`"${emoji} ${name}" added.`);
 }
 
 function deletePaymentMethod(method) {
@@ -1809,6 +2014,9 @@ function deletePaymentMethod(method) {
     onOk: () => {
       const methods = getPaymentMethods().filter(m => m !== method);
       savePaymentMethods(methods);
+      const emojis = getPaymentEmojis();
+      delete emojis[method];
+      savePaymentEmojis(emojis);
       loadPaymentMethodsView();
     },
   });

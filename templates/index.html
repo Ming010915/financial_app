@@ -11,215 +11,286 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
-<body class="bg-slate-300">
+<body class="bg-[#d0d5d4] flo-phone-bg">
 
 <!-- ─── Phone wrapper ─────────────────────────────────────────────────────── -->
-<div class="w-full max-w-[430px] mx-auto bg-gray-50 flex flex-col relative"
+<div class="w-full max-w-[430px] mx-auto bg-[#f8f9fa] flex flex-col relative"
      style="height: 100%; max-height: 900px;">
 
-  <!-- Header -->
-  <header class="bg-white px-5 py-3.5 flex items-center justify-between border-b border-gray-100 flex-shrink-0 shadow-sm">
-    <div class="flex items-center gap-2.5">
-      <div class="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-sm select-none">$</div>
-      <span class="text-lg font-bold text-gray-900">Flo</span>
+  <!-- ── Header ────────────────────────────────────────────────────────────── -->
+  <header class="bg-white px-5 py-4 flex items-center justify-between border-b border-[#e8e9ea] flex-shrink-0">
+    <div class="flex items-center gap-3">
+      <!-- Flo brand logo -->
+      <div class="w-9 h-9 bg-[#006b55] rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm">
+        <svg class="w-5 h-5" fill="none" stroke="#6dfad2" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <span class="text-xl font-bold text-[#191c1d] tracking-tight">Flo</span>
     </div>
-    <div id="header-date" class="text-sm text-gray-400 font-medium"></div>
+    <div id="header-date" class="text-sm text-[#44474a] font-medium"></div>
   </header>
 
   <!-- Scrollable main -->
   <main class="flex-1 overflow-y-auto pb-20" id="main-scroll">
 
     <!-- ── HOME VIEW ─────────────────────────────────────────────────────── -->
-    <div id="view-home" class="view active p-4 space-y-4 fade-in">
+    <div id="view-home" class="view active p-4 space-y-3 fade-in">
 
-      <!-- Spending summary cards -->
-      <div class="grid grid-cols-2 gap-3">
-        <div class="bg-indigo-600 rounded-2xl p-4 text-white">
-          <div class="text-xs font-medium opacity-70 mb-1">Today</div>
-          <div id="home-today" class="text-2xl font-bold">—</div>
+      <!-- Greeting -->
+      <div class="pt-1 pb-0.5">
+        <div class="text-lg font-bold text-[#191c1d]">Hi there 👋</div>
+        <div class="text-xs text-[#44474a] mt-0.5">Here's your spending overview</div>
+      </div>
+
+      <!-- ── Budget Card ─────────────────────────────────────────────────── -->
+      <div class="bg-white rounded-3xl p-5 border border-[#e8e9ea] shadow-sm">
+        <!-- Header row -->
+        <div class="flex items-start justify-between mb-2">
+          <div class="text-sm font-semibold text-[#44474a]">Total Spent This Month</div>
+          <div id="home-trend-badge" class="hidden px-3 py-1 rounded-full text-xs font-bold"></div>
         </div>
-        <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-          <div class="text-xs font-medium text-gray-400 mb-1">This Month</div>
-          <div id="home-month" class="text-2xl font-bold text-gray-900">—</div>
+        <!-- Amount -->
+        <div id="home-month" class="text-4xl font-bold text-[#191c1d] mb-4 tracking-tight">—</div>
+
+        <!-- Budget progress (hidden when no budget set) -->
+        <div id="home-budget-section" class="hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-[#191c1d]">Budget Progress</span>
+            <span id="home-budget-pct" class="text-sm font-bold text-[#191c1d]">0% used</span>
+          </div>
+          <div class="h-3 bg-[#edeeef] rounded-full overflow-hidden mb-2.5">
+            <div id="home-budget-bar" class="h-full rounded-full budget-bar-fill" style="width:0%;background:#006b55;transition:width 0.8s cubic-bezier(0.4,0,0.2,1)"></div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span id="home-budget-limit" class="text-xs text-[#44474a]"></span>
+            <span id="home-budget-remaining" class="text-xs font-bold text-[#006b55]"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Three mini stat cards ──────────────────────────────────────── -->
+      <div class="grid grid-cols-3 gap-2.5">
+        <div class="bg-white rounded-2xl p-3.5 border border-[#e8e9ea] shadow-sm">
+          <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1.5">Today</div>
+          <div id="home-today" class="text-lg font-bold text-[#191c1d]">—</div>
+        </div>
+        <div class="bg-white rounded-2xl p-3.5 border border-[#e8e9ea] shadow-sm">
+          <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1.5">This Week</div>
+          <div id="home-week" class="text-lg font-bold text-[#191c1d]">—</div>
+        </div>
+        <div class="bg-white rounded-2xl p-3.5 border border-[#e8e9ea] shadow-sm">
+          <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1.5">Left</div>
+          <div id="home-left" class="text-lg font-bold text-[#006b55]">—</div>
+        </div>
+      </div>
+
+      <!-- Quick capture -->
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-3">Quick Capture</div>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="showView('add')"
+                  class="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-[#f0fdf9] hover:bg-[#d0f5e8] transition-colors active:scale-95">
+            <span class="text-xl">📷</span>
+            <span class="text-[10px] font-bold text-[#006b55]">Receipt</span>
+          </button>
+          <button onclick="showView('add')"
+                  class="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-[#f0fdf9] hover:bg-[#d0f5e8] transition-colors active:scale-95">
+            <span class="text-xl">🎤</span>
+            <span class="text-[10px] font-bold text-[#006b55]">Voice</span>
+          </button>
+          <button onclick="showView('add')"
+                  class="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-[#f0fdf9] hover:bg-[#d0f5e8] transition-colors active:scale-95">
+            <span class="text-xl">✏️</span>
+            <span class="text-[10px] font-bold text-[#006b55]">Manual</span>
+          </button>
         </div>
       </div>
 
       <!-- 7-day bar chart -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">7-Day Spending</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-3">7-Day Spending</div>
         <div id="chart-bars" class="flex items-end gap-1.5 h-20"></div>
         <div id="chart-labels" class="flex gap-1.5 mt-1.5"></div>
       </div>
 
       <!-- Category breakdown -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">This Month by Category</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-3">This Month by Category</div>
         <div id="home-categories" class="space-y-2.5">
-          <div class="text-sm text-gray-300 text-center py-3">No spending this month</div>
+          <div class="text-sm text-[#c5c6ca] text-center py-3">No spending this month</div>
         </div>
       </div>
 
       <!-- Recent expenses -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
         <div class="flex items-center justify-between mb-3">
-          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Recent</div>
-          <button onclick="showView('history')" class="text-xs text-indigo-600 font-semibold">See all →</button>
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Recent</div>
+          <button onclick="showView('history')" class="text-xs text-[#006b55] font-bold">See all →</button>
         </div>
         <div id="home-recent" class="space-y-2">
-          <div class="text-sm text-gray-300 text-center py-3">No expenses yet</div>
+          <div class="text-sm text-[#c5c6ca] text-center py-3">No expenses yet</div>
         </div>
       </div>
     </div>
 
     <!-- ── ADD VIEW ──────────────────────────────────────────────────────── -->
     <div id="view-add" class="view p-4 space-y-4 fade-in">
-      <h2 class="text-xl font-bold text-gray-900">Add Expense</h2>
+      <h2 class="text-xl font-bold text-[#191c1d]">Add Expense</h2>
 
-      <!-- Scan receipt area -->
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <!-- Scan receipt + Voice card -->
+      <div class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm overflow-hidden">
+
+        <!-- Drop zone -->
         <div id="upload-zone" class="p-4">
           <div id="drop-zone"
-               class="border-2 border-dashed border-indigo-200 rounded-xl p-5 text-center cursor-pointer transition-colors hover:bg-indigo-50"
+               class="border-2 border-dashed border-[#6dfad2] rounded-2xl p-5 text-center cursor-pointer transition-colors hover:bg-[#f0fdf9]"
                onclick="triggerFileSelect()"
                ondragover="event.preventDefault(); this.classList.add('drag-over')"
                ondragleave="this.classList.remove('drag-over')"
                ondrop="handleDrop(event)">
             <div class="text-3xl mb-1.5">📷</div>
-            <div class="text-sm font-semibold text-indigo-600">Scan Receipt</div>
-            <div class="text-xs text-gray-400 mt-0.5">Take photo, upload, or drag & drop</div>
+            <div class="text-sm font-bold text-[#006b55]">Scan Receipt</div>
+            <div class="text-xs text-[#44474a] mt-0.5">Take photo, upload, or drag & drop</div>
           </div>
           <input id="receipt-file" type="file" accept="image/*" capture="environment" class="hidden" onchange="onFileSelected(event)" />
         </div>
 
+        <!-- Preview zone -->
         <div id="preview-zone" class="hidden p-4 pt-0">
-          <div class="relative rounded-xl overflow-hidden bg-gray-100">
+          <div class="relative rounded-2xl overflow-hidden bg-[#edeeef]">
             <img id="preview-img" src="" alt="Receipt preview" class="w-full max-h-44 object-cover" />
             <button onclick="clearScan()"
                     class="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full text-white text-sm flex items-center justify-center leading-none">✕</button>
           </div>
           <button id="analyze-btn" onclick="analyzeReceipt()"
-                  class="w-full mt-3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
+                  class="w-full mt-3 py-3 bg-[#006b55] hover:bg-[#004d3f] active:bg-[#003d31] text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-colors">
             <span id="analyze-label">Analyze Receipt</span>
             <span id="analyze-spinner" class="hidden loader"></span>
           </button>
         </div>
 
-        <div id="receipt-banner" class="hidden mx-4 mb-4 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2 flex items-center gap-2">
+        <!-- Receipt scanned banner -->
+        <div id="receipt-banner" class="hidden mx-4 mb-4 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl px-3 py-2 flex items-center gap-2">
           <span>📋</span>
-          <span class="text-sm text-indigo-700 font-medium">Receipt scanned — please confirm the details below</span>
+          <span class="text-sm text-[#006b55] font-medium">Receipt scanned — please confirm the details below</span>
         </div>
 
         <!-- Voice input section -->
-        <div class="border-t border-gray-100 p-4 pb-3">
+        <div class="border-t border-[#e8e9ea] p-4 pb-3">
           <button id="voice-btn" onclick="toggleVoiceRecording()" type="button"
-                  class="voice-idle w-full border-2 border-dashed border-rose-200 rounded-xl p-4 text-center cursor-pointer transition-colors hover:bg-rose-50 flex flex-col items-center gap-1">
+                  class="voice-idle w-full border-2 border-dashed border-[#6dfad2] rounded-2xl p-4 text-center cursor-pointer transition-colors hover:bg-[#f0fdf9] flex flex-col items-center gap-1">
             <span id="voice-icon" class="text-2xl leading-none">🎤</span>
-            <div id="voice-label" class="text-sm font-semibold text-rose-500">Voice Input</div>
-            <div class="text-xs text-gray-400">Tap to describe your expense</div>
+            <div id="voice-label" class="text-sm font-bold text-[#006b55]">Voice Input</div>
+            <div class="text-xs text-[#44474a]">Tap to describe your expense</div>
           </button>
-          <p id="voice-status" class="hidden mt-2 text-center text-xs font-medium text-rose-500"></p>
-          <div id="voice-subtitle" class="hidden mt-2 px-3 py-2 bg-rose-50 border border-rose-100 rounded-xl text-xs text-gray-700 leading-relaxed max-h-28 overflow-y-auto"><span id="voice-subtitle-final"></span><span id="voice-subtitle-interim" class="text-gray-400 italic"></span></div>
+          <p id="voice-status" class="hidden mt-2 text-center text-xs font-medium text-[#006b55]"></p>
+          <div id="voice-subtitle" class="hidden mt-2 px-3 py-2 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl text-xs text-[#191c1d] leading-relaxed max-h-28 overflow-y-auto">
+            <span id="voice-subtitle-final"></span>
+            <span id="voice-subtitle-interim" class="text-[#44474a] italic"></span>
+          </div>
         </div>
 
-        <div id="voice-banner" class="hidden mx-4 mb-4 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 flex items-center gap-2">
+        <!-- Voice processed banner -->
+        <div id="voice-banner" class="hidden mx-4 mb-4 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl px-3 py-2 flex items-center gap-2">
           <span>🎤</span>
-          <span class="text-sm text-rose-700 font-medium flex-1">Voice input processed — confirm details below</span>
-          <button onclick="clearVoice()" type="button" class="text-rose-400 hover:text-rose-600 text-xs font-semibold flex-shrink-0">Redo</button>
+          <span class="text-sm text-[#006b55] font-medium flex-1">Voice input processed — confirm details below</span>
+          <button onclick="clearVoice()" type="button" class="text-[#44474a] hover:text-[#006b55] text-xs font-bold flex-shrink-0">Redo</button>
         </div>
       </div>
 
       <!-- Divider -->
       <div class="flex items-center gap-3">
-        <div class="flex-1 h-px bg-gray-200"></div>
-        <span class="text-xs text-gray-400">or enter manually</span>
-        <div class="flex-1 h-px bg-gray-200"></div>
+        <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+        <span class="text-xs text-[#44474a]">or enter manually</span>
+        <div class="flex-1 h-px bg-[#e8e9ea]"></div>
       </div>
 
       <!-- Expense form -->
       <form onsubmit="event.preventDefault(); saveExpense();" class="space-y-4">
 
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Merchant *</label>
+          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Merchant *</label>
           <input id="f-merchant" type="text" placeholder="e.g. Lidl, McDonald's" autocomplete="off"
-                 class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                 class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] focus:border-transparent bg-white"
                  onblur="autoClassify()" />
         </div>
 
         <div class="grid grid-cols-5 gap-2">
           <div class="col-span-2">
-            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Amount *</label>
+            <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Amount *</label>
             <div class="relative">
-              <span id="f-cur-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-semibold pointer-events-none">€</span>
+              <span id="f-cur-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
               <input id="f-amount" type="number" min="0" step="0.01" placeholder="0.00"
-                     class="w-full pl-7 pr-3 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
+                     class="w-full pl-7 pr-3 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
             </div>
           </div>
           <div class="col-span-1">
-            <label class="block text-sm font-semibold text-gray-700 mb-1.5">CCY</label>
+            <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">CCY</label>
             <select id="f-currency" onchange="updateCurrencySymbol()"
-                    class="w-full px-1 py-3 border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-center"></select>
+                    class="w-full px-1 py-3 border border-[#c5c6ca] rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white text-center"></select>
           </div>
           <div class="col-span-2">
-            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Date</label>
+            <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Date</label>
             <input id="f-date" type="date"
-                   class="w-full px-3 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
+                   class="w-full px-3 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
           </div>
         </div>
 
         <!-- Exchange rate row (shown only when currency ≠ default) -->
         <div id="f-rate-row" style="display:none"
-             class="items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2.5">
-          <span class="text-xs text-gray-500 flex-shrink-0">1 <span id="f-rate-from"></span> =</span>
-          <span id="f-rate-sym" class="text-xs font-semibold text-gray-600 flex-shrink-0"></span>
+             class="items-center gap-2 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl px-3 py-2.5">
+          <span class="text-xs text-[#44474a] flex-shrink-0">1 <span id="f-rate-from"></span> =</span>
+          <span id="f-rate-sym" class="text-xs font-semibold text-[#191c1d] flex-shrink-0"></span>
           <input id="f-rate" type="number" step="any" min="0" placeholder="0.000000"
-                 class="flex-1 min-w-0 px-2 py-1 border border-indigo-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                 class="flex-1 min-w-0 px-2 py-1 border border-[#6dfad2] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
           <span id="f-rate-note" class="text-[10px] text-emerald-500 flex-shrink-0"></span>
         </div>
 
         <div>
           <div class="flex items-center justify-between mb-2">
-            <label class="text-sm font-semibold text-gray-700">Category</label>
-            <span id="cat-confidence" class="text-xs text-gray-400 hidden"></span>
+            <label class="text-sm font-semibold text-[#191c1d]">Category</label>
+            <span id="cat-confidence" class="text-xs text-[#44474a] hidden"></span>
           </div>
           <div id="cat-buttons" class="flex flex-wrap gap-1.5">
-            <div class="text-sm text-gray-300">Loading…</div>
+            <div class="text-sm text-[#c5c6ca]">Loading…</div>
           </div>
         </div>
 
         <div id="items-section" class="hidden">
-          <label class="block text-sm font-semibold text-gray-700 mb-2">Items on Receipt</label>
-          <div id="items-list" class="bg-gray-50 rounded-xl p-3 space-y-1 text-sm text-gray-600 max-h-32 overflow-y-auto"></div>
+          <label class="block text-sm font-semibold text-[#191c1d] mb-2">Items on Receipt</label>
+          <div id="items-list" class="bg-[#f8f9fa] rounded-2xl p-3 space-y-1 text-sm text-[#191c1d] max-h-32 overflow-y-auto"></div>
         </div>
 
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Notes</label>
+          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Notes</label>
           <input id="f-notes" type="text" placeholder="Optional note"
-                 class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
+                 class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
         </div>
 
         <div id="f-location-wrap">
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Location</label>
+          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Location</label>
           <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">📍</span>
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm pointer-events-none">📍</span>
             <input id="f-location" type="text" placeholder="Type or tap Near me…" autocomplete="off"
                    oninput="onLocationInput('f-location', 'f-nearby-results')"
-                   class="w-full pl-9 pr-[5.5rem] py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
+                   class="w-full pl-9 pr-[5.5rem] py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
             <button type="button" onclick="findNearbyPlaces('f-location', 'f-nearby-results', this)"
-                    class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-[#006b55] bg-[#f0fdf9] hover:bg-[#d0f5e8] px-2.5 py-1.5 rounded-xl transition-colors whitespace-nowrap">
               Near me
             </button>
           </div>
           <div id="f-nearby-results"
-               class="hidden mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-52 overflow-y-auto"></div>
+               class="hidden mt-1 bg-white border border-[#c5c6ca] rounded-2xl shadow-lg overflow-hidden max-h-52 overflow-y-auto"></div>
         </div>
 
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Payment Method</label>
+          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Payment Method</label>
           <div id="payment-buttons" class="flex flex-wrap gap-1.5"></div>
         </div>
 
         <button type="submit" id="save-btn"
-                class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-2xl font-bold text-base transition-colors flex items-center justify-center gap-2">
+                class="w-full py-4 bg-[#006b55] hover:bg-[#004d3f] active:bg-[#003d31] text-white rounded-3xl font-bold text-base transition-colors flex items-center justify-center gap-2 shadow-sm">
           <span id="save-label">Add Expense</span>
           <span id="save-spinner" class="hidden loader"></span>
         </button>
@@ -230,42 +301,42 @@
     <div id="view-history" class="view fade-in">
       <div class="p-4 pb-2">
         <div class="flex items-center justify-between">
-          <h2 class="text-xl font-bold text-gray-900">History</h2>
-          <div id="history-total" class="text-sm font-semibold text-gray-500"></div>
+          <h2 class="text-xl font-bold text-[#191c1d]">History</h2>
+          <div id="history-total" class="text-sm font-semibold text-[#44474a]"></div>
         </div>
       </div>
       <div id="history-list" class="p-4 pt-2 space-y-4">
-        <div class="text-center text-gray-300 py-8">No expenses yet</div>
+        <div class="text-center text-[#c5c6ca] py-8">No expenses yet</div>
       </div>
     </div>
 
     <!-- ── SUMMARY VIEW ──────────────────────────────────────────────────── -->
     <div id="view-summary" class="view p-4 space-y-4 fade-in">
-      <h2 class="text-xl font-bold text-gray-900">Summary</h2>
+      <h2 class="text-xl font-bold text-[#191c1d]">Summary</h2>
 
       <!-- Stat cards -->
       <div class="grid grid-cols-2 gap-3">
-        <div class="bg-indigo-600 rounded-2xl p-4 text-white">
+        <div class="bg-[#006b55] rounded-3xl p-4 text-white shadow-sm">
           <div class="text-xs font-medium opacity-70 mb-1">This Month</div>
           <div id="sum-month" class="text-2xl font-bold">—</div>
         </div>
-        <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-          <div class="text-xs font-medium text-gray-400 mb-1">Today</div>
-          <div id="sum-today" class="text-2xl font-bold text-gray-900">—</div>
+        <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+          <div class="text-xs font-medium text-[#44474a] mb-1">Today</div>
+          <div id="sum-today" class="text-2xl font-bold text-[#191c1d]">—</div>
         </div>
       </div>
 
       <!-- Pie / Doughnut chart -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Spending by Category</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-3">Spending by Category</div>
         <div id="pie-wrap" class="flex items-center justify-center" style="height:220px;">
           <canvas id="pie-chart"></canvas>
         </div>
       </div>
 
       <!-- Daily bar/line chart -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Last 7 Days</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-3">Last 7 Days</div>
         <div style="height:160px;">
           <canvas id="line-chart"></canvas>
         </div>
@@ -274,15 +345,15 @@
 
     <!-- ── SETTINGS VIEW ─────────────────────────────────────────────────── -->
     <div id="view-settings" class="view p-4 space-y-4 fade-in">
-      <h2 class="text-xl font-bold text-gray-900">Settings</h2>
+      <h2 class="text-xl font-bold text-[#191c1d]">Settings</h2>
 
       <!-- Appearance -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Appearance</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Appearance</div>
         <div class="flex items-center justify-between">
           <div>
-            <div class="text-sm font-semibold text-gray-700">Dark Mode</div>
-            <p class="text-xs text-gray-400 mt-0.5">Switch to a darker color scheme</p>
+            <div class="text-sm font-semibold text-[#191c1d]">Dark Mode</div>
+            <p class="text-xs text-[#44474a] mt-0.5">Switch to a darker color scheme</p>
           </div>
           <div id="dark-toggle" class="toggle-track" onclick="toggleDarkMode()">
             <div class="toggle-thumb"></div>
@@ -291,100 +362,120 @@
       </div>
 
       <!-- Google AI Studio API Key -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Receipt Scanning</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Receipt Scanning</div>
 
-        <div id="s-env-notice" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-xs text-emerald-700 font-medium">
+        <div id="s-env-notice" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl px-3 py-2 text-xs text-emerald-700 font-medium">
           ✓ API key loaded from environment variable <code>GOOGLE_API_KEY</code>
         </div>
 
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Google AI Studio API Key</label>
+          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Google AI Studio API Key</label>
           <div class="relative">
             <input id="s-api-key" type="password" autocomplete="off" spellcheck="false"
                    placeholder="AIza…"
                    onchange="saveApiKey()"
-                   class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white pr-12" />
+                   class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white pr-12" />
             <button type="button" onclick="toggleApiVis()"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-[#44474a] hover:text-[#191c1d] transition-colors">
               <svg id="eye-show" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               <svg id="eye-hide" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
             </button>
           </div>
-          <div id="s-key-status" class="text-xs text-gray-400 mt-1.5"></div>
-          <p class="text-xs text-gray-400 mt-1">
+          <div id="s-key-status" class="text-xs text-[#44474a] mt-1.5"></div>
+          <p class="text-xs text-[#44474a] mt-1">
             Get a free key at
-            <span class="text-indigo-600 font-medium">aistudio.google.com</span>
+            <span class="text-[#006b55] font-medium">aistudio.google.com</span>
             — used only for scanning receipt images locally.
           </p>
         </div>
       </div>
 
       <!-- Google Maps / Places API Key -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Location Autocomplete</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Location Autocomplete</div>
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Google Maps Platform API Key</label>
+          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Google Maps Platform API Key</label>
           <div class="relative">
             <input id="s-places-key" type="password" autocomplete="off" spellcheck="false"
                    placeholder="AIza…"
                    onchange="savePlacesApiKey()"
-                   class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white pr-12" />
+                   class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white pr-12" />
             <button type="button" onclick="togglePlacesKeyVis()"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-[#44474a] hover:text-[#191c1d] transition-colors">
               <svg id="places-eye-show" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               <svg id="places-eye-hide" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
             </button>
           </div>
-          <div id="s-places-status" class="text-xs text-gray-400 mt-1.5"></div>
-          <p class="text-xs text-gray-400 mt-1">
+          <div id="s-places-status" class="text-xs text-[#44474a] mt-1.5"></div>
+          <p class="text-xs text-[#44474a] mt-1">
             Get a key at
-            <span class="text-indigo-600 font-medium">console.cloud.google.com</span>
+            <span class="text-[#006b55] font-medium">console.cloud.google.com</span>
             with the <em>Places API</em> enabled — used for location autocomplete on expenses.
           </p>
         </div>
       </div>
 
       <!-- Default currency -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Preferences</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Preferences</div>
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Default Currency</label>
+          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Default Currency</label>
           <select id="s-currency" onchange="saveCurrency()"
-                  class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white appearance-none"></select>
-          <div id="s-rates-date" class="text-xs text-gray-400 mt-1.5"></div>
+                  class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-semibold text-[#191c1d] focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white appearance-none"></select>
+          <div id="s-rates-date" class="text-xs text-[#44474a] mt-1.5"></div>
           <div class="mt-3">
-            <div class="text-xs font-semibold text-gray-400 mb-1.5">Custom Currencies</div>
+            <div class="text-xs font-semibold text-[#44474a] mb-1.5">Custom Currencies</div>
             <div class="flex gap-2">
               <input id="s-custom-currency" type="text" placeholder="e.g. THB, MYR" maxlength="5"
-                     class="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                     class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]"
                      oninput="this.value=this.value.toUpperCase()" />
               <button onclick="addCustomCurrency()"
-                      class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors whitespace-nowrap">
+                      class="px-3 py-2 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors whitespace-nowrap">
                 + Add
               </button>
             </div>
             <div id="s-custom-currencies" class="space-y-1 mt-2"></div>
           </div>
+
+          <!-- Monthly budget -->
+          <div class="pt-1">
+            <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Monthly Budget</label>
+            <div class="flex gap-2 items-center">
+              <div class="relative flex-1">
+                <span id="s-budget-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
+                <input id="s-budget" type="number" min="0" step="0.01" placeholder="e.g. 2000"
+                       class="w-full pl-7 pr-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+              </div>
+              <button onclick="saveBudgetLimit()"
+                      class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors whitespace-nowrap">
+                Set
+              </button>
+              <button id="s-budget-clear" onclick="clearBudgetLimit()" class="hidden px-3 py-2.5 border border-[#c5c6ca] text-[#44474a] rounded-2xl text-sm font-semibold hover:bg-[#f8f9fa] transition-colors whitespace-nowrap">
+                Clear
+              </button>
+            </div>
+            <div id="s-budget-status" class="text-xs text-[#44474a] mt-1.5"></div>
+          </div>
         </div>
       </div>
 
       <!-- Export / Import -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Data Backup</div>
-        <p class="text-xs text-gray-400">Download a backup of your expenses or restore from a previous one.</p>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Data Backup</div>
+        <p class="text-xs text-[#44474a]">Download a backup of your expenses or restore from a previous one.</p>
         <div class="grid grid-cols-2 gap-2">
           <button onclick="exportJSON()"
-                  class="py-2.5 border border-gray-200 text-gray-700 rounded-xl font-semibold text-xs hover:bg-gray-50 transition-colors">
+                  class="py-2.5 border border-[#c5c6ca] text-[#191c1d] rounded-2xl font-semibold text-xs hover:bg-[#f8f9fa] transition-colors">
             ↓ Export JSON
           </button>
           <button onclick="exportCSV()"
-                  class="py-2.5 border border-gray-200 text-gray-700 rounded-xl font-semibold text-xs hover:bg-gray-50 transition-colors">
+                  class="py-2.5 border border-[#c5c6ca] text-[#191c1d] rounded-2xl font-semibold text-xs hover:bg-[#f8f9fa] transition-colors">
             ↓ Export CSV
           </button>
         </div>
         <button onclick="triggerImport()"
-                class="w-full py-2.5 border border-indigo-200 text-indigo-600 rounded-xl font-semibold text-xs hover:bg-indigo-50 transition-colors">
+                class="w-full py-2.5 border border-[#6dfad2] text-[#006b55] rounded-2xl font-semibold text-xs hover:bg-[#f0fdf9] transition-colors">
           ↑ Import JSON backup
         </button>
         <input id="import-file" type="file" accept=".json" class="hidden" onchange="onImportFile(event)" />
@@ -392,40 +483,40 @@
 
       <!-- Categories link -->
       <button onclick="showView('categories')"
-              class="w-full bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center justify-between hover:bg-gray-50 transition-colors">
+              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
         <div class="text-left">
-          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Categories</div>
-          <div class="text-sm text-gray-700">Add or remove expense categories</div>
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">Categories</div>
+          <div class="text-sm text-[#191c1d]">Add or remove expense categories</div>
         </div>
-        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
       </button>
 
       <!-- Category Overrides link -->
       <button onclick="showView('overrides')"
-              class="w-full bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center justify-between hover:bg-gray-50 transition-colors">
+              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
         <div class="text-left">
-          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Category Overrides</div>
-          <div class="text-sm text-gray-700">Manage merchant → category rules</div>
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">Category Overrides</div>
+          <div class="text-sm text-[#191c1d]">Manage merchant → category rules</div>
         </div>
-        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
       </button>
 
       <!-- Payment Methods link -->
       <button onclick="showView('payment-methods')"
-              class="w-full bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center justify-between hover:bg-gray-50 transition-colors">
+              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
         <div class="text-left">
-          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Payment Methods</div>
-          <div class="text-sm text-gray-700">Add or remove payment methods</div>
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">Payment Methods</div>
+          <div class="text-sm text-[#191c1d]">Add or remove payment methods</div>
         </div>
-        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
       </button>
 
       <!-- Model -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Category Model</div>
-        <p class="text-xs text-gray-400">Reset the category model back to the server's base model, discarding any personalised learning stored in this browser.</p>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Category Model</div>
+        <p class="text-xs text-[#44474a]">Reset the category model back to the server's base model, discarding any personalised learning stored in this browser.</p>
         <button onclick="resetCentroids()"
-                class="w-full py-2.5 border border-red-200 text-red-600 rounded-xl font-semibold text-xs hover:bg-red-50 transition-colors">
+                class="w-full py-2.5 border border-red-200 text-red-600 rounded-2xl font-semibold text-xs hover:bg-red-50 transition-colors">
           Reset to Base Model
         </button>
       </div>
@@ -436,25 +527,28 @@
     <div id="view-categories" class="view p-4 space-y-4 fade-in">
       <div class="flex items-center gap-3">
         <button onclick="showView('settings')"
-                class="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
+                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </button>
-        <h2 class="text-xl font-bold text-gray-900">Categories</h2>
+        <h2 class="text-xl font-bold text-[#191c1d]">Categories</h2>
       </div>
 
-      <div id="categories-list" class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden"></div>
+      <div id="categories-list" class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm divide-y divide-[#e8e9ea] overflow-hidden"></div>
 
       <!-- Add new -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Add Category</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Add Category</div>
         <div class="flex gap-2">
+          <input id="new-category-emoji" type="text" placeholder="📦"
+                 class="w-12 flex-shrink-0 px-1 py-2.5 border border-[#c5c6ca] rounded-2xl text-xl text-center bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
           <input id="new-category-name" type="text" placeholder="e.g. Gym, Hobbies…"
-                 class="flex-1 min-w-0 px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                 class="flex-1 min-w-0 px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm text-[#191c1d] bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
           <button onclick="addCustomCategory()"
-                  class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors">
+                  class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors">
             Add
           </button>
         </div>
+        <p class="text-xs text-[#44474a]">Tap the emoji box to pick an emoji, then enter a category name.</p>
       </div>
     </div>
 
@@ -462,26 +556,26 @@
     <div id="view-overrides" class="view p-4 space-y-4 fade-in">
       <div class="flex items-center gap-3">
         <button onclick="showView('settings')"
-                class="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
+                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </button>
-        <h2 class="text-xl font-bold text-gray-900">Category Overrides</h2>
+        <h2 class="text-xl font-bold text-[#191c1d]">Category Overrides</h2>
       </div>
 
-      <p class="text-sm text-gray-500">Force a specific category for a merchant, regardless of the AI prediction.</p>
+      <p class="text-sm text-[#44474a]">Force a specific category for a merchant, regardless of the AI prediction.</p>
 
-      <div id="overrides-list" class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden"></div>
+      <div id="overrides-list" class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm divide-y divide-[#e8e9ea] overflow-hidden"></div>
 
       <!-- Add new -->
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Add Override</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Add Override</div>
         <div class="space-y-2">
           <input id="new-override-merchant" type="text" placeholder="Merchant name (e.g. mcdonald's)"
-                 class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                 class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm text-[#191c1d] bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
           <select id="new-override-category"
-                  class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
+                  class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm text-[#191c1d] bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]"></select>
           <button onclick="addOverride()"
-                  class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors">
+                  class="w-full py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors">
             Add Override
           </button>
         </div>
@@ -492,55 +586,58 @@
     <div id="view-payment-methods" class="view p-4 space-y-4 fade-in">
       <div class="flex items-center gap-3">
         <button onclick="showView('settings')"
-                class="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
+                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </button>
-        <h2 class="text-xl font-bold text-gray-900">Payment Methods</h2>
+        <h2 class="text-xl font-bold text-[#191c1d]">Payment Methods</h2>
       </div>
 
-      <div id="payment-methods-list" class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden"></div>
+      <div id="payment-methods-list" class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm divide-y divide-[#e8e9ea] overflow-hidden"></div>
 
-      <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Add Payment Method</div>
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Add Payment Method</div>
         <div class="flex gap-2">
+          <input id="new-payment-emoji" type="text" placeholder="💳"
+                 class="w-12 flex-shrink-0 px-1 py-2.5 border border-[#c5c6ca] rounded-2xl text-xl text-center bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
           <input id="new-payment-method" type="text" placeholder="e.g. PayPal, Cheque…"
-                 class="flex-1 min-w-0 px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                 class="flex-1 min-w-0 px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm text-[#191c1d] bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
           <button onclick="addCustomPaymentMethod()"
-                  class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors">
+                  class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors">
             Add
           </button>
         </div>
+        <p class="text-xs text-[#44474a]">Tap the emoji box to pick an emoji, then enter a payment method name.</p>
       </div>
     </div>
 
   </main><!-- /main -->
 
   <!-- ── Bottom navigation ─────────────────────────────────────────────────── -->
-  <nav class="flex-shrink-0 bg-white border-t border-gray-100 flex items-center px-1 py-1.5 shadow-lg">
+  <nav class="flex-shrink-0 bg-white border-t border-[#e8e9ea] flex items-center px-1 py-1.5 shadow-lg">
 
-    <button id="nav-home" onclick="showView('home')" class="nav-btn active flex-1 flex flex-col items-center gap-0.5 py-1.5 text-gray-400 rounded-xl transition-colors">
+    <button id="nav-home" onclick="showView('home')" class="nav-btn active flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[#44474a] rounded-2xl transition-colors">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/></svg>
       <span class="text-[10px] font-semibold">Home</span>
     </button>
 
-    <button id="nav-history" onclick="showView('history')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 text-gray-400 rounded-xl transition-colors">
+    <button id="nav-history" onclick="showView('history')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[#44474a] rounded-2xl transition-colors">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       <span class="text-[10px] font-semibold">History</span>
     </button>
 
-    <button id="nav-add" onclick="showView('add')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1 text-gray-400 rounded-xl transition-colors">
-      <div class="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg -mt-6 mb-0.5">
+    <button id="nav-add" onclick="showView('add')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1 text-[#44474a] rounded-2xl transition-colors">
+      <div class="w-12 h-12 bg-[#006b55] rounded-full flex items-center justify-center text-white shadow-lg -mt-6 mb-0.5">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
       </div>
       <span class="text-[10px] font-semibold">Add</span>
     </button>
 
-    <button id="nav-summary" onclick="showView('summary')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 text-gray-400 rounded-xl transition-colors">
+    <button id="nav-summary" onclick="showView('summary')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[#44474a] rounded-2xl transition-colors">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
       <span class="text-[10px] font-semibold">Summary</span>
     </button>
 
-    <button id="nav-settings" onclick="showView('settings')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 text-gray-400 rounded-xl transition-colors">
+    <button id="nav-settings" onclick="showView('settings')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[#44474a] rounded-2xl transition-colors">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       <span class="text-[10px] font-semibold">Settings</span>
     </button>
@@ -549,21 +646,21 @@
 </div>
 
 <!-- ── Toast ────────────────────────────────────────────────────────────────── -->
-<div id="toast" class="hidden fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold text-white text-center max-w-xs slide-up pointer-events-none"></div>
+<div id="toast" class="hidden fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-3xl shadow-xl text-sm font-semibold text-white text-center max-w-xs slide-up pointer-events-none"></div>
 
 <!-- ── Confirm Dialog ────────────────────────────────────────────────────────── -->
 <div id="confirm-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center px-6"
      style="background:rgba(0,0,0,0.45)">
-  <div class="bg-white rounded-2xl shadow-xl w-full max-w-xs p-6 space-y-4 fade-in">
-    <div class="text-base font-bold text-gray-900" id="confirm-title"></div>
-    <div class="text-sm text-gray-500" id="confirm-message"></div>
+  <div class="bg-white rounded-3xl shadow-xl w-full max-w-xs p-6 space-y-4 fade-in">
+    <div class="text-base font-bold text-[#191c1d]" id="confirm-title"></div>
+    <div class="text-sm text-[#44474a]" id="confirm-message"></div>
     <div class="grid grid-cols-2 gap-2 pt-1">
       <button onclick="confirmCancel()"
-              class="py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+              class="py-2.5 rounded-2xl border border-[#c5c6ca] text-sm font-semibold text-[#44474a] hover:bg-[#f8f9fa] transition-colors">
         Cancel
       </button>
       <button id="confirm-ok"
-              class="py-2.5 rounded-xl text-sm font-semibold text-white transition-colors">
+              class="py-2.5 rounded-2xl text-sm font-semibold text-white transition-colors">
         Confirm
       </button>
     </div>
@@ -578,7 +675,7 @@
        class="relative w-full max-w-[430px] bg-white rounded-t-3xl z-10 sheet-up overflow-hidden"
        style="max-height:88vh; overflow-y:auto;">
     <div class="flex justify-center pt-3 pb-1 sticky top-0 bg-white z-10">
-      <div class="w-10 h-1 bg-gray-200 rounded-full"></div>
+      <div class="w-10 h-1 bg-[#c5c6ca] rounded-full"></div>
     </div>
     <div class="px-5 pb-6 pt-2">
 
@@ -587,43 +684,43 @@
         <div class="flex items-center justify-between mb-4">
           <div id="det-badge" class="px-3 py-1.5 rounded-full text-white text-xs font-bold"></div>
           <button onclick="closeDetail()"
-                  class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors text-sm font-bold">✕</button>
+                  class="w-7 h-7 rounded-full bg-[#f8f9fa] flex items-center justify-center text-[#44474a] hover:bg-[#e8e9ea] transition-colors text-sm font-bold">✕</button>
         </div>
-        <div id="det-merchant" class="text-2xl font-bold text-gray-900 mb-1"></div>
-        <div id="det-amount" class="text-3xl font-bold text-indigo-600 mb-5"></div>
+        <div id="det-merchant" class="text-2xl font-bold text-[#191c1d] mb-1"></div>
+        <div id="det-amount" class="text-3xl font-bold text-[#006b55] mb-5"></div>
         <div class="space-y-2.5 mb-5">
-          <div class="flex items-center gap-3 text-sm text-gray-600">
+          <div class="flex items-center gap-3 text-sm text-[#44474a]">
             <span class="text-base">📅</span>
             <span id="det-date"></span>
           </div>
-          <div id="det-payment-row" class="hidden flex items-center gap-3 text-sm text-gray-600">
+          <div id="det-payment-row" class="hidden flex items-center gap-3 text-sm text-[#44474a]">
             <span class="text-base" id="det-payment-icon">💳</span>
             <span id="det-payment"></span>
           </div>
-          <div id="det-notes-row" class="hidden flex items-start gap-3 text-sm text-gray-600">
+          <div id="det-notes-row" class="hidden flex items-start gap-3 text-sm text-[#44474a]">
             <span class="text-base mt-0.5">📝</span>
             <span id="det-notes" class="leading-relaxed"></span>
           </div>
-          <div id="det-location-row" class="hidden flex items-start gap-3 text-sm text-gray-600">
+          <div id="det-location-row" class="hidden flex items-start gap-3 text-sm text-[#44474a]">
             <span class="text-base mt-0.5">📍</span>
             <span id="det-location" class="leading-relaxed"></span>
           </div>
-          <div class="flex items-center gap-3 text-sm text-gray-600">
+          <div class="flex items-center gap-3 text-sm text-[#44474a]">
             <span class="text-base" id="det-source-icon">💳</span>
             <span id="det-source"></span>
           </div>
         </div>
         <div id="det-items-section" class="hidden mb-5">
-          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Receipt Items</div>
-          <div id="det-items-list" class="bg-gray-50 rounded-xl p-3 space-y-1 text-sm text-gray-600 max-h-40 overflow-y-auto"></div>
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-2">Receipt Items</div>
+          <div id="det-items-list" class="bg-[#f8f9fa] rounded-2xl p-3 space-y-1 text-sm text-[#191c1d] max-h-40 overflow-y-auto"></div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <button onclick="openEdit()"
-                  class="py-3 border border-indigo-200 text-indigo-600 rounded-xl font-semibold text-sm hover:bg-indigo-50 transition-colors">
+                  class="py-3 border border-[#6dfad2] text-[#006b55] rounded-2xl font-semibold text-sm hover:bg-[#f0fdf9] transition-colors">
             Edit
           </button>
           <button id="det-delete-btn"
-                  class="py-3 border border-red-200 text-red-500 rounded-xl font-semibold text-sm hover:bg-red-50 transition-colors">
+                  class="py-3 border border-red-200 text-red-500 rounded-2xl font-semibold text-sm hover:bg-red-50 transition-colors">
             Delete
           </button>
         </div>
@@ -632,97 +729,97 @@
       <!-- ── EDIT MODE ─────────────────────────────────────────────── -->
       <div id="det-edit-mode" class="hidden">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-base font-bold text-gray-900">Edit Expense</h3>
+          <h3 class="text-base font-bold text-[#191c1d]">Edit Expense</h3>
           <button onclick="cancelEdit()"
-                  class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors text-sm font-bold">✕</button>
+                  class="w-7 h-7 rounded-full bg-[#f8f9fa] flex items-center justify-center text-[#44474a] hover:bg-[#e8e9ea] transition-colors text-sm font-bold">✕</button>
         </div>
         <!-- Merchant -->
         <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Merchant</label>
+          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Merchant</label>
           <input id="edit-merchant" type="text"
-                 class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
+                 class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
         </div>
         <!-- Amount + Currency -->
         <div class="grid grid-cols-3 gap-2 mb-3">
           <div class="col-span-2">
-            <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Amount</label>
+            <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Amount</label>
             <div class="relative">
-              <span id="edit-cur-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-semibold pointer-events-none">€</span>
+              <span id="edit-cur-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
               <input id="edit-amount" type="number" min="0" step="0.01"
-                     class="w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
+                     class="w-full pl-7 pr-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
             </div>
           </div>
           <div>
-            <label class="text-xs font-semibold text-gray-500 mb-1.5 block">CCY</label>
+            <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">CCY</label>
             <select id="edit-currency"
-                    class="w-full px-1 py-2.5 border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-center"
+                    class="w-full px-1 py-2.5 border border-[#c5c6ca] rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white text-center"
                     onchange="updateEditCurrencyRate(this.value)"></select>
           </div>
         </div>
-        <!-- Exchange rate row (shown only when currency ≠ default) -->
+        <!-- Exchange rate row -->
         <div id="edit-rate-row" style="display:none"
-             class="items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2.5 mb-3">
-          <span class="text-xs text-gray-500 flex-shrink-0">1 <span id="edit-rate-from"></span> =</span>
-          <span id="edit-rate-sym" class="text-xs font-semibold text-gray-600 flex-shrink-0"></span>
+             class="items-center gap-2 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl px-3 py-2.5 mb-3">
+          <span class="text-xs text-[#44474a] flex-shrink-0">1 <span id="edit-rate-from"></span> =</span>
+          <span id="edit-rate-sym" class="text-xs font-semibold text-[#191c1d] flex-shrink-0"></span>
           <input id="edit-rate" type="number" step="any" min="0" placeholder="0.000000"
-                 class="flex-1 min-w-0 px-2 py-1 border border-indigo-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                 class="flex-1 min-w-0 px-2 py-1 border border-[#6dfad2] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
           <span id="edit-rate-note" class="text-[10px] text-emerald-500 flex-shrink-0"></span>
         </div>
         <!-- Date -->
         <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Date</label>
+          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Date</label>
           <input id="edit-date" type="date"
-                 class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
+                 class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
         </div>
         <!-- Category -->
         <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Category</label>
+          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Category</label>
           <div id="edit-cat-buttons" class="flex flex-wrap gap-1.5"></div>
         </div>
         <!-- Notes -->
         <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Notes</label>
+          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Notes</label>
           <input id="edit-notes" type="text" placeholder="Optional note"
-                 class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
+                 class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
         </div>
         <!-- Location -->
         <div class="mb-3" id="edit-location-wrap">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Location</label>
+          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Location</label>
           <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">📍</span>
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm pointer-events-none">📍</span>
             <input id="edit-location" type="text" placeholder="Type or tap Near me…" autocomplete="off"
                    oninput="onLocationInput('edit-location', 'edit-nearby-results')"
-                   class="w-full pl-9 pr-[5.5rem] py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
+                   class="w-full pl-9 pr-[5.5rem] py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
             <button type="button" onclick="findNearbyPlaces('edit-location', 'edit-nearby-results', this)"
-                    class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-[#006b55] bg-[#f0fdf9] hover:bg-[#d0f5e8] px-2.5 py-1.5 rounded-xl transition-colors whitespace-nowrap">
               Near me
             </button>
           </div>
           <div id="edit-nearby-results"
-               class="hidden mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-52 overflow-y-auto"></div>
+               class="hidden mt-1 bg-white border border-[#c5c6ca] rounded-2xl shadow-lg overflow-hidden max-h-52 overflow-y-auto"></div>
         </div>
         <!-- Payment Method -->
         <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Payment Method</label>
+          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Payment Method</label>
           <div id="edit-payment-buttons" class="flex flex-wrap gap-1.5"></div>
         </div>
         <!-- Items -->
         <div class="mb-4">
           <div class="flex items-center justify-between mb-2">
-            <label class="text-xs font-semibold text-gray-500">Items</label>
+            <label class="text-xs font-semibold text-[#44474a]">Items</label>
             <button type="button" onclick="addEditItem()"
-                    class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 py-1 px-2 rounded-lg hover:bg-indigo-50 transition-colors">+ Add item</button>
+                    class="text-xs font-bold text-[#006b55] hover:text-[#004d3f] py-1 px-2 rounded-xl hover:bg-[#f0fdf9] transition-colors">+ Add item</button>
           </div>
           <div id="edit-items-list" class="space-y-2"></div>
         </div>
         <!-- Buttons -->
         <div class="grid grid-cols-2 gap-3">
           <button onclick="cancelEdit()"
-                  class="py-3 border border-gray-200 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
+                  class="py-3 border border-[#c5c6ca] text-[#44474a] rounded-2xl font-semibold text-sm hover:bg-[#f8f9fa] transition-colors">
             Cancel
           </button>
           <button onclick="saveEdit()"
-                  class="py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                  class="py-3 bg-[#006b55] text-white rounded-2xl font-semibold text-sm hover:bg-[#004d3f] transition-colors flex items-center justify-center gap-2">
             <span id="edit-save-label">Save Changes</span>
             <span id="edit-save-spinner" class="hidden loader"></span>
           </button>
