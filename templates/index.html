@@ -32,7 +32,7 @@
   </header>
 
   <!-- Scrollable main -->
-  <main class="flex-1 overflow-y-auto pb-20" id="main-scroll">
+  <main class="flex-1 overflow-y-auto" id="main-scroll">
 
     <!-- ── HOME VIEW ─────────────────────────────────────────────────────── -->
     <div id="view-home" class="view active p-4 space-y-3 fade-in">
@@ -89,17 +89,17 @@
       <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
         <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-3">Quick Capture</div>
         <div class="grid grid-cols-3 gap-2">
-          <button onclick="showView('add')"
+          <button onclick="addByReceipt()"
                   class="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-[#f0fdf9] hover:bg-[#d0f5e8] transition-colors active:scale-95">
             <span class="text-xl">📷</span>
             <span class="text-[10px] font-bold text-[#006b55]">Receipt</span>
           </button>
-          <button onclick="showView('add')"
+          <button onclick="addByVoice()"
                   class="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-[#f0fdf9] hover:bg-[#d0f5e8] transition-colors active:scale-95">
             <span class="text-xl">🎤</span>
             <span class="text-[10px] font-bold text-[#006b55]">Voice</span>
           </button>
-          <button onclick="showView('add')"
+          <button onclick="addByManual()"
                   class="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-[#f0fdf9] hover:bg-[#d0f5e8] transition-colors active:scale-95">
             <span class="text-xl">✏️</span>
             <span class="text-[10px] font-bold text-[#006b55]">Manual</span>
@@ -134,76 +134,191 @@
       </div>
     </div>
 
-    <!-- ── ADD VIEW ──────────────────────────────────────────────────────── -->
-    <div id="view-add" class="view p-4 space-y-4 fade-in">
-      <h2 class="text-xl font-bold text-[#191c1d]">Add Expense</h2>
-
-      <!-- Scan receipt + Voice card -->
-      <div class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm overflow-hidden">
-
-        <!-- Drop zone -->
-        <div id="upload-zone" class="p-4">
-          <div id="drop-zone"
-               class="border-2 border-dashed border-[#6dfad2] rounded-2xl p-5 text-center cursor-pointer transition-colors hover:bg-[#f0fdf9]"
-               onclick="triggerFileSelect()"
-               ondragover="event.preventDefault(); this.classList.add('drag-over')"
-               ondragleave="this.classList.remove('drag-over')"
-               ondrop="handleDrop(event)">
-            <div class="text-3xl mb-1.5">📷</div>
-            <div class="text-sm font-bold text-[#006b55]">Scan Receipt</div>
-            <div class="text-xs text-[#44474a] mt-0.5">Take photo, upload, or drag & drop</div>
-          </div>
-          <input id="receipt-file" type="file" accept="image/*" capture="environment" class="hidden" onchange="onFileSelected(event)" />
-        </div>
-
-        <!-- Preview zone -->
-        <div id="preview-zone" class="hidden p-4 pt-0">
-          <div class="relative rounded-2xl overflow-hidden bg-[#edeeef]">
-            <img id="preview-img" src="" alt="Receipt preview" class="w-full max-h-44 object-cover" />
-            <button onclick="clearScan()"
-                    class="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full text-white text-sm flex items-center justify-center leading-none">✕</button>
-          </div>
-          <button id="analyze-btn" onclick="analyzeReceipt()"
-                  class="w-full mt-3 py-3 bg-[#006b55] hover:bg-[#004d3f] active:bg-[#003d31] text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-colors">
-            <span id="analyze-label">Analyze Receipt</span>
-            <span id="analyze-spinner" class="hidden loader"></span>
-          </button>
-        </div>
-
-        <!-- Receipt scanned banner -->
-        <div id="receipt-banner" class="hidden mx-4 mb-4 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl px-3 py-2 flex items-center gap-2">
-          <span>📋</span>
-          <span class="text-sm text-[#006b55] font-medium">Receipt scanned — please confirm the details below</span>
-        </div>
-
-        <!-- Voice input section -->
-        <div class="border-t border-[#e8e9ea] p-4 pb-3">
-          <button id="voice-btn" onclick="toggleVoiceRecording()" type="button"
-                  class="voice-idle w-full border-2 border-dashed border-[#6dfad2] rounded-2xl p-4 text-center cursor-pointer transition-colors hover:bg-[#f0fdf9] flex flex-col items-center gap-1">
-            <span id="voice-icon" class="text-2xl leading-none">🎤</span>
-            <div id="voice-label" class="text-sm font-bold text-[#006b55]">Voice Input</div>
-            <div class="text-xs text-[#44474a]">Tap to describe your expense</div>
-          </button>
-          <p id="voice-status" class="hidden mt-2 text-center text-xs font-medium text-[#006b55]"></p>
-          <div id="voice-subtitle" class="hidden mt-2 px-3 py-2 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl text-xs text-[#191c1d] leading-relaxed max-h-28 overflow-y-auto">
-            <span id="voice-subtitle-final"></span>
-            <span id="voice-subtitle-interim" class="text-[#44474a] italic"></span>
-          </div>
-        </div>
-
-        <!-- Voice processed banner -->
-        <div id="voice-banner" class="hidden mx-4 mb-4 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl px-3 py-2 flex items-center gap-2">
-          <span>🎤</span>
-          <span class="text-sm text-[#006b55] font-medium flex-1">Voice input processed — confirm details below</span>
-          <button onclick="clearVoice()" type="button" class="text-[#44474a] hover:text-[#006b55] text-xs font-bold flex-shrink-0">Redo</button>
-        </div>
+    <!-- ── ADD METHOD VIEW ─────────────────────────────────────────────── -->
+    <div id="view-add-method" class="view p-5 fade-in">
+      <div class="pt-2 pb-5">
+        <h2 class="text-2xl font-bold text-[#191c1d]">Add Expense</h2>
+        <p class="text-sm text-[#44474a] mt-1">How would you like to record your transaction today?</p>
       </div>
 
-      <!-- Divider -->
+      <div class="space-y-3">
+
+        <!-- Scan Receipt -->
+        <button onclick="addByReceipt()"
+                class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center gap-4 hover:bg-[#f8f9fa] active:scale-[0.99] transition-all text-left">
+          <div class="w-12 h-12 bg-[#f0fdf9] rounded-2xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-base font-bold text-[#191c1d]">Scan Receipt</span>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 uppercase tracking-wide leading-none">AI-Powered</span>
+            </div>
+            <span class="text-sm text-[#44474a]">Snap a photo, let Flo do the work</span>
+          </div>
+          <svg class="w-4 h-4 text-[#c5c6ca] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
+        <!-- Voice Log -->
+        <button onclick="addByVoice()"
+                class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center gap-4 hover:bg-[#f8f9fa] active:scale-[0.99] transition-all text-left">
+          <div class="w-12 h-12 bg-[#f0fdf9] rounded-2xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-base font-bold text-[#191c1d]">Voice Log</span>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 uppercase tracking-wide leading-none">AI-Powered</span>
+            </div>
+            <span class="text-sm text-[#44474a]">Say it out loud to record instantly</span>
+          </div>
+          <svg class="w-4 h-4 text-[#c5c6ca] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
+        <!-- Manual Entry -->
+        <button onclick="addByManual()"
+                class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center gap-4 hover:bg-[#f8f9fa] active:scale-[0.99] transition-all text-left">
+          <div class="w-12 h-12 bg-[#f8f9fa] rounded-2xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-[#44474a]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="mb-0.5">
+              <span class="text-base font-bold text-[#191c1d]">Manual Entry</span>
+            </div>
+            <span class="text-sm text-[#44474a]">Quickly enter details yourself</span>
+          </div>
+          <svg class="w-4 h-4 text-[#c5c6ca] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- ── SCAN VIEW ───────────────────────────────────────────────────── -->
+    <div id="view-scan" class="view fade-in">
+
+      <!-- Header -->
+      <div class="px-4 pt-4 pb-2 flex items-center gap-3">
+        <button onclick="cancelScanView()"
+                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <h2 class="text-xl font-bold text-[#191c1d]">Scan Receipt</h2>
+      </div>
+
+      <!-- Hidden file input -->
+      <input id="receipt-file" type="file" accept="image/*" capture="environment"
+             class="hidden" onchange="onFileSelected(event)" />
+
+      <!-- Content -->
+      <div class="flex flex-col items-center px-6 pt-14 pb-10 gap-7 text-center"
+           ondragover="event.preventDefault(); document.getElementById('scan-drop-hint').classList.remove('hidden')"
+           ondragleave="document.getElementById('scan-drop-hint').classList.add('hidden')"
+           ondrop="handleScanDrop(event)">
+
+        <!-- Upload state -->
+        <div id="scan-upload-area" class="flex flex-col items-center gap-6 w-full">
+          <!-- Camera icon -->
+          <div class="w-24 h-24 rounded-full bg-[#f0fdf9] flex items-center justify-center">
+            <svg class="w-10 h-10 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+          </div>
+          <button onclick="triggerFileSelect()"
+                  class="px-8 py-3 bg-[#006b55] hover:bg-[#004d3f] active:bg-[#003d31] text-white rounded-2xl font-bold text-sm transition-colors shadow-sm">
+            Choose File
+          </button>
+          <p class="text-xs text-[#44474a]">or drag &amp; drop an image here</p>
+          <p id="scan-drop-hint" class="hidden text-xs font-semibold text-[#006b55]">Release to upload</p>
+        </div>
+
+        <!-- Preview + analyzing state -->
+        <div id="scan-preview-area" class="hidden w-full flex flex-col items-center gap-4">
+          <div class="relative w-full rounded-2xl overflow-hidden bg-[#edeeef]">
+            <img id="preview-img" src="" alt="Receipt" class="w-full max-h-56 object-cover" />
+            <button onclick="clearScanView()"
+                    class="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full text-white text-sm flex items-center justify-center leading-none">✕</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="scan-spinner-el" class="loader" style="border-color:rgba(0,107,85,0.3);border-top-color:#006b55;"></span>
+            <p id="scan-status" class="text-sm font-medium text-[#006b55]">Analyzing with AI…</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── VOICE VIEW ──────────────────────────────────────────────────── -->
+    <div id="view-voice" class="view fade-in">
+
+      <!-- Header -->
+      <div class="px-4 pt-4 pb-2 flex items-center gap-3">
+        <button onclick="cancelVoiceView()"
+                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <h2 class="text-xl font-bold text-[#191c1d]">Voice Log</h2>
+      </div>
+
+      <!-- Centered content -->
+      <div class="flex flex-col items-center px-6 pt-14 pb-10 gap-7 text-center">
+
+        <!-- Status text -->
+        <p id="voice-status" class="text-sm text-[#44474a]">Tap the mic to start recording</p>
+
+        <!-- Mic button + animated rings -->
+        <div class="relative flex items-center justify-center" style="width:140px;height:140px;">
+          <!-- Outer ring -->
+          <div id="vv-ring-outer" class="hidden absolute inset-0 rounded-full"
+               style="background:rgba(239,68,68,0.12);animation:vvRing 1.6s ease-out infinite;"></div>
+          <!-- Inner ring (offset start) -->
+          <div id="vv-ring-inner" class="hidden absolute rounded-full"
+               style="width:110px;height:110px;background:rgba(239,68,68,0.18);animation:vvRing 1.6s ease-out 0.55s infinite;"></div>
+          <!-- Main button -->
+          <button id="voice-btn" onclick="toggleVoiceRecording()" type="button"
+                  class="voice-idle absolute z-10 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all"
+                  style="width:88px;height:88px;background:#006b55;">
+            <!-- Mic SVG (idle) -->
+            <svg id="vv-mic-icon" class="w-9 h-9" fill="none" stroke="white" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+            </svg>
+            <!-- Stop square (recording) -->
+            <div id="vv-stop-icon" class="hidden w-7 h-7 rounded-lg" style="background:white;"></div>
+          </button>
+        </div>
+
+        <!-- Action hint -->
+        <p id="voice-label" class="text-xs font-bold text-[#44474a] uppercase tracking-widest">Tap to start</p>
+
+        <!-- Live transcript card -->
+        <div id="voice-subtitle"
+             class="hidden w-full bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl p-4 text-left">
+          <div class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider mb-2">Transcript</div>
+          <div class="text-sm text-[#191c1d] leading-relaxed max-h-44 overflow-y-auto">
+            <span id="voice-subtitle-final"></span><span id="voice-subtitle-interim" class="text-[#44474a] italic"></span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── ADD VIEW ──────────────────────────────────────────────────────── -->
+    <div id="view-add" class="view p-4 space-y-4 fade-in">
       <div class="flex items-center gap-3">
-        <div class="flex-1 h-px bg-[#e8e9ea]"></div>
-        <span class="text-xs text-[#44474a]">or enter manually</span>
-        <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+        <button onclick="showView('add-method')"
+                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <h2 class="text-xl font-bold text-[#191c1d]">Add Expense</h2>
       </div>
 
       <!-- Expense form -->
@@ -361,104 +476,45 @@
         </div>
       </div>
 
-      <!-- Google AI Studio API Key -->
-      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Receipt Scanning</div>
-
-        <div id="s-env-notice" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl px-3 py-2 text-xs text-emerald-700 font-medium">
-          ✓ API key loaded from environment variable <code>GOOGLE_API_KEY</code>
+      <!-- API Keys link -->
+      <button onclick="showView('api-keys')"
+              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
+        <div class="text-left">
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">API Keys</div>
+          <div class="text-sm text-[#191c1d]">Manage API keys for scanning &amp; location</div>
         </div>
+        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
 
-        <div>
-          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Google AI Studio API Key</label>
-          <div class="relative">
-            <input id="s-api-key" type="password" autocomplete="off" spellcheck="false"
-                   placeholder="AIza…"
-                   onchange="saveApiKey()"
-                   class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white pr-12" />
-            <button type="button" onclick="toggleApiVis()"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-[#44474a] hover:text-[#191c1d] transition-colors">
-              <svg id="eye-show" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-              <svg id="eye-hide" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
-            </button>
-          </div>
-          <div id="s-key-status" class="text-xs text-[#44474a] mt-1.5"></div>
-          <p class="text-xs text-[#44474a] mt-1">
-            Get a free key at
-            <span class="text-[#006b55] font-medium">aistudio.google.com</span>
-            — used only for scanning receipt images locally.
-          </p>
+      <!-- Preferences link -->
+      <button onclick="showView('preferences')"
+              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
+        <div class="text-left">
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">Preferences</div>
+          <div class="text-sm text-[#191c1d]">Currency, custom currencies &amp; monthly budget</div>
         </div>
-      </div>
+        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
 
-      <!-- Google Maps / Places API Key -->
-      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Location Autocomplete</div>
-        <div>
-          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Google Maps Platform API Key</label>
-          <div class="relative">
-            <input id="s-places-key" type="password" autocomplete="off" spellcheck="false"
-                   placeholder="AIza…"
-                   onchange="savePlacesApiKey()"
-                   class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white pr-12" />
-            <button type="button" onclick="togglePlacesKeyVis()"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-[#44474a] hover:text-[#191c1d] transition-colors">
-              <svg id="places-eye-show" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-              <svg id="places-eye-hide" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
-            </button>
-          </div>
-          <div id="s-places-status" class="text-xs text-[#44474a] mt-1.5"></div>
-          <p class="text-xs text-[#44474a] mt-1">
-            Get a key at
-            <span class="text-[#006b55] font-medium">console.cloud.google.com</span>
-            with the <em>Places API</em> enabled — used for location autocomplete on expenses.
-          </p>
+      <!-- Categories link -->
+      <button onclick="showView('categories')"
+              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
+        <div class="text-left">
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">Categories</div>
+          <div class="text-sm text-[#191c1d]">Manage categories, merchant rules &amp; AI model</div>
         </div>
-      </div>
+        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
 
-      <!-- Default currency -->
-      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Preferences</div>
-        <div>
-          <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Default Currency</label>
-          <select id="s-currency" onchange="saveCurrency()"
-                  class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-semibold text-[#191c1d] focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white appearance-none"></select>
-          <div id="s-rates-date" class="text-xs text-[#44474a] mt-1.5"></div>
-          <div class="mt-3">
-            <div class="text-xs font-semibold text-[#44474a] mb-1.5">Custom Currencies</div>
-            <div class="flex gap-2">
-              <input id="s-custom-currency" type="text" placeholder="e.g. THB, MYR" maxlength="5"
-                     class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]"
-                     oninput="this.value=this.value.toUpperCase()" />
-              <button onclick="addCustomCurrency()"
-                      class="px-3 py-2 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors whitespace-nowrap">
-                + Add
-              </button>
-            </div>
-            <div id="s-custom-currencies" class="space-y-1 mt-2"></div>
-          </div>
-
-          <!-- Monthly budget -->
-          <div class="pt-1">
-            <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Monthly Budget</label>
-            <div class="flex gap-2 items-center">
-              <div class="relative flex-1">
-                <span id="s-budget-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
-                <input id="s-budget" type="number" min="0" step="0.01" placeholder="e.g. 2000"
-                       class="w-full pl-7 pr-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
-              </div>
-              <button onclick="saveBudgetLimit()"
-                      class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors whitespace-nowrap">
-                Set
-              </button>
-              <button id="s-budget-clear" onclick="clearBudgetLimit()" class="hidden px-3 py-2.5 border border-[#c5c6ca] text-[#44474a] rounded-2xl text-sm font-semibold hover:bg-[#f8f9fa] transition-colors whitespace-nowrap">
-                Clear
-              </button>
-            </div>
-            <div id="s-budget-status" class="text-xs text-[#44474a] mt-1.5"></div>
-          </div>
+      <!-- Payment Methods link -->
+      <button onclick="showView('payment-methods')"
+              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
+        <div class="text-left">
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">Payment Methods</div>
+          <div class="text-sm text-[#191c1d]">Add or remove payment methods</div>
         </div>
-      </div>
+        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
 
       <!-- Export / Import -->
       <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
@@ -481,46 +537,114 @@
         <input id="import-file" type="file" accept=".json" class="hidden" onchange="onImportFile(event)" />
       </div>
 
-      <!-- Categories link -->
-      <button onclick="showView('categories')"
-              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
-        <div class="text-left">
-          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">Categories</div>
-          <div class="text-sm text-[#191c1d]">Add or remove expense categories</div>
-        </div>
-        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-      </button>
+    </div>
 
-      <!-- Category Overrides link -->
-      <button onclick="showView('overrides')"
-              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
-        <div class="text-left">
-          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">Category Overrides</div>
-          <div class="text-sm text-[#191c1d]">Manage merchant → category rules</div>
-        </div>
-        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-      </button>
-
-      <!-- Payment Methods link -->
-      <button onclick="showView('payment-methods')"
-              class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center justify-between hover:bg-[#f8f9fa] transition-colors">
-        <div class="text-left">
-          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-0.5">Payment Methods</div>
-          <div class="text-sm text-[#191c1d]">Add or remove payment methods</div>
-        </div>
-        <svg class="w-4 h-4 text-[#44474a] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-      </button>
-
-      <!-- Model -->
-      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
-        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Category Model</div>
-        <p class="text-xs text-[#44474a]">Reset the category model back to the server's base model, discarding any personalised learning stored in this browser.</p>
-        <button onclick="resetCentroids()"
-                class="w-full py-2.5 border border-red-200 text-red-600 rounded-2xl font-semibold text-xs hover:bg-red-50 transition-colors">
-          Reset to Base Model
+    <!-- ── PREFERENCES VIEW ─────────────────────────────────────────────── -->
+    <div id="view-preferences" class="view p-4 space-y-4 fade-in">
+      <div class="flex items-center gap-3">
+        <button onclick="showView('settings')"
+                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </button>
+        <h2 class="text-xl font-bold text-[#191c1d]">Preferences</h2>
       </div>
 
+      <!-- Default Currency -->
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Default Currency</div>
+        <select id="s-currency" onchange="saveCurrency()"
+                class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-semibold text-[#191c1d] focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white appearance-none"></select>
+        <div id="s-rates-date" class="text-xs text-[#44474a]"></div>
+        <div>
+          <div class="text-xs font-semibold text-[#44474a] mb-1.5">Custom Currencies</div>
+          <div class="flex gap-2">
+            <input id="s-custom-currency" type="text" placeholder="e.g. THB, MYR" maxlength="5"
+                   class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]"
+                   oninput="this.value=this.value.toUpperCase()" />
+            <button onclick="addCustomCurrency()"
+                    class="px-3 py-2 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors whitespace-nowrap">
+              + Add
+            </button>
+          </div>
+          <div id="s-custom-currencies" class="space-y-1 mt-2"></div>
+        </div>
+      </div>
+
+      <!-- Monthly Budget -->
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Monthly Budget</div>
+        <div class="flex gap-2 items-center">
+          <div class="relative flex-1">
+            <span id="s-budget-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
+            <input id="s-budget" type="number" min="0" step="0.01" placeholder="e.g. 2000"
+                   class="w-full pl-7 pr-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+          </div>
+          <button onclick="saveBudgetLimit()"
+                  class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors whitespace-nowrap">
+            Set
+          </button>
+          <button id="s-budget-clear" onclick="clearBudgetLimit()" class="hidden px-3 py-2.5 border border-[#c5c6ca] text-[#44474a] rounded-2xl text-sm font-semibold hover:bg-[#f8f9fa] transition-colors whitespace-nowrap">
+            Clear
+          </button>
+        </div>
+        <div id="s-budget-status" class="text-xs text-[#44474a]"></div>
+      </div>
+    </div>
+
+    <!-- ── API KEYS VIEW ────────────────────────────────────────────────── -->
+    <div id="view-api-keys" class="view p-4 space-y-4 fade-in">
+      <div class="flex items-center gap-3">
+        <button onclick="showView('settings')"
+                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <h2 class="text-xl font-bold text-[#191c1d]">API Keys</h2>
+      </div>
+
+      <!-- Google AI Studio -->
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Google AI Studio</div>
+          <span class="text-[10px] text-[#44474a]">Receipt scanning &amp; voice</span>
+        </div>
+        <div id="s-env-notice" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl px-3 py-2 text-xs text-emerald-700 font-medium">
+          ✓ Loaded from <code>GOOGLE_API_KEY</code> env var
+        </div>
+        <div class="relative">
+          <input id="s-api-key" type="password" autocomplete="off" spellcheck="false"
+                 placeholder="AIza…"
+                 onchange="saveApiKey()"
+                 class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white pr-12" />
+          <button type="button" onclick="toggleApiVis()"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-[#44474a] hover:text-[#191c1d] transition-colors">
+            <svg id="eye-show" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <svg id="eye-hide" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+          </button>
+        </div>
+        <div id="s-key-status" class="text-xs text-[#44474a]"></div>
+        <p class="text-xs text-[#44474a]">Free key at <span class="text-[#006b55] font-medium">aistudio.google.com</span></p>
+      </div>
+
+      <!-- Google Maps Platform -->
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Google Maps Platform</div>
+          <span class="text-[10px] text-[#44474a]">Location autocomplete</span>
+        </div>
+        <div class="relative">
+          <input id="s-places-key" type="password" autocomplete="off" spellcheck="false"
+                 placeholder="AIza…"
+                 onchange="savePlacesApiKey()"
+                 class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white pr-12" />
+          <button type="button" onclick="togglePlacesKeyVis()"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-[#44474a] hover:text-[#191c1d] transition-colors">
+            <svg id="places-eye-show" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <svg id="places-eye-hide" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+          </button>
+        </div>
+        <div id="s-places-status" class="text-xs text-[#44474a]"></div>
+        <p class="text-xs text-[#44474a]">Enable <em>Places API</em> at <span class="text-[#006b55] font-medium">console.cloud.google.com</span></p>
+      </div>
     </div>
 
     <!-- ── CATEGORIES VIEW ───────────────────────────────────────────────── -->
@@ -535,7 +659,7 @@
 
       <div id="categories-list" class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm divide-y divide-[#e8e9ea] overflow-hidden"></div>
 
-      <!-- Add new -->
+      <!-- Add new category -->
       <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
         <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Add Category</div>
         <div class="flex gap-2">
@@ -550,23 +674,19 @@
         </div>
         <p class="text-xs text-[#44474a]">Tap the emoji box to pick an emoji, then enter a category name.</p>
       </div>
-    </div>
 
-    <!-- ── OVERRIDES VIEW ─────────────────────────────────────────────────── -->
-    <div id="view-overrides" class="view p-4 space-y-4 fade-in">
-      <div class="flex items-center gap-3">
-        <button onclick="showView('settings')"
-                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-        </button>
-        <h2 class="text-xl font-bold text-[#191c1d]">Category Overrides</h2>
+      <!-- Section divider: Merchant Rules -->
+      <div class="flex items-center gap-3 pt-1">
+        <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+        <span class="text-[10px] font-bold text-[#44474a] uppercase tracking-widest">Merchant Rules</span>
+        <div class="flex-1 h-px bg-[#e8e9ea]"></div>
       </div>
 
-      <p class="text-sm text-[#44474a]">Force a specific category for a merchant, regardless of the AI prediction.</p>
+      <p class="text-sm text-[#44474a] -mt-1">Force a specific category for a merchant, regardless of the AI prediction.</p>
 
       <div id="overrides-list" class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm divide-y divide-[#e8e9ea] overflow-hidden"></div>
 
-      <!-- Add new -->
+      <!-- Add new override -->
       <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
         <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Add Override</div>
         <div class="space-y-2">
@@ -579,6 +699,23 @@
             Add Override
           </button>
         </div>
+      </div>
+
+      <!-- Section divider: AI Model -->
+      <div class="flex items-center gap-3 pt-1">
+        <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+        <span class="text-[10px] font-bold text-[#44474a] uppercase tracking-widest">AI Model</span>
+        <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+      </div>
+
+      <!-- Reset AI model -->
+      <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">AI Category Model</div>
+        <p class="text-xs text-[#44474a]">Reset the model back to the server's base version, discarding any personalised learning stored in this browser.</p>
+        <button onclick="resetCentroids()"
+                class="w-full py-2.5 border border-red-200 text-red-600 rounded-2xl font-semibold text-xs hover:bg-red-50 transition-colors">
+          Reset to Base Model
+        </button>
       </div>
     </div>
 
@@ -625,7 +762,7 @@
       <span class="text-[10px] font-semibold">History</span>
     </button>
 
-    <button id="nav-add" onclick="showView('add')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1 text-[#44474a] rounded-2xl transition-colors">
+    <button id="nav-add" onclick="showView('add-method')" class="nav-btn flex-1 flex flex-col items-center gap-0.5 py-1 text-[#44474a] rounded-2xl transition-colors">
       <div class="w-12 h-12 bg-[#006b55] rounded-full flex items-center justify-center text-white shadow-lg -mt-6 mb-0.5">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
       </div>

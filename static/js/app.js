@@ -494,7 +494,9 @@ function showView(name) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
   document.getElementById("view-" + name).classList.add("active");
-  const navBtn = document.getElementById("nav-" + name);
+  // "add-method", "scan", and "voice" all share the nav-add highlight
+  const navKey = (name === "add-method" || name === "scan" || name === "voice") ? "add" : name;
+  const navBtn = document.getElementById("nav-" + navKey);
   if (navBtn) navBtn.classList.add("active");
   document.getElementById("main-scroll").scrollTop = 0;
 
@@ -503,9 +505,30 @@ function showView(name) {
   if (name === "summary")  loadSummary();
   if (name === "add")      prepareAddForm();
   if (name === "settings")        { loadSettingsView(); syncDarkToggle(); }
-  if (name === "overrides")        loadOverrides();
-  if (name === "categories")       loadCategoriesView();
+  if (name === "preferences")     loadSettingsView();
+  if (name === "api-keys")        loadSettingsView();
+  if (name === "categories")       { loadCategoriesView(); loadOverrides(); }
   if (name === "payment-methods")  loadPaymentMethodsView();
+}
+
+// ── Add method shortcuts ──────────────────────────────────────────────────────
+function addByReceipt() {
+  showView("scan");
+}
+
+function addByVoice() {
+  showView("voice");
+}
+
+function addByManual() {
+  showView("add");
+  setTimeout(() => {
+    const merchant = document.getElementById("f-merchant");
+    if (merchant) {
+      merchant.scrollIntoView({ behavior: "smooth", block: "center" });
+      merchant.focus();
+    }
+  }, 200);
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -767,42 +790,91 @@ function triggerFileSelect() { document.getElementById("receipt-file").click(); 
 
 function onFileSelected(event) {
   const file = event.target.files[0];
-  if (file) handleFile(file);
+  if (file) handleScanFile(file);
 }
 
-function handleDrop(event) {
+function handleScanDrop(event) {
   event.preventDefault();
-  document.getElementById("drop-zone").classList.remove("drag-over");
+  document.getElementById("scan-drop-hint").classList.add("hidden");
   const file = event.dataTransfer.files[0];
-  if (file && file.type.startsWith("image/")) handleFile(file);
+  if (file && file.type.startsWith("image/")) handleScanFile(file);
 }
 
-function handleFile(file) {
+function handleScanFile(file) {
   state.receiptFile = file;
   const reader = new FileReader();
   reader.onload = (e) => {
     document.getElementById("preview-img").src = e.target.result;
-    document.getElementById("upload-zone").classList.add("hidden");
-    document.getElementById("preview-zone").classList.remove("hidden");
+    document.getElementById("scan-upload-area").classList.add("hidden");
+    document.getElementById("scan-preview-area").classList.remove("hidden");
+    analyzeScanReceipt();
   };
   reader.readAsDataURL(file);
 }
 
-function clearScan() {
+// Cancel scan view — go back to method picker
+function cancelScanView() {
+  clearScanView();
+  showView("add-method");
+}
+
+// Reset scan view UI to initial upload state
+function clearScanView() {
   state.receiptFile  = null;
   state.isReceipt    = false;
-  state.isVoice      = false;
   state.receiptItems = [];
-  document.getElementById("receipt-file").value = "";
-  document.getElementById("preview-img").src    = "";
-  document.getElementById("upload-zone").classList.remove("hidden");
-  document.getElementById("preview-zone").classList.add("hidden");
-  document.getElementById("receipt-banner").classList.add("hidden");
-  document.getElementById("voice-banner").classList.add("hidden");
+  const fileInput = document.getElementById("receipt-file");
+  if (fileInput) fileInput.value = "";
+  const img = document.getElementById("preview-img");
+  if (img) img.src = "";
+  document.getElementById("scan-upload-area")?.classList.remove("hidden");
+  document.getElementById("scan-preview-area")?.classList.add("hidden");
+  // Remove any retry button left over from a failed attempt
+  document.querySelector("#scan-preview-area button.scan-retry")?.remove();
+}
+
+// Called after saving or when resetting form state
+function clearScan() {
+  state.isVoice = false;
+  clearScanView();
   document.getElementById("items-section").classList.add("hidden");
   document.getElementById("save-label").textContent = "Add Expense";
   document.getElementById("cat-confidence").classList.add("hidden");
   resetForm();
+}
+
+async function analyzeScanReceipt() {
+  if (!state.receiptFile) return;
+  const statusEl  = document.getElementById("scan-status");
+  const spinnerEl = document.getElementById("scan-spinner-el");
+  if (statusEl)  statusEl.textContent = "Analyzing with AI…";
+  if (spinnerEl) spinnerEl.classList.remove("hidden");
+  // Remove any previous retry button
+  document.querySelector("#scan-preview-area .scan-retry")?.remove();
+
+  try {
+    const formData = new FormData();
+    formData.append("image", state.receiptFile);
+    formData.append("api_key", localStorage.getItem("googleApiKey") || "");
+    const r    = await fetch("/api/scan_receipt", { method: "POST", body: formData });
+    const resp = await r.json();
+    if (!r.ok || resp.error) throw new Error(resp.error || "Unknown error");
+    populateFormFromReceipt(resp.data);
+    showToast("Receipt analyzed successfully!");
+  } catch (e) {
+    showToast("Failed: " + e.message, true);
+    if (statusEl)  statusEl.textContent = "Analysis failed";
+    if (spinnerEl) spinnerEl.classList.add("hidden");
+    // Offer retry inline
+    const area = document.getElementById("scan-preview-area");
+    if (area) {
+      const btn = document.createElement("button");
+      btn.textContent = "Retry Analysis";
+      btn.className   = "scan-retry mt-1 px-5 py-2.5 bg-[#006b55] text-white rounded-2xl text-sm font-bold";
+      btn.onclick     = () => { btn.remove(); analyzeScanReceipt(); };
+      area.appendChild(btn);
+    }
+  }
 }
 
 function resetForm() {
@@ -824,40 +896,15 @@ function resetForm() {
   renderPaymentButtons(null, "payment-buttons");
 }
 
-async function analyzeReceipt() {
-  if (!state.receiptFile) return;
-  const btn     = document.getElementById("analyze-btn");
-  const label   = document.getElementById("analyze-label");
-  const spinner = document.getElementById("analyze-spinner");
-  btn.disabled      = true;
-  label.textContent = "Analyzing…";
-  spinner.classList.remove("hidden");
-  try {
-    const formData = new FormData();
-    formData.append("image", state.receiptFile);
-    formData.append("api_key", localStorage.getItem("googleApiKey") || "");
-    const r    = await fetch("/api/scan_receipt", { method: "POST", body: formData });
-    const resp = await r.json();
-    if (!r.ok || resp.error) throw new Error(resp.error || "Unknown error");
-    populateFormFromReceipt(resp.data);
-    showToast("Receipt analyzed successfully!");
-  } catch (e) {
-    showToast("Failed: " + e.message, true);
-    label.textContent = "Retry Analysis";
-    btn.disabled      = false;
-    spinner.classList.add("hidden");
-    return;
-  }
-  btn.disabled      = true;
-  label.textContent = "Receipt Analyzed ✓";
-  spinner.classList.add("hidden");
-}
-
 function populateFormFromReceipt(data) {
+  // Navigate to add view first (runs prepareAddForm for fresh state)
+  showView("add");
+
   state.isReceipt    = true;
   state.receiptItems = data.items || [];
+
   document.getElementById("f-merchant").value = data.merchant || "";
-  if (data.total != null)  document.getElementById("f-amount").value   = Number(data.total).toFixed(2);
+  if (data.total != null) document.getElementById("f-amount").value = Number(data.total).toFixed(2);
   if (data.currency) {
     const code   = data.currency.toUpperCase();
     const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
@@ -892,19 +939,84 @@ function populateFormFromReceipt(data) {
         <span class="truncate mr-2">${esc(item.name || "")}</span>${price}</div>`;
     }).join("");
   }
-  document.getElementById("receipt-banner").classList.remove("hidden");
   document.getElementById("save-label").textContent = "Confirm & Save";
 }
 
 // ── Voice input ───────────────────────────────────────────────────────────────
-let _mediaRecorder  = null;
-let _audioChunks    = [];
-let _isRecording    = false;
-let _liveWS         = null;
-let _audioCtx       = null;
-let _audioProcessor = null;
-let _liveTranscript = '';
+let _mediaRecorder     = null;
+let _audioChunks       = [];
+let _isRecording       = false;
+let _liveWS            = null;
+let _audioCtx          = null;
+let _audioProcessor    = null;
+let _liveTranscript    = '';
 let _interimTranscript = '';
+let _voiceCancelled    = false;   // set true by cancelVoiceView() to abort server call
+
+// ── Voice view UI helpers ─────────────────────────────────────────────────────
+function _vvSetState(state) {
+  // state: 'idle' | 'recording' | 'processing'
+  const btn      = document.getElementById('voice-btn');
+  const micIcon  = document.getElementById('vv-mic-icon');
+  const stopIcon = document.getElementById('vv-stop-icon');
+  const ringOut  = document.getElementById('vv-ring-outer');
+  const ringIn   = document.getElementById('vv-ring-inner');
+  const label    = document.getElementById('voice-label');
+  const status   = document.getElementById('voice-status');
+
+  if (state === 'recording') {
+    btn?.classList.add('voice-recording');
+    btn?.classList.remove('voice-idle');
+    micIcon?.classList.add('hidden');
+    stopIcon?.classList.remove('hidden');
+    ringOut?.classList.remove('hidden');
+    ringIn?.classList.remove('hidden');
+    if (label)  label.textContent  = 'Tap to stop';
+    if (status) status.textContent = 'Listening…';
+  } else if (state === 'processing') {
+    btn?.classList.remove('voice-recording');
+    btn?.classList.add('voice-idle');
+    micIcon?.classList.remove('hidden');
+    stopIcon?.classList.add('hidden');
+    ringOut?.classList.add('hidden');
+    ringIn?.classList.add('hidden');
+    if (label)  label.textContent  = 'Processing…';
+    if (status) status.textContent = 'Analyzing with AI…';
+  } else { // idle
+    btn?.classList.remove('voice-recording');
+    btn?.classList.add('voice-idle');
+    micIcon?.classList.remove('hidden');
+    stopIcon?.classList.add('hidden');
+    ringOut?.classList.add('hidden');
+    ringIn?.classList.add('hidden');
+    if (label)  label.textContent  = 'Tap to start';
+    if (status) status.textContent = 'Tap the mic to start recording';
+    const sub = document.getElementById('voice-subtitle');
+    if (sub) sub.classList.add('hidden');
+    const fin = document.getElementById('voice-subtitle-final');
+    if (fin) fin.textContent = '';
+    const itr = document.getElementById('voice-subtitle-interim');
+    if (itr) itr.textContent = '';
+  }
+}
+
+// ── Cancel / back from voice view ─────────────────────────────────────────────
+function cancelVoiceView() {
+  if (_isRecording) {
+    _voiceCancelled = true;
+    _isRecording    = false;
+    if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+    if (_audioCtx)       { _audioCtx.close();            _audioCtx       = null; }
+    if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
+      try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
+      _liveWS.close();
+    }
+    _liveWS = null;
+    if (_mediaRecorder && _mediaRecorder.state !== 'inactive') _mediaRecorder.stop();
+  }
+  resetVoiceBtn();
+  showView('add-method');
+}
 
 async function toggleVoiceRecording() {
   if (_isRecording) {
@@ -919,9 +1031,9 @@ async function startVoiceRecording() {
     const apiKey = localStorage.getItem('googleApiKey') || '';
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-    // MediaRecorder captures the audio for server-side expense extraction (unchanged).
-    _audioChunks   = [];
-    _mediaRecorder = new MediaRecorder(stream);
+    _audioChunks    = [];
+    _voiceCancelled = false;
+    _mediaRecorder  = new MediaRecorder(stream);
     _mediaRecorder.ondataavailable = e => { if (e.data.size > 0) _audioChunks.push(e.data); };
     _mediaRecorder.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
@@ -932,77 +1044,57 @@ async function startVoiceRecording() {
     _liveTranscript    = '';
     _interimTranscript = '';
 
-    // AudioContext captures PCM for Gemini Live subtitles.
-    // Create it now so we know the actual sample rate before opening the socket.
+    // AudioContext for Gemini Live PCM stream (live subtitles).
     _audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-    if (_audioCtx.state === 'suspended') {
-      await _audioCtx.resume();
-    }
+    if (_audioCtx.state === 'suspended') await _audioCtx.resume();
     const actualRate = _audioCtx.sampleRate;
 
-    {
-      const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      _liveWS = new WebSocket(`${wsProto}//${location.host}/ws/voice_live`);
-      console.log('[Live] WebSocket opening, apiKey set:', !!apiKey);
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    _liveWS = new WebSocket(`${wsProto}//${location.host}/ws/voice_live`);
 
-      _liveWS.onopen = () => {
-        console.log('[Live] WebSocket connected, sample_rate:', actualRate);
-        // Send init: API key (may be empty; server falls back to its own key) + actual PCM sample rate.
-        _liveWS.send(JSON.stringify({ api_key: apiKey, sample_rate: actualRate }));
-
-        // Wire up the PCM audio graph.
-        const source = _audioCtx.createMediaStreamSource(stream);
-        _audioProcessor = _audioCtx.createScriptProcessor(4096, 1, 1);
-        source.connect(_audioProcessor);
-        _audioProcessor.connect(_audioCtx.destination);
-
-        _audioProcessor.onaudioprocess = ev => {
-          if (!_liveWS || _liveWS.readyState !== WebSocket.OPEN) return;
-          const f32  = ev.inputBuffer.getChannelData(0);
-          const i16  = new Int16Array(f32.length);
-          for (let i = 0; i < f32.length; i++) {
-            i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i] * 32767)));
-          }
-          // Convert to base64.
-          const bytes = new Uint8Array(i16.buffer);
-          let bin = '';
-          for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-          _liveWS.send(JSON.stringify({ type: 'audio', data: btoa(bin) }));
-        };
+    _liveWS.onopen = () => {
+      _liveWS.send(JSON.stringify({ api_key: apiKey, sample_rate: actualRate }));
+      const source = _audioCtx.createMediaStreamSource(stream);
+      _audioProcessor = _audioCtx.createScriptProcessor(4096, 1, 1);
+      source.connect(_audioProcessor);
+      _audioProcessor.connect(_audioCtx.destination);
+      _audioProcessor.onaudioprocess = ev => {
+        if (!_liveWS || _liveWS.readyState !== WebSocket.OPEN) return;
+        const f32  = ev.inputBuffer.getChannelData(0);
+        const i16  = new Int16Array(f32.length);
+        for (let i = 0; i < f32.length; i++)
+          i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i] * 32767)));
+        const bytes = new Uint8Array(i16.buffer);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        _liveWS.send(JSON.stringify({ type: 'audio', data: btoa(bin) }));
       };
+    };
 
-      _liveWS.onmessage = ev => {
-        try {
-          const msg = JSON.parse(ev.data);
-          console.log('[Live] message received:', msg);
-          if (msg.transcript !== undefined) {
-            _liveTranscript = msg.transcript;
-            const sub = document.getElementById('voice-subtitle');
-            document.getElementById('voice-subtitle-final').textContent = _liveTranscript;
-            document.getElementById('voice-subtitle-interim').textContent = '';
-            sub.classList.remove('hidden');
-            sub.scrollTop = sub.scrollHeight;
-          } else if (msg.error) {
-            console.warn('[Live] Gemini error:', msg.error);
-            showToast('Live transcription error: ' + msg.error, true);
-          }
-        } catch {}
-      };
+    _liveWS.onmessage = ev => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.transcript !== undefined) {
+          _liveTranscript = msg.transcript;
+          const sub = document.getElementById('voice-subtitle');
+          const fin = document.getElementById('voice-subtitle-final');
+          const itr = document.getElementById('voice-subtitle-interim');
+          if (fin) fin.textContent = _liveTranscript;
+          if (itr) itr.textContent = '';
+          if (sub) { sub.classList.remove('hidden'); sub.scrollTop = sub.scrollHeight; }
+        } else if (msg.error) {
+          console.warn('[Live] Gemini error:', msg.error);
+          showToast('Live transcription error: ' + msg.error, true);
+        }
+      } catch {}
+    };
 
-      _liveWS.onerror = ev => console.warn('[Live] WS error:', ev);
-      _liveWS.onclose = () => {
-        if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
-      };
-    }
+    _liveWS.onerror = ev => console.warn('[Live] WS error:', ev);
+    _liveWS.onclose = () => {
+      if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+    };
 
-    const btn = document.getElementById('voice-btn');
-    btn.classList.add('voice-recording');
-    btn.classList.remove('voice-idle');
-    document.getElementById('voice-icon').textContent  = '⏹';
-    document.getElementById('voice-label').textContent = 'Tap to stop';
-    const status = document.getElementById('voice-status');
-    status.textContent = 'Listening…';
-    status.classList.remove('hidden');
+    _vvSetState('recording');
   } catch (e) {
     showToast('Microphone access denied: ' + e.message, true);
   }
@@ -1012,8 +1104,6 @@ function stopVoiceRecording() {
   if (_mediaRecorder && _isRecording) {
     _mediaRecorder.stop();
     _isRecording = false;
-
-    // Tear down Gemini Live connection.
     if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
     if (_audioCtx)       { _audioCtx.close();            _audioCtx       = null; }
     if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
@@ -1021,21 +1111,21 @@ function stopVoiceRecording() {
       _liveWS.close();
     }
     _liveWS = null;
-
-    document.getElementById('voice-icon').textContent   = '🎤';
-    document.getElementById('voice-label').textContent  = 'Processing…';
-    document.getElementById('voice-status').textContent = 'Analyzing with AI…';
+    _vvSetState('processing');
   }
 }
 
 async function sendVoiceToServer() {
+  // Cancelled by back button — don't process
+  if (_voiceCancelled) { _voiceCancelled = false; return; }
+
   const blob     = new Blob(_audioChunks, { type: "audio/webm" });
   const formData = new FormData();
   formData.append("audio", blob, "voice.webm");
   formData.append("api_key", localStorage.getItem("googleApiKey") || "");
 
   const btn = document.getElementById("voice-btn");
-  btn.disabled = true;
+  if (btn) btn.disabled = true;
 
   try {
     const r    = await fetch("/api/voice_input", { method: "POST", body: formData });
@@ -1047,7 +1137,7 @@ async function sendVoiceToServer() {
     showToast("Voice failed: " + e.message, true);
     resetVoiceBtn();
   } finally {
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1058,25 +1148,17 @@ function resetVoiceBtn() {
   _liveWS            = null;
   _audioCtx          = null;
   _audioProcessor    = null;
-  const btn = document.getElementById('voice-btn');
-  btn.classList.remove('voice-recording');
-  btn.classList.add('voice-idle');
-  document.getElementById('voice-icon').textContent  = '🎤';
-  document.getElementById('voice-label').textContent = 'Voice Input';
-  const status = document.getElementById('voice-status');
-  status.classList.add('hidden');
-  status.textContent = '';
-  const sub = document.getElementById('voice-subtitle');
-  sub.classList.add('hidden');
-  document.getElementById('voice-subtitle-final').textContent = '';
-  document.getElementById('voice-subtitle-interim').textContent = '';
+  _vvSetState('idle');
 }
 
 function populateFormFromVoice(data) {
+  // Navigate to add view first (runs prepareAddForm for fresh form state)
+  showView('add');
+
   state.isVoice      = true;
   state.isReceipt    = false;
   state.receiptItems = data.items || [];
-  document.getElementById("receipt-banner").classList.add("hidden");
+  state.receiptFile  = null;
 
   document.getElementById("f-merchant").value = data.merchant || "";
   if (data.total != null) document.getElementById("f-amount").value = Number(data.total).toFixed(2);
@@ -1116,18 +1198,17 @@ function populateFormFromVoice(data) {
     }).join("");
   }
 
-  document.getElementById("voice-banner").classList.remove("hidden");
   document.getElementById("save-label").textContent = "Confirm & Save";
   resetVoiceBtn();
 }
 
 function clearVoice() {
   state.isVoice = false;
-  document.getElementById("voice-banner").classList.add("hidden");
   document.getElementById("cat-confidence").classList.add("hidden");
   document.getElementById("save-label").textContent = "Add Expense";
   resetVoiceBtn();
   resetForm();
+  showView('voice');
 }
 
 // ── Save expense ──────────────────────────────────────────────────────────────
