@@ -786,7 +786,8 @@ async function autoClassify() {
 }
 
 // ── Receipt scanning ──────────────────────────────────────────────────────────
-function triggerFileSelect() { document.getElementById("receipt-file").click(); }
+function triggerCamera()     { document.getElementById("receipt-file-camera").click(); }
+function triggerFileSelect() { document.getElementById("receipt-file-gallery").click(); }
 
 function onFileSelected(event) {
   const file = event.target.files[0];
@@ -823,8 +824,9 @@ function clearScanView() {
   state.receiptFile  = null;
   state.isReceipt    = false;
   state.receiptItems = [];
-  const fileInput = document.getElementById("receipt-file");
-  if (fileInput) fileInput.value = "";
+  ["receipt-file-camera", "receipt-file-gallery"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = "";
+  });
   const img = document.getElementById("preview-img");
   if (img) img.src = "";
   document.getElementById("scan-upload-area")?.classList.remove("hidden");

@@ -214,7 +214,9 @@
       </div>
 
       <!-- Hidden file input -->
-      <input id="receipt-file" type="file" accept="image/*" capture="environment"
+      <input id="receipt-file-camera" type="file" accept="image/*" capture="environment"
+             class="hidden" onchange="onFileSelected(event)" />
+      <input id="receipt-file-gallery" type="file" accept="image/*"
              class="hidden" onchange="onFileSelected(event)" />
 
       <!-- Content -->
@@ -226,7 +228,7 @@
         <!-- Upload state -->
         <div id="scan-upload-area" class="flex flex-col items-center gap-6 w-full">
           <!-- Camera icon -->
-          <div class="w-24 h-24 rounded-full bg-[#f0fdf9] flex items-center justify-center">
+          <div onclick="triggerCamera()" class="w-24 h-24 rounded-full bg-[#f0fdf9] flex items-center justify-center cursor-pointer active:scale-95 transition-transform hover:bg-[#d0f5e8]">
             <svg class="w-10 h-10 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
