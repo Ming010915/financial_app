@@ -6,7 +6,7 @@ load_dotenv()
 MODEL_NAME       = "paraphrase-multilingual-mpnet-base-v2"
 SERVER_API_KEY        = os.environ.get("GOOGLE_API_KEY", "")
 SERVER_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "")
-GEMINI_MODEL     = "gemini-2.5-flash"
+GEMINI_MODEL     = "gemini-3.5-flash"
 GEMINI_LIVE_MODEL = "gemini-2.5-flash-native-audio-latest"
 THRESHOLD      = 0.3
 ASK_BELOW      = 0.6

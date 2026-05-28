@@ -44,7 +44,7 @@ def extract_json_from_text(text: str) -> dict:
 
 
 _RECEIPT_PROMPT = (
-    "Analyze this receipt image and extract the information. "
+    "Analyze this receipt (image or PDF document) and extract the information. "
     "Return ONLY a valid JSON object (no markdown, no explanation) with exactly these fields:\n"
     '{"merchant": "store or restaurant name", '
     '"date": "YYYY-MM-DD if visible else null", '
@@ -52,7 +52,7 @@ _RECEIPT_PROMPT = (
     '"currency": "currency code e.g. EUR USD GBP", '
     '"payment_method": "one of: Cash, Debit Card, Credit Card, Mobile Pay, Bank Transfer — or null if not visible", '
     '"items": [{"name": "item name", "price": numeric_or_null}], '
-    '"notes": "any other relevant info or null"}\n'
+    '"location": "address if visible else null"}\n'
     "Use the final total paid (after tax). If a field is unclear use null."
 )
 
@@ -80,7 +80,7 @@ def scan_receipt(image_data: bytes, mime_type: str, api_key: str) -> dict:
     extracted.setdefault("currency",       "EUR")
     extracted.setdefault("payment_method", None)
     extracted.setdefault("items",          [])
-    extracted.setdefault("notes",          "")
+    extracted.setdefault("location",       None)
 
     if not extracted.get("date"):
         extracted["date"] = date.today().isoformat()

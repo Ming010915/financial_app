@@ -114,16 +114,21 @@ def api_scan_receipt():
     if not api_key:
         return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
 
-    if "image" not in request.files:
-        return jsonify({"error": "No image file uploaded"}), 400
+    file = request.files.get("file") or request.files.get("image")
+    if file is None:
+        return jsonify({"error": "No file uploaded"}), 400
 
-    file       = request.files["image"]
-    image_data = file.read()
-    if not image_data:
-        return jsonify({"error": "Empty image file"}), 400
+    file_data = file.read()
+    if not file_data:
+        return jsonify({"error": "Empty file"}), 400
+
+    mime_type = file.content_type or "image/jpeg"
+    allowed = ("image/", "application/pdf")
+    if not any(mime_type.startswith(p) for p in allowed):
+        return jsonify({"error": "Unsupported file type. Please upload an image or PDF."}), 400
 
     try:
-        data = receipt.scan_receipt(image_data, file.content_type or "image/jpeg", api_key)
+        data = receipt.scan_receipt(file_data, mime_type, api_key)
         return jsonify({"success": True, "data": data})
     except Exception as e:
         return jsonify({"error": f"Receipt processing failed: {str(e)}"}), 500

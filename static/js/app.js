@@ -513,6 +513,8 @@ function showView(name) {
 
 // ── Add method shortcuts ──────────────────────────────────────────────────────
 function addByReceipt() {
+  clearScanView();
+  resetForm();
   showView("scan");
 }
 
@@ -798,19 +800,35 @@ function handleScanDrop(event) {
   event.preventDefault();
   document.getElementById("scan-drop-hint").classList.add("hidden");
   const file = event.dataTransfer.files[0];
-  if (file && file.type.startsWith("image/")) handleScanFile(file);
+  if (file && (file.type.startsWith("image/") || file.type === "application/pdf")) handleScanFile(file);
 }
 
 function handleScanFile(file) {
   state.receiptFile = file;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    document.getElementById("preview-img").src = e.target.result;
+  const isPdf = file.type === "application/pdf";
+  const imgEl = document.getElementById("preview-img");
+  const pdfEl = document.getElementById("preview-pdf");
+  const pdfNameEl = document.getElementById("preview-pdf-name");
+
+  if (isPdf) {
+    imgEl.classList.add("hidden");
+    pdfEl.classList.remove("hidden");
+    if (pdfNameEl) pdfNameEl.textContent = file.name;
     document.getElementById("scan-upload-area").classList.add("hidden");
     document.getElementById("scan-preview-area").classList.remove("hidden");
     analyzeScanReceipt();
-  };
-  reader.readAsDataURL(file);
+  } else {
+    pdfEl.classList.add("hidden");
+    imgEl.classList.remove("hidden");
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      imgEl.src = e.target.result;
+      document.getElementById("scan-upload-area").classList.add("hidden");
+      document.getElementById("scan-preview-area").classList.remove("hidden");
+      analyzeScanReceipt();
+    };
+    reader.readAsDataURL(file);
+  }
 }
 
 // Cancel scan view — go back to method picker
@@ -828,7 +846,9 @@ function clearScanView() {
     const el = document.getElementById(id); if (el) el.value = "";
   });
   const img = document.getElementById("preview-img");
-  if (img) img.src = "";
+  if (img) { img.src = ""; img.classList.remove("hidden"); }
+  const pdfEl = document.getElementById("preview-pdf");
+  if (pdfEl) pdfEl.classList.add("hidden");
   document.getElementById("scan-upload-area")?.classList.remove("hidden");
   document.getElementById("scan-preview-area")?.classList.add("hidden");
   // Remove any retry button left over from a failed attempt
@@ -856,7 +876,7 @@ async function analyzeScanReceipt() {
 
   try {
     const formData = new FormData();
-    formData.append("image", state.receiptFile);
+    formData.append("file", state.receiptFile);
     formData.append("api_key", localStorage.getItem("googleApiKey") || "");
     const r    = await fetch("/api/scan_receipt", { method: "POST", body: formData });
     const resp = await r.json();
@@ -915,8 +935,8 @@ function populateFormFromReceipt(data) {
     document.getElementById("f-cur-sym").textContent = curSym(code);
     updateRateRow("f", code, defCur, null);
   }
-  if (data.date)  document.getElementById("f-date").value  = data.date;
-  if (data.notes) document.getElementById("f-notes").value = data.notes;
+  if (data.date)     document.getElementById("f-date").value     = data.date;
+  if (data.location) document.getElementById("f-location").value = data.location;
 
   const pm = data.payment_method && getPaymentMethods().includes(data.payment_method) ? data.payment_method : null;
   state.selectedPayment = pm;
@@ -1173,8 +1193,8 @@ function populateFormFromVoice(data) {
     document.getElementById("f-cur-sym").textContent = curSym(code);
     updateRateRow("f", code, defCur, null);
   }
-  if (data.date)  document.getElementById("f-date").value  = data.date;
-  if (data.notes) document.getElementById("f-notes").value = data.notes;
+  if (data.date)     document.getElementById("f-date").value     = data.date;
+  if (data.location) document.getElementById("f-location").value = data.location;
 
   const pm = data.payment_method && getPaymentMethods().includes(data.payment_method) ? data.payment_method : null;
   state.selectedPayment = pm;
