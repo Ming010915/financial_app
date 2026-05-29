@@ -1,0 +1,51 @@
+<!-- ── PREFERENCES VIEW ─────────────────────────────────────────────── -->
+<div id="view-preferences" class="view p-4 space-y-4 fade-in">
+  <div class="flex items-center gap-3">
+    <button onclick="showView('settings')"
+            class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-[#191c1d]">Preferences</h2>
+  </div>
+
+  <!-- Default Currency -->
+  <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+    <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Default Currency</div>
+    <select id="s-currency" onchange="saveCurrency()"
+            class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm font-semibold text-[#191c1d] focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white appearance-none"></select>
+    <div id="s-rates-date" class="text-xs text-[#44474a]"></div>
+    <div>
+      <div class="text-xs font-semibold text-[#44474a] mb-1.5">Custom Currencies</div>
+      <div class="flex gap-2">
+        <input id="s-custom-currency" type="text" placeholder="e.g. THB, MYR" maxlength="5"
+               class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]"
+               oninput="this.value=this.value.toUpperCase()" />
+        <button onclick="addCustomCurrency()"
+                class="px-3 py-2 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors whitespace-nowrap">
+          + Add
+        </button>
+      </div>
+      <div id="s-custom-currencies" class="space-y-1 mt-2"></div>
+    </div>
+  </div>
+
+  <!-- Monthly Budget -->
+  <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+    <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Monthly Budget</div>
+    <div class="flex gap-2 items-center">
+      <div class="relative flex-1">
+        <span id="s-budget-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
+        <input id="s-budget" type="number" min="0" step="0.01" placeholder="e.g. 2000"
+               class="w-full pl-7 pr-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+      </div>
+      <button onclick="saveBudgetLimit()"
+              class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors whitespace-nowrap">
+        Set
+      </button>
+      <button id="s-budget-clear" onclick="clearBudgetLimit()" class="hidden px-3 py-2.5 border border-[#c5c6ca] text-[#44474a] rounded-2xl text-sm font-semibold hover:bg-[#f8f9fa] transition-colors whitespace-nowrap">
+        Clear
+      </button>
+    </div>
+    <div id="s-budget-status" class="text-xs text-[#44474a]"></div>
+  </div>
+</div>

@@ -1,0 +1,66 @@
+<!-- ── ADD METHOD VIEW ─────────────────────────────────────────────── -->
+<div id="view-add-method" class="view p-5 fade-in">
+  <div class="pt-2 pb-5">
+    <h2 class="text-2xl font-bold text-[#191c1d]">Add Expense</h2>
+    <p class="text-sm text-[#44474a] mt-1">How would you like to record your transaction today?</p>
+  </div>
+
+  <div class="space-y-3">
+
+    <!-- Scan Receipt -->
+    <button onclick="addByReceipt()"
+            class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center gap-4 hover:bg-[#f8f9fa] active:scale-[0.99] transition-all text-left">
+      <div class="w-12 h-12 bg-[#f0fdf9] rounded-2xl flex items-center justify-center flex-shrink-0">
+        <svg class="w-6 h-6 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-0.5">
+          <span class="text-base font-bold text-[#191c1d]">Scan Receipt</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 uppercase tracking-wide leading-none">AI-Powered</span>
+        </div>
+        <span class="text-sm text-[#44474a]">Snap a photo, let Flo do the work</span>
+      </div>
+      <svg class="w-4 h-4 text-[#c5c6ca] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </button>
+
+    <!-- Voice Log -->
+    <button onclick="addByVoice()"
+            class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center gap-4 hover:bg-[#f8f9fa] active:scale-[0.99] transition-all text-left">
+      <div class="w-12 h-12 bg-[#f0fdf9] rounded-2xl flex items-center justify-center flex-shrink-0">
+        <svg class="w-6 h-6 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-0.5">
+          <span class="text-base font-bold text-[#191c1d]">Voice Log</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 uppercase tracking-wide leading-none">AI-Powered</span>
+        </div>
+        <span class="text-sm text-[#44474a]">Say it out loud to record instantly</span>
+      </div>
+      <svg class="w-4 h-4 text-[#c5c6ca] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </button>
+
+    <!-- Manual Entry -->
+    <button onclick="addByManual()"
+            class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center gap-4 hover:bg-[#f8f9fa] active:scale-[0.99] transition-all text-left">
+      <div class="w-12 h-12 bg-[#f8f9fa] rounded-2xl flex items-center justify-center flex-shrink-0">
+        <svg class="w-6 h-6 text-[#44474a]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="mb-0.5">
+          <span class="text-base font-bold text-[#191c1d]">Manual Entry</span>
+        </div>
+        <span class="text-sm text-[#44474a]">Quickly enter details yourself</span>
+      </div>
+      <svg class="w-4 h-4 text-[#c5c6ca] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </button>
+
+  </div>
+</div>

@@ -1,0 +1,80 @@
+<!-- ── SCAN VIEW ───────────────────────────────────────────────────── -->
+<div id="view-scan" class="view fade-in">
+
+  <!-- Header -->
+  <div class="px-4 pt-4 pb-2 flex items-center gap-3">
+    <button onclick="cancelScanView()"
+            class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-[#191c1d]">Scan Receipt</h2>
+  </div>
+
+  <!-- Hidden file inputs -->
+  <input id="receipt-file-camera" type="file" accept="image/*" capture="environment"
+         class="hidden" onchange="onFileSelected(event)" />
+  <input id="receipt-file-gallery" type="file" accept="image/*,application/pdf"
+         class="hidden" onchange="onFileSelected(event)" />
+
+  <!-- Content -->
+  <div class="flex flex-col items-center px-6 pt-14 pb-10 gap-7 text-center"
+       ondragover="event.preventDefault(); document.getElementById('scan-drop-hint').classList.remove('hidden')"
+       ondragleave="document.getElementById('scan-drop-hint').classList.add('hidden')"
+       ondrop="handleScanDrop(event)">
+
+    <!-- Upload state -->
+    <div id="scan-upload-area" class="flex flex-col items-center gap-6 w-full">
+      <!-- Camera icon -->
+      <div onclick="triggerCamera()" class="w-24 h-24 rounded-full bg-[#f0fdf9] flex items-center justify-center cursor-pointer active:scale-95 transition-transform hover:bg-[#d0f5e8]">
+        <svg class="w-10 h-10 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </div>
+      <button onclick="triggerFileSelect()"
+              class="px-8 py-3 bg-[#006b55] hover:bg-[#004d3f] active:bg-[#003d31] text-white rounded-2xl font-bold text-sm transition-colors shadow-sm">
+        Choose File
+      </button>
+      <p class="text-xs text-[#44474a]">or drag &amp; drop an image or PDF here</p>
+      <p id="scan-drop-hint" class="hidden text-xs font-semibold text-[#006b55]">Release to upload</p>
+    </div>
+
+    <!-- Preview + confirm / analyzing state -->
+    <div id="scan-preview-area" class="hidden w-full flex flex-col items-center gap-4">
+      <!-- File preview thumbnail -->
+      <div class="relative w-full rounded-2xl overflow-hidden bg-[#edeeef]">
+        <img id="preview-img" src="" alt="Receipt" class="w-full max-h-56 object-cover" />
+        <!-- PDF preview (shown instead of img for PDF uploads) -->
+        <div id="preview-pdf" class="hidden w-full py-10 flex flex-col items-center gap-2">
+          <svg class="w-14 h-14 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21H5a2 2 0 01-2-2V5a2 2 0 012-2h10l4 4v12a2 2 0 01-2 2h-2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-5h1.5a1.5 1.5 0 010 3H9m4 2v-5h2m-2 2.5h1.5M17 17v-5"/>
+          </svg>
+          <p id="preview-pdf-name" class="text-xs text-[#44474a] font-medium truncate max-w-xs"></p>
+        </div>
+        <button onclick="clearScanView()"
+                class="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full text-white text-sm flex items-center justify-center leading-none">✕</button>
+      </div>
+
+      <!-- Confirm buttons (shown before analysis) -->
+      <div id="scan-confirm-area" class="w-full flex flex-col items-center gap-3">
+        <button onclick="confirmAndAnalyze()"
+                class="w-full py-3.5 bg-[#006b55] hover:bg-[#004d3f] active:bg-[#003d31] text-white rounded-2xl font-bold text-sm transition-colors shadow-sm flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Analyze Receipt
+        </button>
+        <button onclick="clearScanView()"
+                class="text-xs font-semibold text-[#44474a] hover:text-[#191c1d] transition-colors py-1">
+          Choose a different file
+        </button>
+      </div>
+
+      <!-- Analyzing state (shown after confirm) -->
+      <div id="scan-analyzing-area" class="hidden flex items-center gap-2">
+        <span id="scan-spinner-el" class="loader" style="border-color:rgba(0,107,85,0.3);border-top-color:#006b55;"></span>
+        <p id="scan-status" class="text-sm font-medium text-[#006b55]">Analyzing with AI…</p>
+      </div>
+    </div>
+
+  </div>
+</div>

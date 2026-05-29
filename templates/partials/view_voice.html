@@ -1,0 +1,81 @@
+<!-- ── VOICE VIEW ──────────────────────────────────────────────────── -->
+<div id="view-voice" class="view fade-in">
+
+  <!-- Header -->
+  <div class="px-4 pt-4 pb-2 flex items-center gap-3">
+    <button onclick="cancelVoiceView()"
+            class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-[#191c1d]">Voice Log</h2>
+  </div>
+
+  <!-- Centered content -->
+  <div class="flex flex-col items-center px-6 pt-14 pb-10 gap-7 text-center">
+
+    <!-- Status text -->
+    <p id="voice-status" class="text-sm text-[#44474a]">Tap the mic to start recording</p>
+
+    <!-- Mic button + animated rings -->
+    <div id="vv-mic-wrap" class="relative flex items-center justify-center" style="width:140px;height:140px;">
+      <!-- Outer ring -->
+      <div id="vv-ring-outer" class="hidden absolute inset-0 rounded-full"
+           style="background:rgba(239,68,68,0.12);animation:vvRing 1.6s ease-out infinite;"></div>
+      <!-- Inner ring (offset start) -->
+      <div id="vv-ring-inner" class="hidden absolute rounded-full"
+           style="width:110px;height:110px;background:rgba(239,68,68,0.18);animation:vvRing 1.6s ease-out 0.55s infinite;"></div>
+      <!-- Main button -->
+      <button id="voice-btn" onclick="toggleVoiceRecording()" type="button"
+              class="voice-idle absolute z-10 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all"
+              style="width:88px;height:88px;background:#006b55;">
+        <!-- Mic SVG (idle) -->
+        <svg id="vv-mic-icon" class="w-9 h-9" fill="none" stroke="white" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+        </svg>
+        <!-- Stop square (recording) -->
+        <div id="vv-stop-icon" class="hidden w-7 h-7 rounded-lg" style="background:white;"></div>
+      </button>
+    </div>
+
+    <!-- Action hint -->
+    <p id="voice-label" class="text-xs font-bold text-[#44474a] uppercase tracking-widest">Tap to start</p>
+
+    <!-- Live transcript card -->
+    <div id="voice-subtitle"
+         class="hidden w-full bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl p-4 text-left">
+      <div class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider mb-2">Transcript</div>
+      <div class="text-sm text-[#191c1d] leading-relaxed max-h-44 overflow-y-auto">
+        <span id="voice-subtitle-final"></span><span id="voice-subtitle-interim" class="text-[#44474a] italic"></span>
+      </div>
+    </div>
+
+    <!-- Transcript confirmation (shown after recording, before extraction) -->
+    <div id="voice-confirm" class="hidden w-full text-left space-y-3">
+      <div class="bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider">Summary · tap to edit</div>
+          <button type="button" id="vc-regen" onclick="loadVoiceSummary()"
+                  class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider disabled:opacity-40">Regenerate</button>
+        </div>
+        <textarea id="vc-summary" rows="3"
+                  class="w-full bg-transparent text-sm text-[#191c1d] leading-relaxed resize-none focus:outline-none"></textarea>
+      </div>
+      <div id="vc-original-wrap" class="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider">Heard</div>
+          <button type="button" onclick="revertVoiceCorrection()"
+                  class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider">Reset to this</button>
+        </div>
+        <div id="vc-original" class="text-sm text-[#44474a] leading-relaxed"></div>
+      </div>
+      <div class="flex gap-3 pt-1">
+        <button type="button" onclick="confirmVoiceTranscript(false)"
+                class="flex-1 py-3 rounded-xl border border-gray-300 text-sm font-bold text-[#44474a] active:scale-95 transition">Use original</button>
+        <button type="button" onclick="confirmVoiceTranscript(true)"
+                class="flex-1 py-3 rounded-xl text-sm font-bold text-white active:scale-95 transition" style="background:#006b55;">Use summary</button>
+      </div>
+    </div>
+
+  </div>
+</div>

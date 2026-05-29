@@ -1,0 +1,32 @@
+<!-- ── SUMMARY VIEW ──────────────────────────────────────────────────── -->
+<div id="view-summary" class="view p-4 space-y-4 fade-in">
+  <h2 class="text-xl font-bold text-[#191c1d]">Summary</h2>
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-2 gap-3">
+    <div class="bg-[#006b55] rounded-3xl p-4 text-white shadow-sm">
+      <div class="text-xs font-medium opacity-70 mb-1">This Month</div>
+      <div id="sum-month" class="text-2xl font-bold">—</div>
+    </div>
+    <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+      <div class="text-xs font-medium text-[#44474a] mb-1">Today</div>
+      <div id="sum-today" class="text-2xl font-bold text-[#191c1d]">—</div>
+    </div>
+  </div>
+
+  <!-- Pie / Doughnut chart -->
+  <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+    <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-3">Spending by Category</div>
+    <div id="pie-wrap" class="flex items-center justify-center" style="height:220px;">
+      <canvas id="pie-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Daily bar/line chart -->
+  <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+    <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-3">Last 7 Days</div>
+    <div style="height:160px;">
+      <canvas id="line-chart"></canvas>
+    </div>
+  </div>
+</div>
