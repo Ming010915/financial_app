@@ -1208,15 +1208,14 @@ async function finalizeVoiceTranscript() {
   _voiceOriginal = original;
   _voiceSummary  = original;
 
-  // Reveal the confirmation card straight away with the raw transcript visible,
-  // then summarise in the background.
-  document.getElementById('vc-original').textContent = original;
+  // Hide mic UI and show a loading state while waiting for the summary API call.
   document.getElementById('voice-subtitle')?.classList.add('hidden');
   document.getElementById('vv-mic-wrap')?.classList.add('hidden');
   document.getElementById('voice-label')?.classList.add('hidden');
-  document.getElementById('voice-confirm')?.classList.remove('hidden');
+  const status = document.getElementById('voice-status');
+  if (status) status.textContent = 'Summarizing what you said…';
 
-  loadVoiceSummary();
+  await loadVoiceSummary();
 }
 
 // Fetch (or re-fetch) the summary for the current transcript and fill the box.
@@ -1232,7 +1231,7 @@ async function loadVoiceSummary() {
   const status  = document.getElementById('voice-status');
 
   box.value       = '';
-  box.placeholder = 'Summarizing…';
+  box.placeholder = '';
   origWrap.classList.add('hidden');
   if (regen)  regen.disabled = true;
   if (status) status.textContent = 'Summarizing what you said…';
@@ -1251,20 +1250,23 @@ async function loadVoiceSummary() {
     _voiceSummary = summary;
     box.value     = summary;
     const same = summary === original;
+    document.getElementById('vc-original').textContent = original;
     origWrap.classList.toggle('hidden', same);
+    document.getElementById('voice-confirm')?.classList.remove('hidden');
     if (status) status.textContent = same
       ? 'Does this look right? Edit it if needed.'
-      : 'Here’s a summary — edit it, or keep what was heard.';
+      : 'Here\'s a summary — edit it, or keep what was heard.';
   } catch (e) {
     // Couldn't summarise (e.g. model overloaded) — show the raw transcript and
     // be clear that it isn't a summary, with Regenerate available.
     _voiceSummary = original;
     box.value     = original;
     origWrap.classList.add('hidden');
+    document.getElementById('vc-original').textContent = original;
+    document.getElementById('voice-confirm')?.classList.remove('hidden');
     if (status) status.textContent =
-      'Couldn’t summarize (model busy). Showing what you said — edit it, or tap Regenerate.';
+      'Couldn\'t summarize (model busy). Showing what you said — edit it, or tap Regenerate.';
   } finally {
-    box.placeholder = '';
     if (regen) regen.disabled = false;
   }
 }
