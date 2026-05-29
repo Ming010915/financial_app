@@ -40,12 +40,14 @@ body { font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: n
   50%       { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
 }
 
-/* ── Scan + Voice views ─────────────────────────────────────────────────────── */
+/* ── Scan + Voice + Verify views ────────────────────────────────────────────── */
 #view-scan.active,
-#view-voice.active {
+#view-voice.active,
+#view-verify.active {
   display: flex !important;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 
 /* Ring expansion animation */

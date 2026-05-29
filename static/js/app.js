@@ -150,8 +150,9 @@ const state = {
   selectedPayment:  null,
   isReceipt:        false,
   isVoice:          false,
-  receiptFile:      null,
-  receiptItems:     [],
+  receiptFile:         null,
+  receiptItems:        [],
+  pendingReceiptData:  null,
   expenseMap:       {},   // id → full expense object
   currentEditId:    null,
   editCategory:     null,
@@ -494,11 +495,13 @@ function showView(name) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
   document.getElementById("view-" + name).classList.add("active");
-  // "add-method", "scan", and "voice" all share the nav-add highlight
-  const navKey = (name === "add-method" || name === "scan" || name === "voice") ? "add" : name;
+  // "add-method", "scan", "voice", and "verify" all share the nav-add highlight
+  const navKey = (name === "add-method" || name === "scan" || name === "voice" || name === "verify") ? "add" : name;
   const navBtn = document.getElementById("nav-" + navKey);
   if (navBtn) navBtn.classList.add("active");
   document.getElementById("main-scroll").scrollTop = 0;
+  const appHeader = document.querySelector("header");
+  if (appHeader) appHeader.style.display = name === "verify" ? "none" : "";
 
   if (name === "home")     loadHome();
   if (name === "history")  {
@@ -911,8 +914,7 @@ async function analyzeScanReceipt() {
     });
     // User cancelled while the request was in flight — ignore the late response.
     if (abort.signal.aborted) return;
-    populateFormFromReceipt(resp.data);
-    showToast("Receipt analyzed successfully!");
+    showVerifyView(resp.data);
   } catch (e) {
     // Cancelled request — silently ignore, the user has already moved on.
     if (e.name === "AbortError" || abort.signal.aborted) return;
@@ -931,7 +933,49 @@ async function analyzeScanReceipt() {
   }
 }
 
+let _receiptRefBlobUrl = null;
+
+function showReceiptRef(file) {
+  const strip = document.getElementById("receipt-ref-strip");
+  if (!strip) return;
+  if (_receiptRefBlobUrl) { URL.revokeObjectURL(_receiptRefBlobUrl); _receiptRefBlobUrl = null; }
+  const isPdf = file.type === "application/pdf";
+  const imgEl = document.getElementById("receipt-ref-img");
+  const pdfEl = document.getElementById("receipt-ref-pdf");
+  const pdfName = document.getElementById("receipt-ref-pdf-name");
+  if (isPdf) {
+    imgEl.classList.add("hidden");
+    pdfEl.classList.remove("hidden");
+    if (pdfName) pdfName.textContent = file.name;
+  } else {
+    _receiptRefBlobUrl = URL.createObjectURL(file);
+    imgEl.src = _receiptRefBlobUrl;
+    imgEl.classList.remove("hidden");
+    pdfEl.classList.add("hidden");
+  }
+  document.getElementById("receipt-ref-panel").classList.add("hidden");
+  document.getElementById("receipt-ref-chevron").style.transform = "";
+  strip.classList.remove("hidden");
+}
+
+function hideReceiptRef() {
+  const strip = document.getElementById("receipt-ref-strip");
+  if (strip) strip.classList.add("hidden");
+  if (_receiptRefBlobUrl) { URL.revokeObjectURL(_receiptRefBlobUrl); _receiptRefBlobUrl = null; }
+  const imgEl = document.getElementById("receipt-ref-img");
+  if (imgEl) imgEl.src = "";
+}
+
+function toggleReceiptRef() {
+  const panel = document.getElementById("receipt-ref-panel");
+  const chevron = document.getElementById("receipt-ref-chevron");
+  const open = !panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", open);
+  chevron.style.transform = open ? "" : "rotate(180deg)";
+}
+
 function resetForm() {
+  hideReceiptRef();
   const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   document.getElementById("f-merchant").value      = "";
   document.getElementById("f-amount").value        = "";
@@ -950,12 +994,162 @@ function resetForm() {
   renderPaymentButtons(null, "payment-buttons");
 }
 
+// ── Receipt verify view ───────────────────────────────────────────────────────
+let _verifyBlobUrl = null;
+let _verifyZoomed  = false;
+
+function showVerifyView(data) {
+  state.pendingReceiptData = JSON.parse(JSON.stringify(data)); // deep copy so edits don't mutate original
+
+  const imgEl  = document.getElementById("verify-img");
+  const pdfEl  = document.getElementById("verify-pdf");
+  const zoomBtn = document.getElementById("verify-zoom-btn");
+
+  const panel = document.getElementById("verify-img-panel");
+
+  if (state.receiptFile) {
+    if (_verifyBlobUrl) { URL.revokeObjectURL(_verifyBlobUrl); }
+    _verifyBlobUrl = URL.createObjectURL(state.receiptFile);
+
+    if (state.receiptFile.type === "application/pdf") {
+      imgEl.classList.add("hidden");
+      pdfEl.classList.remove("hidden");
+      if (zoomBtn) zoomBtn.classList.add("hidden");
+      panel.style.height = "55%";
+      renderPdfPages(state.receiptFile);
+    } else {
+      imgEl.src = _verifyBlobUrl;
+      imgEl.classList.remove("hidden");
+      pdfEl.classList.add("hidden");
+      if (zoomBtn) zoomBtn.classList.remove("hidden");
+      panel.style.height = "42%";
+    }
+  }
+
+  _verifyZoomed = false;
+  imgEl.style.width = "100%";
+  document.getElementById("verify-zoom-icon-in").classList.remove("hidden");
+  document.getElementById("verify-zoom-icon-out").classList.add("hidden");
+  panel.scrollTop = 0;
+  panel.scrollLeft = 0;
+
+  document.getElementById("v-merchant").value = data.merchant || "";
+  if (data.total != null) document.getElementById("v-total").value = Number(data.total).toFixed(2);
+  else document.getElementById("v-total").value = "";
+  const code = data.currency ? data.currency.toUpperCase() : (localStorage.getItem("defaultCurrency") || "EUR");
+  populateCurrencySelect("v-currency", code);
+  document.getElementById("v-date").value = data.date || new Date().toISOString().split("T")[0];
+
+  renderVerifyItems();
+  showView("verify");
+}
+
+function renderVerifyItems() {
+  const items = state.pendingReceiptData?.items || [];
+  const countEl = document.getElementById("v-items-count");
+  if (countEl) countEl.textContent = items.length > 0 ? `(${items.length})` : "";
+  document.getElementById("v-items-list").innerHTML = items.map((item, i) => `
+    <div class="flex items-center gap-2">
+      <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
+             oninput="state.pendingReceiptData.items[${i}].name = this.value"
+             class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01" min="0"
+             oninput="state.pendingReceiptData.items[${i}].price = this.value === '' ? null : parseFloat(this.value)"
+             class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <button type="button" onclick="removeVerifyItem(${i})"
+              class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`).join("");
+}
+
+function addVerifyItem() {
+  if (!state.pendingReceiptData) return;
+  state.pendingReceiptData.items = state.pendingReceiptData.items || [];
+  state.pendingReceiptData.items.push({ name: "", price: null });
+  renderVerifyItems();
+  const rows = document.querySelectorAll("#v-items-list > div");
+  if (rows.length) rows[rows.length - 1].querySelector("input[type=text]")?.focus();
+}
+
+function removeVerifyItem(idx) {
+  if (!state.pendingReceiptData?.items) return;
+  state.pendingReceiptData.items.splice(idx, 1);
+  renderVerifyItems();
+}
+
+function toggleVerifyZoom() {
+  _verifyZoomed = !_verifyZoomed;
+  const imgEl = document.getElementById("verify-img");
+  if (imgEl) imgEl.style.width = _verifyZoomed ? "200%" : "100%";
+  const panel = document.getElementById("verify-img-panel");
+  if (!_verifyZoomed && panel) { panel.scrollLeft = 0; }
+  document.getElementById("verify-zoom-icon-in").classList.toggle("hidden", _verifyZoomed);
+  document.getElementById("verify-zoom-icon-out").classList.toggle("hidden", !_verifyZoomed);
+}
+
+async function renderPdfPages(file) {
+  const wrap = document.getElementById("verify-pdf-canvas-wrap");
+  if (!wrap) return;
+  wrap.innerHTML = '<p class="text-xs text-center text-[#44474a] py-4">Loading PDF…</p>';
+  try {
+    if (typeof pdfjsLib === "undefined") throw new Error("PDF.js not loaded");
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    wrap.innerHTML = "";
+    const panelWidth = document.getElementById("verify-img-panel").clientWidth;
+    const dpr = window.devicePixelRatio || 1;
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page        = await pdf.getPage(p);
+      const baseScale   = panelWidth / page.getViewport({ scale: 1 }).width;
+      const viewport    = page.getViewport({ scale: baseScale * dpr });
+      const canvas      = document.createElement("canvas");
+      canvas.width      = viewport.width;
+      canvas.height     = viewport.height;
+      canvas.style.width   = "100%";
+      canvas.style.display = "block";
+      wrap.appendChild(canvas);
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    }
+  } catch (e) {
+    wrap.innerHTML = `<p class="text-xs text-center text-red-500 py-4">Could not render PDF: ${e.message}</p>`;
+  }
+}
+
+function clearVerifyView() {
+  if (_verifyBlobUrl) { URL.revokeObjectURL(_verifyBlobUrl); _verifyBlobUrl = null; }
+  const imgEl = document.getElementById("verify-img");
+  if (imgEl) imgEl.src = "";
+  const wrap = document.getElementById("verify-pdf-canvas-wrap");
+  if (wrap) wrap.innerHTML = "";
+  state.pendingReceiptData = null;
+}
+
+function confirmVerify() {
+  if (!state.pendingReceiptData) return;
+  const data = { ...state.pendingReceiptData };
+  data.merchant = document.getElementById("v-merchant").value.trim();
+  const tv = document.getElementById("v-total").value;
+  data.total    = tv !== "" ? parseFloat(tv) : null;
+  data.currency = document.getElementById("v-currency").value;
+  data.date     = document.getElementById("v-date").value;
+  if (_verifyBlobUrl) { URL.revokeObjectURL(_verifyBlobUrl); _verifyBlobUrl = null; }
+  const wrap = document.getElementById("verify-pdf-canvas-wrap");
+  if (wrap) wrap.innerHTML = "";
+  populateFormFromReceipt(data);
+  showToast("Receipt verified successfully!");
+}
+
 function populateFormFromReceipt(data) {
   // Navigate to add view first (runs prepareAddForm for fresh state)
   showView("add");
 
   state.isReceipt    = true;
   state.receiptItems = data.items || [];
+
+  if (state.receiptFile) showReceiptRef(state.receiptFile);
 
   document.getElementById("f-merchant").value = data.merchant || "";
   if (data.total != null) document.getElementById("f-amount").value = Number(data.total).toFixed(2);

@@ -9,6 +9,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' }</script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
 <body class="bg-[#d0d5d4] flo-phone-bg">
@@ -260,6 +261,90 @@
       </div>
     </div>
 
+    <!-- ── VERIFY VIEW ─────────────────────────────────────────────────── -->
+    <div id="view-verify" class="view fade-in">
+
+      <!-- Header -->
+      <div class="px-4 pt-4 pb-3 flex items-center gap-3 flex-shrink-0 border-b border-[#edeeef]">
+        <button onclick="clearVerifyView(); showView('scan')"
+                class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <h2 class="text-xl font-bold text-[#191c1d]">Verify Receipt</h2>
+      </div>
+
+      <!-- Image panel (fixed height, scrollable) -->
+      <div id="verify-img-panel" class="flex-shrink-0 overflow-auto bg-[#edeeef] relative" style="height:42%">
+        <img id="verify-img" src="" alt="Receipt" class="w-full h-auto block" />
+        <div id="verify-pdf" class="hidden w-full h-full overflow-y-auto">
+          <div id="verify-pdf-canvas-wrap" class="space-y-1"></div>
+        </div>
+        <!-- Zoom toggle -->
+        <button id="verify-zoom-btn" onclick="toggleVerifyZoom()"
+                class="absolute top-2 right-2 w-8 h-8 bg-black/50 rounded-full text-white flex items-center justify-center">
+          <svg id="verify-zoom-icon-in"  class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0zm-6-3v6m-3-3h6"/></svg>
+          <svg id="verify-zoom-icon-out" class="w-4 h-4 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0zm-3-3H8"/></svg>
+        </button>
+      </div>
+
+      <!-- Divider label -->
+      <div class="flex-shrink-0 px-4 py-1.5 bg-[#e6f4f1]">
+        <span class="text-xs font-semibold text-[#006b55]">AI extracted — tap any field to correct</span>
+      </div>
+
+      <!-- Editable fields -->
+      <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+
+        <div>
+          <label class="block text-xs font-semibold text-[#44474a] mb-1">Merchant</label>
+          <input id="v-merchant" type="text" autocomplete="off" placeholder="e.g. Lidl"
+                 class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        </div>
+
+        <div class="grid grid-cols-5 gap-2">
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-[#44474a] mb-1">Total</label>
+            <input id="v-total" type="number" min="0" step="0.01" placeholder="0.00"
+                   class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+          </div>
+          <div class="col-span-1">
+            <label class="block text-xs font-semibold text-[#44474a] mb-1">CCY</label>
+            <select id="v-currency"
+                    class="w-full px-1 py-2.5 border border-[#c5c6ca] rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white text-center"></select>
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-[#44474a] mb-1">Date</label>
+            <input id="v-date" type="date"
+                   class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+          </div>
+        </div>
+
+        <!-- Items list -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-[#44474a]">Items <span id="v-items-count" class="text-[#006b55]"></span></span>
+            <button type="button" onclick="addVerifyItem()"
+                    class="text-xs font-semibold text-[#006b55] hover:text-[#004d3f] flex items-center gap-1 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              Add item
+            </button>
+          </div>
+          <div id="v-items-list" class="space-y-2"></div>
+        </div>
+
+      </div>
+
+      <!-- Confirm button -->
+      <div class="flex-shrink-0 px-4 py-3 border-t border-[#edeeef]">
+        <button onclick="confirmVerify()"
+                class="w-full py-3.5 bg-[#006b55] hover:bg-[#004d3f] active:bg-[#003d31] text-white rounded-2xl font-bold text-sm transition-colors shadow-sm flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Looks good — Continue
+        </button>
+      </div>
+
+    </div>
+
     <!-- ── VOICE VIEW ──────────────────────────────────────────────────── -->
     <div id="view-voice" class="view fade-in">
 
@@ -350,6 +435,28 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </button>
         <h2 class="text-xl font-bold text-[#191c1d]">Add Expense</h2>
+      </div>
+
+      <!-- Receipt reference strip (shown only after scan) -->
+      <div id="receipt-ref-strip" class="hidden">
+        <button type="button" onclick="toggleReceiptRef()"
+                class="w-full flex items-center justify-between px-3 py-2 bg-[#e6f4f1] rounded-2xl text-sm font-semibold text-[#006b55]">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82V15.18a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+            View original receipt
+          </span>
+          <svg id="receipt-ref-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div id="receipt-ref-panel" class="hidden mt-2 rounded-2xl overflow-hidden bg-[#edeeef]">
+          <img id="receipt-ref-img" src="" alt="Receipt" class="w-full object-contain max-h-[60vh]" />
+          <div id="receipt-ref-pdf" class="hidden w-full py-10 flex flex-col items-center gap-2">
+            <svg class="w-14 h-14 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 21H5a2 2 0 01-2-2V5a2 2 0 012-2h10l4 4v12a2 2 0 01-2 2h-2"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-5h1.5a1.5 1.5 0 010 3H9m4 2v-5h2m-2 2.5h1.5M17 17v-5"/>
+            </svg>
+            <p id="receipt-ref-pdf-name" class="text-xs text-[#44474a] font-medium truncate max-w-xs"></p>
+          </div>
+        </div>
       </div>
 
       <!-- Expense form -->
