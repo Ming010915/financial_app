@@ -1,4 +1,6 @@
 * { -webkit-tap-highlight-color: transparent; }
+.hide-scrollbar { scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
 html, body { height: 100%; overflow: hidden; }
 body { font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: none; }
 

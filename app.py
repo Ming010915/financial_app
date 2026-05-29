@@ -18,6 +18,7 @@ from flask_sock import Sock
 import services.classifier as classifier
 import services.receipt as receipt
 import services.voice as voice
+from services.gemini_utils import ModelOverloadedError
 from config import ASK_BELOW, CENTROIDS_FILE, GEMINI_LIVE_MODEL, MONTHLY_SPENDING_DATASET, SERVER_API_KEY, SERVER_PLACES_API_KEY
 
 app  = Flask(__name__)
@@ -128,8 +129,12 @@ def api_scan_receipt():
         return jsonify({"error": "Unsupported file type. Please upload an image or PDF."}), 400
 
     try:
-        data = receipt.scan_receipt(file_data, mime_type, api_key)
+        pm_raw = request.form.get("payment_methods", "")
+        payment_methods = [m.strip() for m in pm_raw.split(",") if m.strip()] if pm_raw else []
+        data = receipt.scan_receipt(file_data, mime_type, api_key, payment_methods or None)
         return jsonify({"success": True, "data": data})
+    except ModelOverloadedError as e:
+        return jsonify({"error": str(e), "retryable": True}), 503
     except Exception as e:
         return jsonify({"error": f"Receipt processing failed: {str(e)}"}), 500
 
@@ -156,6 +161,48 @@ def api_voice_input():
     try:
         data = voice.process_voice_input(audio_data, file.content_type or "audio/webm", api_key)
         return jsonify({"success": True, "data": data})
+    except ModelOverloadedError as e:
+        return jsonify({"error": str(e), "retryable": True}), 503
+    except Exception as e:
+        return jsonify({"error": f"Voice processing failed: {str(e)}"}), 500
+
+
+@app.route("/api/voice_summary", methods=["POST"])
+def api_voice_summary():
+    """Summarise a raw live transcript into a clean purchase note before extraction."""
+    api_key = (request.form.get("api_key", "").strip() or SERVER_API_KEY)
+    if not api_key:
+        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+
+    transcript = (request.form.get("transcript", "") or "").strip()
+    if not transcript:
+        return jsonify({"error": "Empty transcript"}), 400
+
+    try:
+        summary = voice.summarize_transcript(transcript, api_key)
+        return jsonify({"success": True, "original": transcript, "summary": summary})
+    except ModelOverloadedError as e:
+        return jsonify({"error": str(e), "retryable": True}), 503
+    except Exception as e:
+        return jsonify({"error": f"Transcript summary failed: {str(e)}"}), 500
+
+
+@app.route("/api/voice_extract", methods=["POST"])
+def api_voice_extract():
+    """Extract expense details from a user-confirmed transcript (text only)."""
+    api_key = (request.form.get("api_key", "").strip() or SERVER_API_KEY)
+    if not api_key:
+        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+
+    transcript = (request.form.get("transcript", "") or "").strip()
+    if not transcript:
+        return jsonify({"error": "Empty transcript"}), 400
+
+    try:
+        data = voice.process_voice_text(transcript, api_key)
+        return jsonify({"success": True, "data": data})
+    except ModelOverloadedError as e:
+        return jsonify({"error": str(e), "retryable": True}), 503
     except Exception as e:
         return jsonify({"error": f"Voice processing failed: {str(e)}"}), 500
 

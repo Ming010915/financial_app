@@ -7,67 +7,58 @@ One expense entry per shopping trip/merchant, with individual items listed.
 from datetime import date
 
 from services import classifier
-from config import GEMINI_MODEL, ASK_BELOW
+from services.gemini_utils import generate_with_fallback
+from services.prompts import VOICE_PROMPT, ADD_EXPENSE_FUNC, build_summary_prompt
+from config import GEMINI_MODELS, ASK_BELOW
 
 
-_VOICE_PROMPT = (
-    "The user recorded a short voice note describing a purchase. "
-    "Call the add_expense function with the details you hear. "
-    "Rules:\n"
-    "- Use the STORE or MERCHANT name as 'merchant' (e.g. Lidl, Starbucks). "
-    "If no store is mentioned, use the item name.\n"
-    "- If multiple items are mentioned, list each one in the 'items' array with its name and price.\n"
-    "- Set 'total' to the sum of all item prices, or the total explicitly stated.\n"
-    "- Default currency is EUR unless another is explicitly mentioned.\n"
-    "- Use today's date if no date is mentioned."
-)
+def summarize_transcript(transcript: str, api_key: str) -> str:
+    """
+    Turn a raw speech-to-text transcript into a short, clean summary of the
+    purchase — fixing mis-hearings, resolving self-corrections, and dropping
+    filler — without inventing content. Returns the summary, or the original
+    transcript if the model returns nothing useful. Raises on any error.
+    """
+    from google import genai
 
-_ADD_EXPENSE_FUNC = {
-    "name": "add_expense",
-    "description": "Record a purchase as a single expense with optional line items",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "merchant": {
-                "type": "string",
-                "description": "The store or merchant name (e.g. Lidl, Starbucks). If no store is mentioned, use the item name.",
-            },
-            "total": {
-                "type": "number",
-                "description": "Total amount paid. Sum all item prices if not explicitly stated.",
-            },
-            "currency": {
-                "type": "string",
-                "description": "Three-letter ISO currency code (e.g. EUR, USD, GBP)",
-            },
-            "date": {
-                "type": "string",
-                "description": "Date of purchase in YYYY-MM-DD format",
-            },
-            "payment_method": {
-                "type": "string",
-                "description": "One of: Cash, Debit Card, Credit Card, Mobile Pay, Bank Transfer",
-            },
-            "notes": {
-                "type": "string",
-                "description": "Any extra context",
-            },
-            "items": {
-                "type": "array",
-                "description": "Individual items purchased. One entry per distinct item.",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name":  {"type": "string", "description": "Item name"},
-                        "price": {"type": "number", "description": "Price of this item"},
-                    },
-                    "required": ["name"],
-                },
-            },
-        },
-        "required": ["merchant"],
-    },
-}
+    client   = genai.Client(api_key=api_key)
+    response = generate_with_fallback(lambda model: client.models.generate_content(
+        model    = model,
+        contents = [build_summary_prompt(transcript)],
+    ), GEMINI_MODELS)
+
+    summary = (response.text or "").strip()
+    return summary or transcript
+
+
+def process_voice_text(transcript: str, api_key: str) -> dict:
+    """
+    Extract expense details from a (user-confirmed) transcript via function
+    calling, attach a category prediction, and return the structured dict.
+    Raises on any error.
+    """
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=api_key)
+    tool   = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
+
+    response = generate_with_fallback(lambda model: client.models.generate_content(
+        model    = model,
+        contents = [VOICE_PROMPT, transcript],
+        config   = types.GenerateContentConfig(tools=[tool]),
+    ), GEMINI_MODELS)
+
+    extracted = {}
+    for part in response.candidates[0].content.parts:
+        if part.function_call:
+            extracted = dict(part.function_call.args)
+            break
+
+    if not extracted:
+        raise ValueError("Gemini could not extract expense details from the transcript")
+
+    return _finalize_extracted(extracted)
 
 
 def process_voice_input(audio_data: bytes, mime_type: str, api_key: str) -> dict:
@@ -81,13 +72,13 @@ def process_voice_input(audio_data: bytes, mime_type: str, api_key: str) -> dict
 
     client     = genai.Client(api_key=api_key)
     audio_part = types.Part.from_bytes(data=audio_data, mime_type=mime_type)
-    tool       = types.Tool(function_declarations=[_ADD_EXPENSE_FUNC])
+    tool       = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
 
-    response = client.models.generate_content(
-        model    = GEMINI_MODEL,
-        contents = [_VOICE_PROMPT, audio_part],
+    response = generate_with_fallback(lambda model: client.models.generate_content(
+        model    = model,
+        contents = [VOICE_PROMPT, audio_part],
         config   = types.GenerateContentConfig(tools=[tool]),
-    )
+    ), GEMINI_MODELS)
 
     extracted = {}
     for part in response.candidates[0].content.parts:
@@ -98,6 +89,14 @@ def process_voice_input(audio_data: bytes, mime_type: str, api_key: str) -> dict
     if not extracted:
         raise ValueError("Gemini could not extract expense details from the audio")
 
+    return _finalize_extracted(extracted)
+
+
+def _finalize_extracted(extracted: dict) -> dict:
+    """
+    Fill in defaults, normalise items, compute a missing total, and attach the
+    category prediction. Shared by the audio and text extraction paths.
+    """
     extracted.setdefault("merchant",       "")
     extracted.setdefault("total",          None)
     extracted.setdefault("currency",       "EUR")

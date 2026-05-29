@@ -501,7 +501,12 @@ function showView(name) {
   document.getElementById("main-scroll").scrollTop = 0;
 
   if (name === "home")     loadHome();
-  if (name === "history")  loadHistory();
+  if (name === "history")  {
+    const searchEl = document.getElementById('history-search');
+    if (searchEl) searchEl.value = '';
+    _historySelCats.clear();
+    loadHistory();
+  }
   if (name === "summary")  loadSummary();
   if (name === "add")      prepareAddForm();
   if (name === "settings")        { loadSettingsView(); syncDarkToggle(); }
@@ -788,6 +793,8 @@ async function autoClassify() {
 }
 
 // ── Receipt scanning ──────────────────────────────────────────────────────────
+let _scanAbort = null;   // AbortController for the in-flight scan request
+
 function triggerCamera()     { document.getElementById("receipt-file-camera").click(); }
 function triggerFileSelect() { document.getElementById("receipt-file-gallery").click(); }
 
@@ -810,25 +817,31 @@ function handleScanFile(file) {
   const pdfEl = document.getElementById("preview-pdf");
   const pdfNameEl = document.getElementById("preview-pdf-name");
 
+  const showPreview = () => {
+    document.getElementById("scan-upload-area").classList.add("hidden");
+    document.getElementById("scan-preview-area").classList.remove("hidden");
+    document.getElementById("scan-confirm-area").classList.remove("hidden");
+    document.getElementById("scan-analyzing-area").classList.add("hidden");
+  };
+
   if (isPdf) {
     imgEl.classList.add("hidden");
     pdfEl.classList.remove("hidden");
     if (pdfNameEl) pdfNameEl.textContent = file.name;
-    document.getElementById("scan-upload-area").classList.add("hidden");
-    document.getElementById("scan-preview-area").classList.remove("hidden");
-    analyzeScanReceipt();
+    showPreview();
   } else {
     pdfEl.classList.add("hidden");
     imgEl.classList.remove("hidden");
     const reader = new FileReader();
-    reader.onload = (e) => {
-      imgEl.src = e.target.result;
-      document.getElementById("scan-upload-area").classList.add("hidden");
-      document.getElementById("scan-preview-area").classList.remove("hidden");
-      analyzeScanReceipt();
-    };
+    reader.onload = (e) => { imgEl.src = e.target.result; showPreview(); };
     reader.readAsDataURL(file);
   }
+}
+
+function confirmAndAnalyze() {
+  document.getElementById("scan-confirm-area").classList.add("hidden");
+  document.getElementById("scan-analyzing-area").classList.remove("hidden");
+  analyzeScanReceipt();
 }
 
 // Cancel scan view — go back to method picker
@@ -839,6 +852,9 @@ function cancelScanView() {
 
 // Reset scan view UI to initial upload state
 function clearScanView() {
+  // Abort any in-flight scan so a late API response is ignored.
+  _scanAbort?.abort();
+  _scanAbort = null;
   state.receiptFile  = null;
   state.isReceipt    = false;
   state.receiptItems = [];
@@ -851,7 +867,8 @@ function clearScanView() {
   if (pdfEl) pdfEl.classList.add("hidden");
   document.getElementById("scan-upload-area")?.classList.remove("hidden");
   document.getElementById("scan-preview-area")?.classList.add("hidden");
-  // Remove any retry button left over from a failed attempt
+  document.getElementById("scan-confirm-area")?.classList.remove("hidden");
+  document.getElementById("scan-analyzing-area")?.classList.add("hidden");
   document.querySelector("#scan-preview-area button.scan-retry")?.remove();
 }
 
@@ -874,17 +891,32 @@ async function analyzeScanReceipt() {
   // Remove any previous retry button
   document.querySelector("#scan-preview-area .scan-retry")?.remove();
 
+  // Abort any prior in-flight scan, then track this one so a cancel can stop it.
+  _scanAbort?.abort();
+  const abort = new AbortController();
+  _scanAbort  = abort;
+
   try {
     const formData = new FormData();
     formData.append("file", state.receiptFile);
     formData.append("api_key", localStorage.getItem("googleApiKey") || "");
-    const r    = await fetch("/api/scan_receipt", { method: "POST", body: formData });
-    const resp = await r.json();
-    if (!r.ok || resp.error) throw new Error(resp.error || "Unknown error");
+    formData.append("payment_methods", getPaymentMethods().join(","));
+    const resp = await postWithOverloadRetry("/api/scan_receipt", formData, {
+      signal: abort.signal,
+      onRetry: (n, total) => {
+        const msg = `The model is in high demand. Please wait… (retry ${n}/${total})`;
+        if (statusEl) statusEl.textContent = msg;
+        showToast(msg, true);
+      },
+    });
+    // User cancelled while the request was in flight — ignore the late response.
+    if (abort.signal.aborted) return;
     populateFormFromReceipt(resp.data);
     showToast("Receipt analyzed successfully!");
   } catch (e) {
-    showToast("Failed: " + e.message, true);
+    // Cancelled request — silently ignore, the user has already moved on.
+    if (e.name === "AbortError" || abort.signal.aborted) return;
+    showToast(e.retryable ? e.message : "Failed: " + e.message, true);
     if (statusEl)  statusEl.textContent = "Analysis failed";
     if (spinnerEl) spinnerEl.classList.add("hidden");
     // Offer retry inline
@@ -965,15 +997,18 @@ function populateFormFromReceipt(data) {
 }
 
 // ── Voice input ───────────────────────────────────────────────────────────────
-let _mediaRecorder     = null;
-let _audioChunks       = [];
+let _voiceStream       = null;    // mic MediaStream (held so we can stop its tracks)
 let _isRecording       = false;
 let _liveWS            = null;
 let _audioCtx          = null;
 let _audioProcessor    = null;
 let _liveTranscript    = '';
 let _interimTranscript = '';
+let _voiceFinalized    = false;   // guards finalizeVoiceTranscript() against double-run
+let _voiceOriginal     = '';      // raw transcript from Gemini Live
+let _voiceSummary      = '';      // clean summary of the spoken note
 let _voiceCancelled    = false;   // set true by cancelVoiceView() to abort server call
+let _voiceAbort        = null;    // AbortController for the in-flight extraction request
 
 // ── Voice view UI helpers ─────────────────────────────────────────────────────
 function _vvSetState(state) {
@@ -985,6 +1020,12 @@ function _vvSetState(state) {
   const ringIn   = document.getElementById('vv-ring-inner');
   const label    = document.getElementById('voice-label');
   const status   = document.getElementById('voice-status');
+
+  // The transcript-confirmation card is its own display (shown via
+  // showVoiceConfirm); the idle/recording/processing states never use it.
+  document.getElementById('voice-confirm')?.classList.add('hidden');
+  document.getElementById('vv-mic-wrap')?.classList.remove('hidden');
+  if (label) label.classList.remove('hidden');
 
   if (state === 'recording') {
     btn?.classList.add('voice-recording');
@@ -1022,20 +1063,28 @@ function _vvSetState(state) {
   }
 }
 
+// ── Tear down mic + live-transcription capture ────────────────────────────────
+function teardownVoiceCapture() {
+  if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+  if (_audioCtx)       { try { _audioCtx.close(); } catch {} _audioCtx = null; }
+  if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
+    try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
+    try { _liveWS.close(); } catch {}
+  }
+  _liveWS = null;
+  if (_voiceStream) { _voiceStream.getTracks().forEach(t => t.stop()); _voiceStream = null; }
+}
+
 // ── Cancel / back from voice view ─────────────────────────────────────────────
 function cancelVoiceView() {
-  if (_isRecording) {
-    _voiceCancelled = true;
-    _isRecording    = false;
-    if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
-    if (_audioCtx)       { _audioCtx.close();            _audioCtx       = null; }
-    if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
-      try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
-      _liveWS.close();
-    }
-    _liveWS = null;
-    if (_mediaRecorder && _mediaRecorder.state !== 'inactive') _mediaRecorder.stop();
-  }
+  // Cancel a request already sent to the server (processing phase) and stop any
+  // pending finalize from firing after the user has navigated away.
+  _voiceCancelled = true;
+  _voiceFinalized = true;
+  _voiceAbort?.abort();
+  _voiceAbort = null;
+  _isRecording = false;
+  teardownVoiceCapture();
   resetVoiceBtn();
   showView('add-method');
 }
@@ -1053,15 +1102,9 @@ async function startVoiceRecording() {
     const apiKey = localStorage.getItem('googleApiKey') || '';
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-    _audioChunks    = [];
-    _voiceCancelled = false;
-    _mediaRecorder  = new MediaRecorder(stream);
-    _mediaRecorder.ondataavailable = e => { if (e.data.size > 0) _audioChunks.push(e.data); };
-    _mediaRecorder.onstop = () => {
-      stream.getTracks().forEach(t => t.stop());
-      sendVoiceToServer();
-    };
-    _mediaRecorder.start();
+    _voiceStream       = stream;
+    _voiceCancelled    = false;
+    _voiceFinalized    = false;
     _isRecording       = true;
     _liveTranscript    = '';
     _interimTranscript = '';
@@ -1114,6 +1157,8 @@ async function startVoiceRecording() {
     _liveWS.onerror = ev => console.warn('[Live] WS error:', ev);
     _liveWS.onclose = () => {
       if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+      // Socket closed after the user tapped stop → the transcript is final.
+      if (!_isRecording) finalizeVoiceTranscript();
     };
 
     _vvSetState('recording');
@@ -1123,42 +1168,149 @@ async function startVoiceRecording() {
 }
 
 function stopVoiceRecording() {
-  if (_mediaRecorder && _isRecording) {
-    _mediaRecorder.stop();
-    _isRecording = false;
-    if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
-    if (_audioCtx)       { _audioCtx.close();            _audioCtx       = null; }
-    if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
-      try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
-      _liveWS.close();
-    }
-    _liveWS = null;
-    _vvSetState('processing');
+  if (!_isRecording) return;
+  _isRecording = false;
+
+  // Stop capturing, but keep the live socket open briefly so Gemini can flush
+  // any trailing transcription before we read the final transcript.
+  if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+  if (_audioCtx)       { try { _audioCtx.close(); } catch {} _audioCtx = null; }
+  if (_voiceStream)    { _voiceStream.getTracks().forEach(t => t.stop()); _voiceStream = null; }
+  _vvSetState('processing');
+
+  if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
+    try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
+    // onclose finalizes when the flush completes; this is a fallback in case
+    // the socket lingers.
+    setTimeout(() => finalizeVoiceTranscript(), 1500);
+  } else {
+    finalizeVoiceTranscript();
   }
 }
 
-async function sendVoiceToServer() {
-  // Cancelled by back button — don't process
+// Read the final live transcript and show the confirmation step. Guarded so it
+// runs at most once per recording. The summary is fetched asynchronously and
+// fills the box when ready (loadVoiceSummary).
+async function finalizeVoiceTranscript() {
+  if (_voiceFinalized) return;
+  _voiceFinalized = true;
+  teardownVoiceCapture();
+
   if (_voiceCancelled) { _voiceCancelled = false; return; }
 
-  const blob     = new Blob(_audioChunks, { type: "audio/webm" });
-  const formData = new FormData();
-  formData.append("audio", blob, "voice.webm");
-  formData.append("api_key", localStorage.getItem("googleApiKey") || "");
+  const original = (_liveTranscript || '').trim();
+  if (!original) {
+    showToast('No speech detected. Please try again.', true);
+    _vvSetState('idle');
+    return;
+  }
 
-  const btn = document.getElementById("voice-btn");
-  if (btn) btn.disabled = true;
+  _voiceOriginal = original;
+  _voiceSummary  = original;
+
+  // Reveal the confirmation card straight away with the raw transcript visible,
+  // then summarise in the background.
+  document.getElementById('vc-original').textContent = original;
+  document.getElementById('voice-subtitle')?.classList.add('hidden');
+  document.getElementById('vv-mic-wrap')?.classList.add('hidden');
+  document.getElementById('voice-label')?.classList.add('hidden');
+  document.getElementById('voice-confirm')?.classList.remove('hidden');
+
+  loadVoiceSummary();
+}
+
+// Fetch (or re-fetch) the summary for the current transcript and fill the box.
+// Honest on failure: shows the raw transcript and says so, rather than passing
+// it off as a summary. Also bound to the "Regenerate" button.
+async function loadVoiceSummary() {
+  const original = _voiceOriginal;
+  if (!original) return;
+
+  const box     = document.getElementById('vc-summary');
+  const origWrap = document.getElementById('vc-original-wrap');
+  const regen   = document.getElementById('vc-regen');
+  const status  = document.getElementById('voice-status');
+
+  box.value       = '';
+  box.placeholder = 'Summarizing…';
+  origWrap.classList.add('hidden');
+  if (regen)  regen.disabled = true;
+  if (status) status.textContent = 'Summarizing what you said…';
+
+  const formData = new FormData();
+  formData.append('transcript', original);
+  formData.append('api_key', localStorage.getItem('googleApiKey') || '');
 
   try {
-    const r    = await fetch("/api/voice_input", { method: "POST", body: formData });
-    const resp = await r.json();
-    if (!r.ok || resp.error) throw new Error(resp.error || "Unknown error");
-    populateFormFromVoice(resp.data);
-    showToast("Voice input captured!");
+    const resp = await postWithOverloadRetry('/api/voice_summary', formData, {
+      onRetry: (n, total) => {
+        if (status) status.textContent = `Model busy — retrying (${n}/${total})…`;
+      },
+    });
+    const summary = (resp.summary || original).trim() || original;
+    _voiceSummary = summary;
+    box.value     = summary;
+    const same = summary === original;
+    origWrap.classList.toggle('hidden', same);
+    if (status) status.textContent = same
+      ? 'Does this look right? Edit it if needed.'
+      : 'Here’s a summary — edit it, or keep what was heard.';
   } catch (e) {
-    showToast("Voice failed: " + e.message, true);
+    // Couldn't summarise (e.g. model overloaded) — show the raw transcript and
+    // be clear that it isn't a summary, with Regenerate available.
+    _voiceSummary = original;
+    box.value     = original;
+    origWrap.classList.add('hidden');
+    if (status) status.textContent =
+      'Couldn’t summarize (model busy). Showing what you said — edit it, or tap Regenerate.';
+  } finally {
+    box.placeholder = '';
+    if (regen) regen.disabled = false;
+  }
+}
+
+// Restore the editable field back to the raw transcript Gemini Live heard.
+function revertVoiceCorrection() {
+  document.getElementById('vc-summary').value = _voiceOriginal;
+}
+
+// User picked which text to use → extract the expense from it.
+// useSummary=true uses the (possibly edited) summary in the box; false uses the
+// raw transcript as heard.
+async function confirmVoiceTranscript(useSummary) {
+  const transcript = (useSummary
+    ? document.getElementById('vc-summary').value
+    : _voiceOriginal).trim();
+  if (!transcript) { showToast('Transcript is empty — please edit it first.', true); return; }
+
+  document.getElementById('voice-confirm')?.classList.add('hidden');
+  _vvSetState('processing');
+
+  const formData = new FormData();
+  formData.append('transcript', transcript);
+  formData.append('api_key', localStorage.getItem('googleApiKey') || '');
+
+  const btn = document.getElementById('voice-btn');
+  if (btn) btn.disabled = true;
+
+  const abort = new AbortController();
+  _voiceAbort = abort;
+
+  try {
+    const resp = await postWithOverloadRetry('/api/voice_extract', formData, {
+      signal: abort.signal,
+      onRetry: (n, total) =>
+        showToast(`The model is in high demand. Please wait… (retry ${n}/${total})`, true),
+    });
+    if (abort.signal.aborted) return;
+    populateFormFromVoice(resp.data);
+    showToast('Voice input captured!');
+  } catch (e) {
+    if (e.name === 'AbortError' || abort.signal.aborted) return;
+    showToast(e.retryable ? e.message : 'Voice failed: ' + e.message, true);
     resetVoiceBtn();
   } finally {
+    if (_voiceAbort === abort) _voiceAbort = null;
     if (btn) btn.disabled = false;
   }
 }
@@ -1170,6 +1322,7 @@ function resetVoiceBtn() {
   _liveWS            = null;
   _audioCtx          = null;
   _audioProcessor    = null;
+  _voiceStream       = null;
   _vvSetState('idle');
 }
 
@@ -1316,16 +1469,69 @@ async function saveExpense() {
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
+let _historySorted  = [];
+let _historySelCats = new Set();
+
 async function loadHistory() {
   await loadRates();
   const expenses = getExpenses();
   expenses.forEach(e => { state.expenseMap[e.id] = e; });
-  const sorted = expenses.slice().sort((a, b) => {
+  _historySorted = expenses.slice().sort((a, b) => {
     const ka = (a.date || '') + (a.created_at || '');
     const kb = (b.date || '') + (b.created_at || '');
     return kb > ka ? 1 : -1;
   });
-  renderHistory(sorted);
+  renderHistoryCatFilters(_historySorted);
+  filterHistory();
+}
+
+function renderHistoryCatFilters(expenses) {
+  const el = document.getElementById('history-cat-filters');
+  if (!el) return;
+  const cats = [...new Set(expenses.map(e => e.category).filter(Boolean))].sort();
+  el.innerHTML = ['All', ...cats].map(cat => {
+    const isAll    = cat === 'All';
+    const isActive = isAll ? _historySelCats.size === 0 : _historySelCats.has(cat);
+    const col      = isAll ? '#006b55' : catColor(cat);
+    const bg       = isActive ? col : (isDark() ? '#1e1e1e' : '#f8f9fa');
+    const text     = isActive ? 'white' : (isDark() ? '#b0b0b0' : '#44474a');
+    const border   = isActive ? col : (isDark() ? '#2e2e2e' : '#e8e9ea');
+    return `<button type="button"
+      onclick="selectHistoryCat('${esc(cat)}')"
+      class="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
+      style="background:${bg};color:${text};border-color:${border}">
+      ${isAll ? 'All' : catEmoji(cat) + ' ' + esc(cat)}
+    </button>`;
+  }).join('');
+}
+
+function selectHistoryCat(cat) {
+  if (cat === 'All') {
+    _historySelCats.clear();
+  } else if (_historySelCats.has(cat)) {
+    _historySelCats.delete(cat);
+  } else {
+    _historySelCats.add(cat);
+  }
+  renderHistoryCatFilters(_historySorted);
+  filterHistory();
+}
+
+function filterHistory() {
+  const query = (document.getElementById('history-search')?.value || '').trim().toLowerCase();
+
+  let filtered = _historySorted;
+  if (_historySelCats.size > 0) {
+    filtered = filtered.filter(e => _historySelCats.has(e.category));
+  }
+  if (query) {
+    filtered = filtered.filter(e =>
+      (e.merchant || '').toLowerCase().includes(query) ||
+      (e.notes    || '').toLowerCase().includes(query) ||
+      (e.items || []).some(i => (i.name || '').toLowerCase().includes(query))
+    );
+  }
+  renderHistory(filtered);
 }
 
 function renderHistory(exps) {
@@ -1764,6 +1970,37 @@ function renderBarChart(dailyData, defCur = "EUR") {
       },
     },
   });
+}
+
+// ── Fetch with auto-retry on model overload ─────────────────────────────────────
+// POSTs to a Gemini-backed endpoint and, if the model reports it is overloaded
+// (HTTP 503 with { retryable: true }), shows a "high demand" message and resends
+// the request automatically with exponential backoff. Returns the parsed JSON on
+// success; throws on a non-retryable error or once retries are exhausted.
+async function postWithOverloadRetry(url, body, { onRetry, maxRetries = 3, signal } = {}) {
+  let delay = 1500;
+  for (let attempt = 0; ; attempt++) {
+    const r    = await fetch(url, { method: "POST", body, signal });
+    const resp = await r.json();
+    if (r.ok && !resp.error) return resp;
+
+    if (resp.retryable && attempt < maxRetries) {
+      onRetry?.(attempt + 1, maxRetries);
+      // Abortable sleep — bail out immediately if the request was cancelled.
+      await new Promise((res, rej) => {
+        const t = setTimeout(res, delay);
+        signal?.addEventListener("abort", () => {
+          clearTimeout(t);
+          rej(new DOMException("Aborted", "AbortError"));
+        }, { once: true });
+      });
+      delay *= 2;
+      continue;
+    }
+    const err = new Error(resp.error || "Unknown error");
+    err.retryable = resp.retryable;
+    throw err;
+  }
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────

@@ -220,8 +220,9 @@
           <p id="scan-drop-hint" class="hidden text-xs font-semibold text-[#006b55]">Release to upload</p>
         </div>
 
-        <!-- Preview + analyzing state -->
+        <!-- Preview + confirm / analyzing state -->
         <div id="scan-preview-area" class="hidden w-full flex flex-col items-center gap-4">
+          <!-- File preview thumbnail -->
           <div class="relative w-full rounded-2xl overflow-hidden bg-[#edeeef]">
             <img id="preview-img" src="" alt="Receipt" class="w-full max-h-56 object-cover" />
             <!-- PDF preview (shown instead of img for PDF uploads) -->
@@ -235,7 +236,22 @@
             <button onclick="clearScanView()"
                     class="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full text-white text-sm flex items-center justify-center leading-none">✕</button>
           </div>
-          <div class="flex items-center gap-2">
+
+          <!-- Confirm buttons (shown before analysis) -->
+          <div id="scan-confirm-area" class="w-full flex flex-col items-center gap-3">
+            <button onclick="confirmAndAnalyze()"
+                    class="w-full py-3.5 bg-[#006b55] hover:bg-[#004d3f] active:bg-[#003d31] text-white rounded-2xl font-bold text-sm transition-colors shadow-sm flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Analyze Receipt
+            </button>
+            <button onclick="clearScanView()"
+                    class="text-xs font-semibold text-[#44474a] hover:text-[#191c1d] transition-colors py-1">
+              Choose a different file
+            </button>
+          </div>
+
+          <!-- Analyzing state (shown after confirm) -->
+          <div id="scan-analyzing-area" class="hidden flex items-center gap-2">
             <span id="scan-spinner-el" class="loader" style="border-color:rgba(0,107,85,0.3);border-top-color:#006b55;"></span>
             <p id="scan-status" class="text-sm font-medium text-[#006b55]">Analyzing with AI…</p>
           </div>
@@ -263,7 +279,7 @@
         <p id="voice-status" class="text-sm text-[#44474a]">Tap the mic to start recording</p>
 
         <!-- Mic button + animated rings -->
-        <div class="relative flex items-center justify-center" style="width:140px;height:140px;">
+        <div id="vv-mic-wrap" class="relative flex items-center justify-center" style="width:140px;height:140px;">
           <!-- Outer ring -->
           <div id="vv-ring-outer" class="hidden absolute inset-0 rounded-full"
                style="background:rgba(239,68,68,0.12);animation:vvRing 1.6s ease-out infinite;"></div>
@@ -293,6 +309,33 @@
           <div class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider mb-2">Transcript</div>
           <div class="text-sm text-[#191c1d] leading-relaxed max-h-44 overflow-y-auto">
             <span id="voice-subtitle-final"></span><span id="voice-subtitle-interim" class="text-[#44474a] italic"></span>
+          </div>
+        </div>
+
+        <!-- Transcript confirmation (shown after recording, before extraction) -->
+        <div id="voice-confirm" class="hidden w-full text-left space-y-3">
+          <div class="bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider">Summary · tap to edit</div>
+              <button type="button" id="vc-regen" onclick="loadVoiceSummary()"
+                      class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider disabled:opacity-40">Regenerate</button>
+            </div>
+            <textarea id="vc-summary" rows="3"
+                      class="w-full bg-transparent text-sm text-[#191c1d] leading-relaxed resize-none focus:outline-none"></textarea>
+          </div>
+          <div id="vc-original-wrap" class="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider">Heard</div>
+              <button type="button" onclick="revertVoiceCorrection()"
+                      class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider">Reset to this</button>
+            </div>
+            <div id="vc-original" class="text-sm text-[#44474a] leading-relaxed"></div>
+          </div>
+          <div class="flex gap-3 pt-1">
+            <button type="button" onclick="confirmVoiceTranscript(false)"
+                    class="flex-1 py-3 rounded-xl border border-gray-300 text-sm font-bold text-[#44474a] active:scale-95 transition">Keep original</button>
+            <button type="button" onclick="confirmVoiceTranscript(true)"
+                    class="flex-1 py-3 rounded-xl text-sm font-bold text-white active:scale-95 transition" style="background:#006b55;">Use this</button>
           </div>
         </div>
 
@@ -402,11 +445,20 @@
 
     <!-- ── HISTORY VIEW ───────────────────────────────────────────────────── -->
     <div id="view-history" class="view fade-in">
-      <div class="p-4 pb-2">
+      <div class="p-4 pb-2 space-y-2.5">
         <div class="flex items-center justify-between">
           <h2 class="text-xl font-bold text-[#191c1d]">History</h2>
           <div id="history-total" class="text-sm font-semibold text-[#44474a]"></div>
         </div>
+        <!-- Search bar -->
+        <div class="relative">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#c5c6ca] pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+          <input id="history-search" type="text" placeholder="Search merchant or notes…"
+                 oninput="filterHistory()"
+                 class="w-full pl-9 pr-4 py-2.5 border border-[#e8e9ea] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55] focus:border-transparent" />
+        </div>
+        <!-- Category filter chips -->
+        <div id="history-cat-filters" class="flex gap-1.5 overflow-x-auto pb-0.5 hide-scrollbar"></div>
       </div>
       <div id="history-list" class="p-4 pt-2 space-y-4">
         <div class="text-center text-[#c5c6ca] py-8">No expenses yet</div>
