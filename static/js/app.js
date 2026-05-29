@@ -43,6 +43,25 @@ function generateId() {
       });
 }
 
+function mergeItems(items) {
+  const map = new Map();
+  for (const item of items) {
+    const key = (item.name || "").trim().toLowerCase();
+    if (!key) { map.set(Symbol(), { ...item, quantity: item.quantity || 1 }); continue; }
+    if (map.has(key)) {
+      const ex = map.get(key);
+      ex.quantity = (ex.quantity || 1) + (item.quantity || 1);
+      if (ex.price != null && item.price != null)
+        ex.price = Math.round((ex.price + item.price) * 100) / 100;
+      else if (item.price != null)
+        ex.price = item.price;
+    } else {
+      map.set(key, { ...item, quantity: item.quantity || 1 });
+    }
+  }
+  return Array.from(map.values());
+}
+
 function computeSummary() {
   const expenses  = getExpenses();
   const today     = new Date().toISOString().split('T')[0];
@@ -880,6 +899,7 @@ function clearScan() {
   state.isVoice = false;
   clearScanView();
   document.getElementById("items-section").classList.add("hidden");
+  document.getElementById("items-list").innerHTML = "";
   document.getElementById("save-label").textContent = "Add Expense";
   document.getElementById("cat-confidence").classList.add("hidden");
   resetForm();
@@ -999,7 +1019,8 @@ let _verifyBlobUrl = null;
 let _verifyZoomed  = false;
 
 function showVerifyView(data) {
-  state.pendingReceiptData = JSON.parse(JSON.stringify(data)); // deep copy so edits don't mutate original
+  state.pendingReceiptData = JSON.parse(JSON.stringify(data));
+  state.pendingReceiptData.items = mergeItems(state.pendingReceiptData.items || []);
 
   const imgEl  = document.getElementById("verify-img");
   const pdfEl  = document.getElementById("verify-pdf");
@@ -1053,6 +1074,9 @@ function renderVerifyItems() {
       <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
              oninput="state.pendingReceiptData.items[${i}].name = this.value"
              class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
+             oninput="state.pendingReceiptData.items[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
+             class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
       <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01" min="0"
              oninput="state.pendingReceiptData.items[${i}].price = this.value === '' ? null : parseFloat(this.value)"
              class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
@@ -1066,7 +1090,7 @@ function renderVerifyItems() {
 function addVerifyItem() {
   if (!state.pendingReceiptData) return;
   state.pendingReceiptData.items = state.pendingReceiptData.items || [];
-  state.pendingReceiptData.items.push({ name: "", price: null });
+  state.pendingReceiptData.items.push({ name: "", price: null, quantity: 1 });
   renderVerifyItems();
   const rows = document.querySelectorAll("#v-items-list > div");
   if (rows.length) rows[rows.length - 1].querySelector("input[type=text]")?.focus();
@@ -1076,6 +1100,44 @@ function removeVerifyItem(idx) {
   if (!state.pendingReceiptData?.items) return;
   state.pendingReceiptData.items.splice(idx, 1);
   renderVerifyItems();
+}
+
+function renderAddFormItems() {
+  const el = document.getElementById("items-list");
+  if (!el) return;
+  if (!state.receiptItems || state.receiptItems.length === 0) {
+    el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = state.receiptItems.map((item, i) => `
+    <div class="flex items-center gap-2">
+      <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
+             oninput="state.receiptItems[${i}].name = this.value"
+             class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
+             oninput="state.receiptItems[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
+             class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01" min="0"
+             oninput="state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value)"
+             class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <button type="button" onclick="removeFormItem(${i})"
+              class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`).join("");
+}
+
+function addFormItem() {
+  state.receiptItems = state.receiptItems || [];
+  state.receiptItems.push({ name: "", price: null, quantity: 1 });
+  renderAddFormItems();
+  const rows = document.querySelectorAll("#items-list > div");
+  if (rows.length) rows[rows.length - 1].querySelector("input[type=text]")?.focus();
+}
+
+function removeFormItem(idx) {
+  state.receiptItems.splice(idx, 1);
+  renderAddFormItems();
 }
 
 function toggleVerifyZoom() {
@@ -1147,7 +1209,7 @@ function populateFormFromReceipt(data) {
   showView("add");
 
   state.isReceipt    = true;
-  state.receiptItems = data.items || [];
+  state.receiptItems = mergeItems(data.items || []);
 
   if (state.receiptFile) showReceiptRef(state.receiptFile);
 
@@ -1180,12 +1242,7 @@ function populateFormFromReceipt(data) {
 
   if (state.receiptItems.length > 0) {
     document.getElementById("items-section").classList.remove("hidden");
-    document.getElementById("items-list").innerHTML = state.receiptItems.map(item => {
-      const price = item.price != null
-        ? `<span class="font-semibold">${fmtAmount(item.price, document.getElementById("f-currency").value)}</span>` : "";
-      return `<div class="flex items-center justify-between py-0.5 border-b border-gray-100 last:border-0">
-        <span class="truncate mr-2">${esc(item.name || "")}</span>${price}</div>`;
-    }).join("");
+    renderAddFormItems();
   }
   document.getElementById("save-label").textContent = "Confirm & Save";
 }
@@ -1528,7 +1585,7 @@ function populateFormFromVoice(data) {
 
   state.isVoice      = true;
   state.isReceipt    = false;
-  state.receiptItems = data.items || [];
+  state.receiptItems = mergeItems(data.items || []);
   state.receiptFile  = null;
 
   document.getElementById("f-merchant").value = data.merchant || "";
@@ -1561,12 +1618,7 @@ function populateFormFromVoice(data) {
 
   if (state.receiptItems.length > 0) {
     document.getElementById("items-section").classList.remove("hidden");
-    document.getElementById("items-list").innerHTML = state.receiptItems.map(item => {
-      const price = item.price != null
-        ? `<span class="font-semibold">${fmtAmount(item.price, document.getElementById("f-currency").value)}</span>` : "";
-      return `<div class="flex items-center justify-between py-0.5 border-b border-gray-100 last:border-0">
-        <span class="truncate mr-2">${esc(item.name || "")}</span>${price}</div>`;
-    }).join("");
+    renderAddFormItems();
   }
 
   document.getElementById("save-label").textContent = "Confirm & Save";
@@ -1867,10 +1919,11 @@ function _renderDetailView(exp) {
   if (exp.items && exp.items.length > 0) {
     itemsSect.classList.remove("hidden");
     document.getElementById("det-items-list").innerHTML = exp.items.map(item => {
+      const qty   = (item.quantity ?? 1) > 1 ? `<span class="text-[#44474a] mr-1">×${item.quantity}</span>` : "";
       const price = item.price != null
         ? `<span class="font-semibold">${fmtAmount(item.price, exp.currency)}</span>` : "";
       return `<div class="flex items-center justify-between py-0.5 border-b border-gray-100 last:border-0">
-        <span class="truncate mr-2">${esc(item.name || "")}</span>${price}</div>`;
+        <span class="truncate mr-2">${qty}${esc(item.name || "")}</span>${price}</div>`;
     }).join("");
   } else {
     itemsSect.classList.add("hidden");
@@ -1909,7 +1962,7 @@ function openEdit() {
   state.editPayment = exp.payment_method || null;
   renderPaymentButtons(state.editPayment, "edit-payment-buttons");
 
-  state.editItems = (exp.items || []).map(i => ({ name: i.name || "", price: i.price ?? null }));
+  state.editItems = (exp.items || []).map(i => ({ name: i.name || "", price: i.price ?? null, quantity: i.quantity ?? 1 }));
   renderEditItems();
 
   document.getElementById("det-view-mode").classList.add("hidden");
@@ -1957,6 +2010,9 @@ function renderEditItems() {
       <input type="text" value="${esc(item.name)}" placeholder="Item name"
              oninput="state.editItems[${idx}].name = this.value"
              class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white min-w-0" />
+      <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
+             oninput="state.editItems[${idx}].quantity = this.value === '' ? 1 : parseInt(this.value)"
+             class="w-12 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
       <input type="number" value="${item.price ?? ""}" placeholder="0.00" min="0" step="0.01"
              oninput="state.editItems[${idx}].price = this.value === '' ? null : parseFloat(this.value)"
              class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
@@ -1966,7 +2022,7 @@ function renderEditItems() {
 }
 
 function addEditItem() {
-  state.editItems.push({ name: "", price: null });
+  state.editItems.push({ name: "", price: null, quantity: 1 });
   renderEditItems();
   setTimeout(() => {
     const inputs = document.querySelectorAll("#edit-items-list input[type=text]");
@@ -2005,7 +2061,7 @@ async function saveEdit() {
 
   const items = state.editItems
     .filter(i => i.name.trim() !== "")
-    .map(i => ({ name: i.name.trim(), price: i.price }));
+    .map(i => ({ name: i.name.trim(), price: i.price, quantity: i.quantity ?? 1 }));
 
   try {
     const oldExp = state.expenseMap[id];

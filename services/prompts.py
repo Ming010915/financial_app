@@ -29,7 +29,7 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
         '  "total": numeric final amount paid or null,\n'
         '  "currency": "ISO currency code, e.g. EUR USD GBP",\n'
         f'  "payment_method": "one of: {methods_str} — or null if not visible",\n'
-        '  "items": [{"name": "item name", "price": numeric line-item price or null}],\n'
+        '  "items": [{"name": "item name", "price": numeric line-item total price or null, "quantity": integer quantity (default 1)}],\n'
         '  "location": "the street address of the MERCHANT/STORE where the purchase happened, or null"\n'
         '}\n'
         "\n"
@@ -48,11 +48,16 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
         "- Do NOT return the customer's / cardholder's / billing / shipping / delivery address. "
         "If you see a 'Bill to', 'Ship to', 'Deliver to', 'Customer', or handwritten personal "
         "address, IGNORE it for this field.\n"
-        "- For online orders where no physical store address exists, use the merchant's "
+        "- CLICK & COLLECT / IN-STORE PICKUP: If the receipt is for an online order picked up "
+        "in a physical store, the correct address is the PICKUP STORE — look for labels like "
+        "'Pickup location', 'Collect at', 'Pick up at', 'Store pickup', 'Collection store', "
+        "'Your store', or a store name/number followed by an address. Use that address, NOT the "
+        "merchant's corporate headquarters or registered company address.\n"
+        "- For purely online orders with no pickup location, use the merchant's "
         "registered/company address if shown, otherwise null.\n"
-        "- If several store addresses appear (e.g. a chain's HQ plus the actual branch), prefer "
-        "the specific branch where the purchase was made (the one tied to the store/till number "
-        "or transaction).\n"
+        "- If several store addresses appear (e.g. a chain's HQ plus the actual branch), ALWAYS "
+        "prefer the specific branch or pickup store where the goods were collected — the one tied "
+        "to the store/till number, store ID, or 'pickup'/'collect' label.\n"
         "- Format as a single line: street, postal code, city, country if available.\n"
         "\n"
         "TOTAL & CURRENCY:\n"
@@ -67,8 +72,13 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
         "due date. Normalize to YYYY-MM-DD (interpret day/month order from the receipt's locale).\n"
         "\n"
         "ITEMS:\n"
-        "- List the purchased line items with their individual prices. Exclude subtotal, tax, "
+        "- List the purchased line items with their individual prices and quantities. Exclude subtotal, tax, "
         "tip, rounding, and total lines. If a price is unreadable use null.\n"
+        "- Set 'quantity' to the number of units for that line (integer). Default to 1 if not shown.\n"
+        "- 'price' is the total for the line (quantity × unit price). If only the unit price is visible "
+        "and quantity > 1, multiply to get the line total.\n"
+        "- Do NOT produce duplicate entries for the same item — if the same item appears multiple times "
+        "on the receipt, emit it once with the combined quantity and total price.\n"
         "\n"
         "GENERAL:\n"
         "- If any field is unclear, unreadable, or absent, use null (or an empty list for items) "
@@ -172,8 +182,9 @@ ADD_EXPENSE_FUNC = {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "name":  {"type": "string", "description": "Item name"},
-                        "price": {"type": "number", "description": "Price of this item"},
+                        "name":     {"type": "string",  "description": "Item name"},
+                        "price":    {"type": "number",  "description": "Total line price for this item (quantity × unit price)"},
+                        "quantity": {"type": "integer", "description": "Number of units (default 1)"},
                     },
                     "required": ["name"],
                 },

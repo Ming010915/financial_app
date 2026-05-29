@@ -25,6 +25,7 @@ fi
 echo "App running (PID $APP_PID). Starting localtunnel on port 5000..."
 
 # Run lt and capture its output line by line until we find the URL
+SUBDOMAIN="${LT_SUBDOMAIN:-myfloapp-tum}"
 TUNNEL_URL=""
 while IFS= read -r line; do
     echo "$line"
@@ -32,7 +33,7 @@ while IFS= read -r line; do
         TUNNEL_URL="${BASH_REMATCH[0]}"
         break
     fi
-done < <(lt --port 5000 2>&1)
+done < <(lt --port 5000 --subdomain "$SUBDOMAIN" 2>&1)
 
 if [[ -z "$TUNNEL_URL" ]]; then
     echo "Error: could not extract URL from localtunnel output." >&2
