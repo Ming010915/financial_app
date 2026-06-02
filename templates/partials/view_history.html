@@ -1,0 +1,21 @@
+<!-- ── HISTORY VIEW ───────────────────────────────────────────────────── -->
+<div id="view-history" class="view fade-in">
+  <div class="p-4 pb-2 space-y-2.5">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-bold text-[#191c1d]">History</h2>
+      <div id="history-total" class="text-sm font-semibold text-[#44474a]"></div>
+    </div>
+    <!-- Search bar -->
+    <div class="relative">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#c5c6ca] pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+      <input id="history-search" type="text" placeholder="Search merchant or notes…"
+             oninput="filterHistory()"
+             class="w-full pl-9 pr-4 py-2.5 border border-[#e8e9ea] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55] focus:border-transparent" />
+    </div>
+    <!-- Category filter chips -->
+    <div id="history-cat-filters" class="flex gap-1.5 overflow-x-auto pb-0.5 hide-scrollbar"></div>
+  </div>
+  <div id="history-list" class="p-4 pt-2 space-y-4">
+    <div class="text-center text-[#c5c6ca] py-8">No expenses yet</div>
+  </div>
+</div>

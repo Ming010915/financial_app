@@ -1,0 +1,135 @@
+"""
+Voice input processing via Google Gemini.
+Transcribes audio and extracts expense details using function calling.
+One expense entry per shopping trip/merchant, with individual items listed.
+"""
+
+from datetime import date
+
+from services import classifier
+from services.gemini_utils import generate_with_fallback
+from services.prompts import VOICE_PROMPT, ADD_EXPENSE_FUNC, build_summary_prompt
+from config import GEMINI_MODELS, ASK_BELOW
+
+
+def summarize_transcript(transcript: str, api_key: str) -> str:
+    """
+    Turn a raw speech-to-text transcript into a short, clean summary of the
+    purchase — fixing mis-hearings, resolving self-corrections, and dropping
+    filler — without inventing content. Returns the summary, or the original
+    transcript if the model returns nothing useful. Raises on any error.
+    """
+    from google import genai
+
+    client   = genai.Client(api_key=api_key)
+    response = generate_with_fallback(lambda model: client.models.generate_content(
+        model    = model,
+        contents = [build_summary_prompt(transcript)],
+    ), GEMINI_MODELS)
+
+    summary = (response.text or "").strip()
+    return summary or transcript
+
+
+def process_voice_text(transcript: str, api_key: str) -> dict:
+    """
+    Extract expense details from a (user-confirmed) transcript via function
+    calling, attach a category prediction, and return the structured dict.
+    Raises on any error.
+    """
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=api_key)
+    tool   = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
+
+    response = generate_with_fallback(lambda model: client.models.generate_content(
+        model    = model,
+        contents = [VOICE_PROMPT, transcript],
+        config   = types.GenerateContentConfig(tools=[tool]),
+    ), GEMINI_MODELS)
+
+    extracted = {}
+    for part in response.candidates[0].content.parts:
+        if part.function_call:
+            extracted = dict(part.function_call.args)
+            break
+
+    if not extracted:
+        raise ValueError("Gemini could not extract expense details from the transcript")
+
+    return _finalize_extracted(extracted)
+
+
+def process_voice_input(audio_data: bytes, mime_type: str, api_key: str) -> dict:
+    """
+    Send audio to Gemini, extract expense details via function calling,
+    attach a category prediction, and return the structured dict.
+    Raises on any error.
+    """
+    from google import genai
+    from google.genai import types
+
+    client     = genai.Client(api_key=api_key)
+    audio_part = types.Part.from_bytes(data=audio_data, mime_type=mime_type)
+    tool       = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
+
+    response = generate_with_fallback(lambda model: client.models.generate_content(
+        model    = model,
+        contents = [VOICE_PROMPT, audio_part],
+        config   = types.GenerateContentConfig(tools=[tool]),
+    ), GEMINI_MODELS)
+
+    extracted = {}
+    for part in response.candidates[0].content.parts:
+        if part.function_call:
+            extracted = dict(part.function_call.args)
+            break
+
+    if not extracted:
+        raise ValueError("Gemini could not extract expense details from the audio")
+
+    return _finalize_extracted(extracted)
+
+
+def _finalize_extracted(extracted: dict) -> dict:
+    """
+    Fill in defaults, normalise items, compute a missing total, and attach the
+    category prediction. Shared by the audio and text extraction paths.
+    """
+    extracted.setdefault("merchant",       "")
+    extracted.setdefault("total",          None)
+    extracted.setdefault("currency",       "EUR")
+    extracted.setdefault("date",           None)
+    extracted.setdefault("payment_method", None)
+    extracted.setdefault("notes",          "")
+    extracted.setdefault("items",          [])
+
+    # Normalise items to plain dicts (Gemini may return MapComposite objects)
+    extracted["items"] = [dict(i) for i in extracted["items"]]
+
+    if not extracted.get("date"):
+        extracted["date"] = date.today().isoformat()
+
+    # If total is missing but items have prices, compute it
+    if extracted["total"] is None and extracted["items"]:
+        prices = [i.get("price") for i in extracted["items"] if i.get("price") is not None]
+        if prices:
+            extracted["total"] = round(sum(prices), 2)
+
+    merchant = extracted.get("merchant", "")
+    if merchant:
+        pred, conf, emb, top3 = classifier.do_classify(merchant)
+        classifier.embedding_cache[merchant] = emb
+        extracted["predicted_category"] = pred
+        extracted["confidence"]         = conf
+        extracted["needs_review"]       = conf < ASK_BELOW
+        extracted["top3"]               = top3
+    else:
+        extracted["predicted_category"] = "Others"
+        extracted["confidence"]         = 0.0
+        extracted["needs_review"]       = True
+        extracted["top3"]               = []
+
+    extracted["categories"] = list(classifier.centroids.keys()) + ["Others"]
+    return extracted

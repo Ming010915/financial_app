@@ -1,0 +1,132 @@
+<!-- ── ADD VIEW ──────────────────────────────────────────────────────── -->
+<div id="view-add" class="view p-4 space-y-4 fade-in">
+  <div class="flex items-center gap-3">
+    <button onclick="showView('add-method')"
+            class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-[#191c1d]">Add Expense</h2>
+  </div>
+
+  <!-- Receipt reference strip (shown only after scan) -->
+  <div id="receipt-ref-strip" class="hidden">
+    <button type="button" onclick="toggleReceiptRef()"
+            class="w-full flex items-center justify-between px-3 py-2 bg-[#e6f4f1] rounded-2xl text-sm font-semibold text-[#006b55]">
+      <span class="flex items-center gap-2">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82V15.18a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+        View original receipt
+      </span>
+      <svg id="receipt-ref-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+    </button>
+    <div id="receipt-ref-panel" class="hidden mt-2 rounded-2xl overflow-hidden bg-[#edeeef]">
+      <img id="receipt-ref-img" src="" alt="Receipt" class="w-full object-contain max-h-[60vh]" />
+      <div id="receipt-ref-pdf" class="hidden w-full py-10 flex flex-col items-center gap-2">
+        <svg class="w-14 h-14 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 21H5a2 2 0 01-2-2V5a2 2 0 012-2h10l4 4v12a2 2 0 01-2 2h-2"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-5h1.5a1.5 1.5 0 010 3H9m4 2v-5h2m-2 2.5h1.5M17 17v-5"/>
+        </svg>
+        <p id="receipt-ref-pdf-name" class="text-xs text-[#44474a] font-medium truncate max-w-xs"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expense form -->
+  <form onsubmit="event.preventDefault(); saveExpense();" class="space-y-4">
+
+    <div>
+      <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Merchant *</label>
+      <input id="f-merchant" type="text" placeholder="e.g. Lidl, McDonald's" autocomplete="off"
+             class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] focus:border-transparent bg-white"
+             onblur="autoClassify()" />
+    </div>
+
+    <div class="grid grid-cols-5 gap-2">
+      <div class="col-span-2">
+        <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Amount *</label>
+        <div class="relative">
+          <span id="f-cur-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
+          <input id="f-amount" type="number" min="0" step="0.01" placeholder="0.00"
+                 class="w-full pl-7 pr-3 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        </div>
+      </div>
+      <div class="col-span-1">
+        <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">CCY</label>
+        <select id="f-currency" onchange="updateCurrencySymbol()"
+                class="w-full px-1 py-3 border border-[#c5c6ca] rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white text-center"></select>
+      </div>
+      <div class="col-span-2">
+        <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Date</label>
+        <input id="f-date" type="date"
+               class="w-full px-3 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      </div>
+    </div>
+
+    <!-- Exchange rate row (shown only when currency ≠ default) -->
+    <div id="f-rate-row" style="display:none"
+         class="items-center gap-2 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl px-3 py-2.5">
+      <span class="text-xs text-[#44474a] flex-shrink-0">1 <span id="f-rate-from"></span> =</span>
+      <span id="f-rate-sym" class="text-xs font-semibold text-[#191c1d] flex-shrink-0"></span>
+      <input id="f-rate" type="number" step="any" min="0" placeholder="0.000000"
+             class="flex-1 min-w-0 px-2 py-1 border border-[#6dfad2] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <span id="f-rate-note" class="text-[10px] text-emerald-500 flex-shrink-0"></span>
+    </div>
+
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-sm font-semibold text-[#191c1d]">Category</label>
+        <span id="cat-confidence" class="text-xs text-[#44474a] hidden"></span>
+      </div>
+      <div id="cat-buttons" class="flex flex-wrap gap-1.5">
+        <div class="text-sm text-[#c5c6ca]">Loading…</div>
+      </div>
+    </div>
+
+    <div id="items-section" class="hidden">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-sm font-semibold text-[#191c1d]">Items on Receipt</label>
+        <button type="button" onclick="addFormItem()"
+                class="text-xs font-bold text-[#006b55] hover:text-[#004d3f] py-1 px-2 rounded-xl hover:bg-[#f0fdf9] transition-colors">+ Add item</button>
+      </div>
+      <div class="flex items-center gap-2 mb-1 px-1">
+        <span class="flex-1 text-[10px] text-[#44474a]">Name</span>
+        <span class="w-12 text-[10px] text-[#44474a] text-center">Qty</span>
+        <span class="w-20 text-[10px] text-[#44474a] text-right pr-1">Price</span>
+        <span class="w-7"></span>
+      </div>
+      <div id="items-list" class="space-y-2"></div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Notes</label>
+      <input id="f-notes" type="text" placeholder="Optional note"
+             class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+    </div>
+
+    <div id="f-location-wrap">
+      <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Location</label>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm pointer-events-none">📍</span>
+        <input id="f-location" type="text" placeholder="Type or tap Near me…" autocomplete="off"
+               oninput="onLocationInput('f-location', 'f-nearby-results')"
+               class="w-full pl-9 pr-[5.5rem] py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <button type="button" onclick="findNearbyPlaces('f-location', 'f-nearby-results', this)"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-[#006b55] bg-[#f0fdf9] hover:bg-[#d0f5e8] px-2.5 py-1.5 rounded-xl transition-colors whitespace-nowrap">
+          Near me
+        </button>
+      </div>
+      <div id="f-nearby-results"
+           class="hidden mt-1 bg-white border border-[#c5c6ca] rounded-2xl shadow-lg overflow-hidden max-h-52 overflow-y-auto"></div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Payment Method</label>
+      <div id="payment-buttons" class="flex flex-wrap gap-1.5"></div>
+    </div>
+
+    <button type="submit" id="save-btn"
+            class="w-full py-4 bg-[#006b55] hover:bg-[#004d3f] active:bg-[#003d31] text-white rounded-3xl font-bold text-base transition-colors flex items-center justify-center gap-2 shadow-sm">
+      <span id="save-label">Add Expense</span>
+      <span id="save-spinner" class="hidden loader"></span>
+    </button>
+  </form>
+</div>

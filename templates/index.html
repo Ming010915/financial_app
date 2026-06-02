@@ -6,31 +6,50 @@
   <title>Flo</title>
   <!-- Set dark mode before styles to avoid flash -->
   <script>if (localStorage.getItem('darkMode') !== '0') document.documentElement.classList.add('dark');</script>
-  <script>tailwind.config = { darkMode: 'class' }</script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
-<body class="bg-slate-300">
+<body class="bg-[#d0d5d4] flo-phone-bg">
 
 <!-- ─── Phone wrapper ─────────────────────────────────────────────────────── -->
-<div class="w-full max-w-[430px] mx-auto bg-gray-50 flex flex-col relative"
+<div class="w-full max-w-[430px] mx-auto bg-[#f8f9fa] flex flex-col relative"
      style="height: 100%; max-height: 900px;">
 
-  <!-- Header -->
-  <header class="bg-white px-5 py-3.5 flex items-center justify-between border-b border-gray-100 flex-shrink-0 shadow-sm">
-    <div class="flex items-center gap-2.5">
-      <div class="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-sm select-none">$</div>
-      <span class="text-lg font-bold text-gray-900">Flo</span>
+  <!-- ── Header ────────────────────────────────────────────────────────────── -->
+  <header class="bg-white px-5 py-4 flex items-center justify-between border-b border-[#e8e9ea] flex-shrink-0">
+    <div class="flex items-center gap-3">
+      <!-- Flo brand logo -->
+      <div class="w-9 h-9 bg-[#006b55] rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm">
+        <svg class="w-5 h-5" fill="none" stroke="#6dfad2" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <span class="text-xl font-bold text-[#191c1d] tracking-tight">Flo</span>
     </div>
-    <div id="header-date" class="text-sm text-gray-400 font-medium"></div>
+    <div id="header-date" class="text-sm text-[#44474a] font-medium"></div>
   </header>
 
   <!-- Scrollable main -->
-  <main class="flex-1 overflow-y-auto pb-20" id="main-scroll">
+  <main class="flex-1 overflow-y-auto" id="main-scroll">
+    {% include "partials/view_home.html" %}
+    {% include "partials/view_add_method.html" %}
+    {% include "partials/view_scan.html" %}
+    {% include "partials/view_verify.html" %}
+    {% include "partials/view_voice.html" %}
+    {% include "partials/view_add.html" %}
+    {% include "partials/view_history.html" %}
+    {% include "partials/view_summary.html" %}
+    {% include "partials/view_settings.html" %}
+    {% include "partials/view_preferences.html" %}
+    {% include "partials/view_api_keys.html" %}
+    {% include "partials/view_categories.html" %}
+    {% include "partials/view_payment_methods.html" %}
+  </main>
 
-    <!-- ── HOME VIEW ─────────────────────────────────────────────────────── -->
-    <div id="view-home" class="view active p-4 space-y-4 fade-in">
+  {% include "partials/nav.html" %}
 
       <!-- Spending summary cards -->
       <div class="grid grid-cols-2 gap-3">
@@ -498,170 +517,7 @@
   </nav>
 </div>
 
-<!-- ── Toast ────────────────────────────────────────────────────────────────── -->
-<div id="toast" class="hidden fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold text-white text-center max-w-xs slide-up pointer-events-none"></div>
-
-<!-- ── Confirm Dialog ────────────────────────────────────────────────────────── -->
-<div id="confirm-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center px-6"
-     style="background:rgba(0,0,0,0.45)">
-  <div class="bg-white rounded-2xl shadow-xl w-full max-w-xs p-6 space-y-4 fade-in">
-    <div class="text-base font-bold text-gray-900" id="confirm-title"></div>
-    <div class="text-sm text-gray-500" id="confirm-message"></div>
-    <div class="grid grid-cols-2 gap-2 pt-1">
-      <button onclick="confirmCancel()"
-              class="py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
-        Cancel
-      </button>
-      <button id="confirm-ok"
-              class="py-2.5 rounded-xl text-sm font-semibold text-white transition-colors">
-        Confirm
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Expense Detail Bottom Sheet ──────────────────────────────────────────── -->
-<div id="detail-overlay" class="hidden fixed inset-0 z-40 flex items-end justify-center"
-     style="background:rgba(0,0,0,0.5)">
-  <div onclick="closeDetail()" class="absolute inset-0"></div>
-  <div id="detail-sheet"
-       class="relative w-full max-w-[430px] bg-white rounded-t-3xl z-10 sheet-up overflow-hidden"
-       style="max-height:88vh; overflow-y:auto;">
-    <div class="flex justify-center pt-3 pb-1 sticky top-0 bg-white z-10">
-      <div class="w-10 h-1 bg-gray-200 rounded-full"></div>
-    </div>
-    <div class="px-5 pb-6 pt-2">
-
-      <!-- ── VIEW MODE ────────────────────────────────────────────── -->
-      <div id="det-view-mode">
-        <div class="flex items-center justify-between mb-4">
-          <div id="det-badge" class="px-3 py-1.5 rounded-full text-white text-xs font-bold"></div>
-          <button onclick="closeDetail()"
-                  class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors text-sm font-bold">✕</button>
-        </div>
-        <div id="det-merchant" class="text-2xl font-bold text-gray-900 mb-1"></div>
-        <div id="det-amount" class="text-3xl font-bold text-indigo-600 mb-5"></div>
-        <div class="space-y-2.5 mb-5">
-          <div class="flex items-center gap-3 text-sm text-gray-600">
-            <span class="text-base">📅</span>
-            <span id="det-date"></span>
-          </div>
-          <div id="det-payment-row" class="hidden flex items-center gap-3 text-sm text-gray-600">
-            <span class="text-base" id="det-payment-icon">💳</span>
-            <span id="det-payment"></span>
-          </div>
-          <div id="det-notes-row" class="hidden flex items-start gap-3 text-sm text-gray-600">
-            <span class="text-base mt-0.5">📝</span>
-            <span id="det-notes" class="leading-relaxed"></span>
-          </div>
-          <div class="flex items-center gap-3 text-sm text-gray-600">
-            <span class="text-base" id="det-source-icon">💳</span>
-            <span id="det-source"></span>
-          </div>
-        </div>
-        <div id="det-items-section" class="hidden mb-5">
-          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Receipt Items</div>
-          <div id="det-items-list" class="bg-gray-50 rounded-xl p-3 space-y-1 text-sm text-gray-600 max-h-40 overflow-y-auto"></div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <button onclick="openEdit()"
-                  class="py-3 border border-indigo-200 text-indigo-600 rounded-xl font-semibold text-sm hover:bg-indigo-50 transition-colors">
-            Edit
-          </button>
-          <button id="det-delete-btn"
-                  class="py-3 border border-red-200 text-red-500 rounded-xl font-semibold text-sm hover:bg-red-50 transition-colors">
-            Delete
-          </button>
-        </div>
-      </div>
-
-      <!-- ── EDIT MODE ─────────────────────────────────────────────── -->
-      <div id="det-edit-mode" class="hidden">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-base font-bold text-gray-900">Edit Expense</h3>
-          <button onclick="cancelEdit()"
-                  class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors text-sm font-bold">✕</button>
-        </div>
-        <!-- Merchant -->
-        <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Merchant</label>
-          <input id="edit-merchant" type="text"
-                 class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
-        </div>
-        <!-- Amount + Currency -->
-        <div class="grid grid-cols-3 gap-2 mb-3">
-          <div class="col-span-2">
-            <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Amount</label>
-            <div class="relative">
-              <span id="edit-cur-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-semibold pointer-events-none">€</span>
-              <input id="edit-amount" type="number" min="0" step="0.01"
-                     class="w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
-            </div>
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-gray-500 mb-1.5 block">CCY</label>
-            <select id="edit-currency"
-                    class="w-full px-1 py-2.5 border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-center"
-                    onchange="updateEditCurrencyRate(this.value)"></select>
-          </div>
-        </div>
-        <!-- Exchange rate row (shown only when currency ≠ default) -->
-        <div id="edit-rate-row" style="display:none"
-             class="items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2.5 mb-3">
-          <span class="text-xs text-gray-500 flex-shrink-0">1 <span id="edit-rate-from"></span> =</span>
-          <span id="edit-rate-sym" class="text-xs font-semibold text-gray-600 flex-shrink-0"></span>
-          <input id="edit-rate" type="number" step="any" min="0" placeholder="0.000000"
-                 class="flex-1 min-w-0 px-2 py-1 border border-indigo-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
-          <span id="edit-rate-note" class="text-[10px] text-emerald-500 flex-shrink-0"></span>
-        </div>
-        <!-- Date -->
-        <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Date</label>
-          <input id="edit-date" type="date"
-                 class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
-        </div>
-        <!-- Category -->
-        <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Category</label>
-          <div id="edit-cat-buttons" class="flex flex-wrap gap-1.5"></div>
-        </div>
-        <!-- Notes -->
-        <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Notes</label>
-          <input id="edit-notes" type="text" placeholder="Optional note"
-                 class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
-        </div>
-        <!-- Payment Method -->
-        <div class="mb-3">
-          <label class="text-xs font-semibold text-gray-500 mb-1.5 block">Payment Method</label>
-          <div id="edit-payment-buttons" class="flex flex-wrap gap-1.5"></div>
-        </div>
-        <!-- Items -->
-        <div class="mb-4">
-          <div class="flex items-center justify-between mb-2">
-            <label class="text-xs font-semibold text-gray-500">Items</label>
-            <button type="button" onclick="addEditItem()"
-                    class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 py-1 px-2 rounded-lg hover:bg-indigo-50 transition-colors">+ Add item</button>
-          </div>
-          <div id="edit-items-list" class="space-y-2"></div>
-        </div>
-        <!-- Buttons -->
-        <div class="grid grid-cols-2 gap-3">
-          <button onclick="cancelEdit()"
-                  class="py-3 border border-gray-200 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors">
-            Cancel
-          </button>
-          <button onclick="saveEdit()"
-                  class="py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
-            <span id="edit-save-label">Save Changes</span>
-            <span id="edit-save-spinner" class="hidden loader"></span>
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</div>
+{% include "partials/overlays.html" %}
 
 <script src="/static/js/app.js"></script>
 </body>

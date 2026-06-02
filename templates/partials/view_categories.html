@@ -1,0 +1,71 @@
+<!-- ── CATEGORIES VIEW ───────────────────────────────────────────────── -->
+<div id="view-categories" class="view p-4 space-y-4 fade-in">
+  <div class="flex items-center gap-3">
+    <button onclick="showView('settings')"
+            class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-[#191c1d]">Categories</h2>
+  </div>
+
+  <div id="categories-list" class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm divide-y divide-[#e8e9ea] overflow-hidden"></div>
+
+  <!-- Add new category -->
+  <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+    <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Add Category</div>
+    <div class="flex gap-2">
+      <input id="new-category-emoji" type="text" placeholder="📦"
+             class="w-12 flex-shrink-0 px-1 py-2.5 border border-[#c5c6ca] rounded-2xl text-xl text-center bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+      <input id="new-category-name" type="text" placeholder="e.g. Gym, Hobbies…"
+             class="flex-1 min-w-0 px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm text-[#191c1d] bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+      <button onclick="addCustomCategory()"
+              class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors">
+        Add
+      </button>
+    </div>
+    <p class="text-xs text-[#44474a]">Tap the emoji box to pick an emoji, then enter a category name.</p>
+  </div>
+
+  <!-- Section divider: Merchant Rules -->
+  <div class="flex items-center gap-3 pt-1">
+    <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+    <span class="text-[10px] font-bold text-[#44474a] uppercase tracking-widest">Merchant Rules</span>
+    <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+  </div>
+
+  <p class="text-sm text-[#44474a] -mt-1">Force a specific category for a merchant, regardless of the AI prediction.</p>
+
+  <div id="overrides-list" class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm divide-y divide-[#e8e9ea] overflow-hidden"></div>
+
+  <!-- Add new override -->
+  <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+    <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Add Override</div>
+    <div class="space-y-2">
+      <input id="new-override-merchant" type="text" placeholder="Merchant name (e.g. mcdonald's)"
+             class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm text-[#191c1d] bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+      <select id="new-override-category"
+              class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm text-[#191c1d] bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]"></select>
+      <button onclick="addOverride()"
+              class="w-full py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors">
+        Add Override
+      </button>
+    </div>
+  </div>
+
+  <!-- Section divider: AI Model -->
+  <div class="flex items-center gap-3 pt-1">
+    <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+    <span class="text-[10px] font-bold text-[#44474a] uppercase tracking-widest">AI Model</span>
+    <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+  </div>
+
+  <!-- Reset AI model -->
+  <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+    <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">AI Category Model</div>
+    <p class="text-xs text-[#44474a]">Reset the model back to the server's base version, discarding any personalised learning stored in this browser.</p>
+    <button onclick="resetCentroids()"
+            class="w-full py-2.5 border border-red-200 text-red-600 rounded-2xl font-semibold text-xs hover:bg-red-50 transition-colors">
+      Reset to Base Model
+    </button>
+  </div>
+</div>

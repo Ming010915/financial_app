@@ -17,11 +17,22 @@ function getPaymentMethods() {
   return s ? JSON.parse(s) : ["Cash","Debit Card","Credit Card","Mobile Pay","Bank Transfer"];
 }
 function savePaymentMethods(m) { localStorage.setItem('flo_payment_methods', JSON.stringify(m)); }
+function getPaymentEmojis() {
+  const s = localStorage.getItem('flo_payment_emojis');
+  return s ? JSON.parse(s) : {};
+}
+function savePaymentEmojis(e) { localStorage.setItem('flo_payment_emojis', JSON.stringify(e)); }
 function getCustomCurrencies() {
   const s = localStorage.getItem('flo_custom_currencies');
   return s ? JSON.parse(s) : [];
 }
 function saveCustomCurrencies(c) { localStorage.setItem('flo_custom_currencies', JSON.stringify(c)); }
+function getBudget() {
+  const v = localStorage.getItem('flo_budget');
+  return v ? parseFloat(v) : null;
+}
+function saveBudget(amount) { localStorage.setItem('flo_budget', String(amount)); }
+function clearBudget()      { localStorage.removeItem('flo_budget'); }
 
 function generateId() {
   return crypto.randomUUID
@@ -32,6 +43,25 @@ function generateId() {
       });
 }
 
+function mergeItems(items) {
+  const map = new Map();
+  for (const item of items) {
+    const key = (item.name || "").trim().toLowerCase();
+    if (!key) { map.set(Symbol(), { ...item, quantity: item.quantity || 1 }); continue; }
+    if (map.has(key)) {
+      const ex = map.get(key);
+      ex.quantity = (ex.quantity || 1) + (item.quantity || 1);
+      if (ex.price != null && item.price != null)
+        ex.price = Math.round((ex.price + item.price) * 100) / 100;
+      else if (item.price != null)
+        ex.price = item.price;
+    } else {
+      map.set(key, { ...item, quantity: item.quantity || 1 });
+    }
+  }
+  return Array.from(map.values());
+}
+
 function computeSummary() {
   const expenses  = getExpenses();
   const today     = new Date().toISOString().split('T')[0];
@@ -39,6 +69,23 @@ function computeSummary() {
 
   const todayTotal = expenses.filter(e => e.date === today).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
   const monthTotal = expenses.filter(e => (e.date || '').startsWith(thisMonth)).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+
+  // This week (Mon → today)
+  const dow       = new Date().getDay(); // 0=Sun
+  const daysBack  = dow === 0 ? 6 : dow - 1;
+  const weekStart = new Date(Date.now() - daysBack * 86400000).toISOString().split('T')[0];
+  const weekTotal = expenses
+    .filter(e => (e.date || '') >= weekStart && (e.date || '') <= today)
+    .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+
+  // Last calendar month total (for trend badge)
+  const lastMonthDate = new Date();
+  lastMonthDate.setDate(1);
+  lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+  const lastMonthStr   = lastMonthDate.toISOString().slice(0, 7);
+  const lastMonthTotal = expenses
+    .filter(e => (e.date || '').startsWith(lastMonthStr))
+    .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   const catBreakdown = {};
   expenses.filter(e => (e.date || '').startsWith(thisMonth)).forEach(e => {
@@ -63,8 +110,10 @@ function computeSummary() {
     .slice(0, 5);
 
   return {
-    today_total:        Math.round(todayTotal * 100) / 100,
-    month_total:        Math.round(monthTotal * 100) / 100,
+    today_total:       Math.round(todayTotal * 100) / 100,
+    month_total:       Math.round(monthTotal * 100) / 100,
+    week_total:        Math.round(weekTotal * 100) / 100,
+    last_month_total:  Math.round(lastMonthTotal * 100) / 100,
     category_breakdown: Object.fromEntries(
       Object.entries(catBreakdown).map(([k, v]) => [k, Math.round(v * 100) / 100])
     ),
@@ -119,8 +168,10 @@ const state = {
   originalCategory: null,
   selectedPayment:  null,
   isReceipt:        false,
-  receiptFile:      null,
-  receiptItems:     [],
+  isVoice:          false,
+  receiptFile:         null,
+  receiptItems:        [],
+  pendingReceiptData:  null,
   expenseMap:       {},   // id → full expense object
   currentEditId:    null,
   editCategory:     null,
@@ -132,11 +183,158 @@ const state = {
 let pieChartInst = null;
 let lineChartInst = null;
 
+// ── Google Places (custom dropdown, no Autocomplete widget) ──────────────────
+let _gmapsLoadPromise  = null;
+let _cachedPosition    = null;
+let _locationTimer     = null;
+let _serverPlacesKey   = null;
+
+async function loadGoogleMapsAPI() {
+  if (window.google?.maps?.places) return true;
+  if (_serverPlacesKey === null) {
+    try {
+      const r = await fetch('/api/settings');
+      const d = await r.json();
+      _serverPlacesKey = d.places_server_key || '';
+    } catch { _serverPlacesKey = ''; }
+  }
+  const key = localStorage.getItem('placesApiKey') || _serverPlacesKey;
+  if (!key) return false;
+  if (_gmapsLoadPromise) return _gmapsLoadPromise;
+  _gmapsLoadPromise = new Promise(resolve => {
+    const cb = '_gmapsInit_' + Date.now();
+    window[cb] = () => resolve(true);
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&callback=${cb}`;
+    s.async = true;
+    s.onerror = () => { _gmapsLoadPromise = null; resolve(false); };
+    document.head.appendChild(s);
+  });
+  return _gmapsLoadPromise;
+}
+
+async function getPosition() {
+  if (_cachedPosition) return _cachedPosition;
+  try {
+    _cachedPosition = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000, maximumAge: 300000 })
+    );
+    return _cachedPosition;
+  } catch { return null; }
+}
+
+function _renderPlaceResults(inputId, resultsId, places, nameKey, addrKey) {
+  const resultsEl = document.getElementById(resultsId);
+  if (!places?.length) { resultsEl.classList.add('hidden'); return; }
+  const bg      = isDark() ? '#141414' : 'white';
+  const bgHover = isDark() ? '#1e1e1e' : '#f0fdf9';
+  const textCol = isDark() ? '#e0e0e0' : '#1f2937';
+  const subCol  = isDark() ? '#686868' : '#9ca3af';
+  resultsEl.innerHTML = places.slice(0, 12).map(place => {
+    const addr = place[addrKey] || '';
+    const val  = place.name + (addr ? ', ' + addr : '');
+    return `
+      <div class="px-3 py-2.5 cursor-pointer border-b border-[#e8e9ea] last:border-0 transition-colors"
+           style="background:${bg}"
+           onmouseover="this.style.background='${bgHover}'"
+           onmouseout="this.style.background='${bg}'"
+           data-val="${esc(val)}"
+           onclick="selectNearbyPlace('${inputId}', '${resultsId}', this)">
+        <div class="text-sm font-medium truncate" style="color:${textCol}">${esc(place.name)}</div>
+        <div class="text-xs truncate" style="color:${subCol}">${esc(addr)}</div>
+      </div>`;
+  }).join('');
+}
+
+// Called by oninput on location fields — debounced textSearch biased to cached position
+async function onLocationInput(inputId, resultsId) {
+  const query     = (document.getElementById(inputId)?.value || '').trim();
+  const resultsEl = document.getElementById(resultsId);
+  clearTimeout(_locationTimer);
+  if (!query) { resultsEl.classList.add('hidden'); return; }
+
+  _locationTimer = setTimeout(async () => {
+    const ok = await loadGoogleMapsAPI();
+    if (!ok) return;
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Searching…</div>';
+    resultsEl.classList.remove('hidden');
+
+    const pos     = _cachedPosition;
+    const service = new google.maps.places.PlacesService(document.createElement('div'));
+    const opts    = { query };
+    if (pos) {
+      opts.location = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+      opts.radius   = 10000;
+    }
+    service.textSearch(opts, (results, status) => {
+      if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
+        resultsEl.classList.add('hidden');
+        return;
+      }
+      _renderPlaceResults(inputId, resultsId, results, 'name', 'formatted_address');
+    });
+  }, 350);
+}
+
+// "Near me" button — nearbySearch around the user's GPS position
+async function findNearbyPlaces(inputId, resultsId, btnEl) {
+  const resultsEl = document.getElementById(resultsId);
+  const origLabel = btnEl?.textContent ?? 'Near me';
+  const setBtn    = (lbl, off) => { if (btnEl) { btnEl.textContent = lbl; btnEl.disabled = off; } };
+
+  setBtn('…', true);
+  resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Getting your location…</div>';
+  resultsEl.classList.remove('hidden');
+
+  const position = await getPosition();
+  if (!position) {
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-red-500 text-center">Location access denied or unavailable</div>';
+    setBtn(origLabel, false);
+    return;
+  }
+
+  const ok = await loadGoogleMapsAPI();
+  if (!ok) {
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-amber-500 text-center">Add a Google Places API key in Settings to enable this</div>';
+    setBtn(origLabel, false);
+    return;
+  }
+
+  resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Searching nearby…</div>';
+
+  const loc     = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+  const service = new google.maps.places.PlacesService(document.createElement('div'));
+  service.nearbySearch({ location: loc, radius: 500, type: 'establishment' }, (results, status) => {
+    setBtn(origLabel, false);
+    if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
+      resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">No nearby places found</div>';
+      return;
+    }
+    _renderPlaceResults(inputId, resultsId, results, 'name', 'vicinity');
+  });
+}
+
+function selectNearbyPlace(inputId, resultsId, el) {
+  document.getElementById(inputId).value = el.dataset.val;
+  document.getElementById(resultsId).classList.add('hidden');
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function catColor(cat)      { return CAT_COLOR[cat]  || "#64748b"; }
-function catEmoji(cat)      { return CAT_EMOJI[cat]  || "💳"; }
+function catEmoji(cat) {
+  // User overrides always win over built-in defaults
+  const data   = getCentroids();
+  const custom = (data?.custom_category_emojis || {})[cat];
+  if (custom) return custom;
+  return CAT_EMOJI[cat] || "📦";
+}
 function curSym(code)       { return CUR_SYM[(code||"EUR").toUpperCase()] || code || "€"; }
-function paymentIcon(m)     { return PAYMENT_ICONS[m] || "💳"; }
+function paymentIcon(m) {
+  // User overrides always win over built-in defaults
+  const custom = getPaymentEmojis()[m];
+  if (custom) return custom;
+  return PAYMENT_ICONS[m] || "💳";
+}
 function isDark()           { return document.documentElement.classList.contains("dark"); }
 
 function catBg(col) { return col + (isDark() ? "44" : "22"); }
@@ -316,18 +514,50 @@ function showView(name) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
   document.getElementById("view-" + name).classList.add("active");
-  const navBtn = document.getElementById("nav-" + name);
+  // "add-method", "scan", "voice", and "verify" all share the nav-add highlight
+  const navKey = (name === "add-method" || name === "scan" || name === "voice" || name === "verify") ? "add" : name;
+  const navBtn = document.getElementById("nav-" + navKey);
   if (navBtn) navBtn.classList.add("active");
   document.getElementById("main-scroll").scrollTop = 0;
+  const appHeader = document.querySelector("header");
+  if (appHeader) appHeader.style.display = name === "verify" ? "none" : "";
 
   if (name === "home")     loadHome();
-  if (name === "history")  loadHistory();
+  if (name === "history")  {
+    const searchEl = document.getElementById('history-search');
+    if (searchEl) searchEl.value = '';
+    _historySelCats.clear();
+    loadHistory();
+  }
   if (name === "summary")  loadSummary();
   if (name === "add")      prepareAddForm();
   if (name === "settings")        { loadSettingsView(); syncDarkToggle(); }
-  if (name === "overrides")        loadOverrides();
-  if (name === "categories")       loadCategoriesView();
+  if (name === "preferences")     loadSettingsView();
+  if (name === "api-keys")        loadSettingsView();
+  if (name === "categories")       { loadCategoriesView(); loadOverrides(); }
   if (name === "payment-methods")  loadPaymentMethodsView();
+}
+
+// ── Add method shortcuts ──────────────────────────────────────────────────────
+function addByReceipt() {
+  clearScanView();
+  resetForm();
+  showView("scan");
+}
+
+function addByVoice() {
+  showView("voice");
+}
+
+function addByManual() {
+  showView("add");
+  setTimeout(() => {
+    const merchant = document.getElementById("f-merchant");
+    if (merchant) {
+      merchant.scrollIntoView({ behavior: "smooth", block: "center" });
+      merchant.focus();
+    }
+  }, 200);
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -335,8 +565,63 @@ async function loadHome() {
   await loadRates();
   const data   = computeSummary();
   const defCur = localStorage.getItem("defaultCurrency") || "EUR";
-  document.getElementById("home-today").textContent = fmtAmount(data.today_total, defCur);
+
+  // ── Main amount
   document.getElementById("home-month").textContent = fmtAmount(data.month_total, defCur);
+  document.getElementById("home-today").textContent = fmtAmount(data.today_total, defCur);
+  document.getElementById("home-week").textContent  = fmtAmount(data.week_total,  defCur);
+
+  // ── Trend badge vs last month
+  const trendEl = document.getElementById("home-trend-badge");
+  if (data.last_month_total > 0) {
+    const diff = data.month_total - data.last_month_total;
+    const pct  = Math.round(Math.abs(diff / data.last_month_total) * 100);
+    if (diff <= 0) {
+      trendEl.textContent   = `↘ ${pct}% lower`;
+      trendEl.style.cssText = isDark()
+        ? "background:#0d2e28;color:#6dfad2"
+        : "background:#f0fdf9;color:#006b55";
+    } else {
+      trendEl.textContent   = `↗ ${pct}% higher`;
+      trendEl.style.cssText = isDark()
+        ? "background:#2d1a08;color:#fb923c"
+        : "background:#fff7ed;color:#ea580c";
+    }
+    trendEl.classList.remove("hidden");
+  } else {
+    trendEl.classList.add("hidden");
+  }
+
+  // ── Budget progress
+  const budget         = getBudget();
+  const budgetSection  = document.getElementById("home-budget-section");
+  const homeLeftEl     = document.getElementById("home-left");
+
+  if (budget && budget > 0) {
+    budgetSection.classList.remove("hidden");
+    const spent     = data.month_total;
+    const pct       = Math.min(Math.round((spent / budget) * 100), 100);
+    const remaining = Math.max(budget - spent, 0);
+
+    document.getElementById("home-budget-pct").textContent      = `${pct}% used`;
+    document.getElementById("home-budget-limit").textContent     = `Limit: ${fmtAmount(budget, defCur)}`;
+    document.getElementById("home-budget-remaining").textContent = `${fmtAmount(remaining, defCur)} remaining`;
+    homeLeftEl.textContent                                        = fmtAmount(remaining, defCur);
+
+    // Bar colour: green → orange → red as budget fills up
+    const barEl = document.getElementById("home-budget-bar");
+    const barColour = pct >= 90 ? "#ef4444" : pct >= 75 ? "#f97316" : "#006b55";
+    barEl.style.background = barColour;
+    const accentCol = isDark() ? "#6dfad2" : "#006b55";
+    document.getElementById("home-budget-remaining").style.color = pct >= 90 ? "#ef4444" : accentCol;
+    homeLeftEl.style.color = pct >= 90 ? "#ef4444" : accentCol;
+    setTimeout(() => { barEl.style.width = pct + "%"; }, 80);
+  } else {
+    budgetSection.classList.add("hidden");
+    homeLeftEl.textContent  = "—";
+    homeLeftEl.style.color  = isDark() ? "#6dfad2" : "#006b55";
+  }
+
   data.recent.forEach(e => { state.expenseMap[e.id] = e; });
   renderDailyChart(data.daily_chart);
   renderCategoryBreakdown(data.category_breakdown, data.month_total, defCur);
@@ -353,15 +638,15 @@ function renderDailyChart(data) {
     const pct     = Math.max(Math.round((d.total / maxVal) * 100), d.total > 0 ? 4 : 0);
     const isToday = d.date === today;
     return `<div class="flex-1 flex flex-col justify-end h-full">
-        <div class="w-full rounded-t-md bar-fill ${isToday ? "bg-indigo-500" : "bg-indigo-200"}"
-             style="height:0%" data-h="${pct}%"></div>
+        <div class="w-full rounded-t-md bar-fill"
+             style="height:0%;background:${isToday ? "#006b55" : "#6dfad2"}" data-h="${pct}%"></div>
       </div>`;
   }).join("");
 
   labelsEl.innerHTML = data.map(d => {
     const isToday = d.date === today;
     const day = new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" }).slice(0,2);
-    return `<div class="flex-1 text-center text-[10px] font-semibold ${isToday ? "text-indigo-600" : "text-gray-400"}">${day}</div>`;
+    return `<div class="flex-1 text-center text-[10px] font-semibold" style="color:${isToday ? "#006b55" : "#44474a"}">${day}</div>`;
   }).join("");
 
   setTimeout(() => {
@@ -416,7 +701,7 @@ function miniExpenseCard(exp) {
   const col    = catColor(exp.category);
   const em     = catEmoji(exp.category);
   const badge  = exp.source === "receipt"
-    ? `<span class="text-[9px] bg-blue-100 text-blue-500 px-1 py-0.5 rounded font-semibold ml-1">📷</span>` : "";
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>` : "";
   const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
@@ -490,9 +775,10 @@ function renderPaymentButtons(selected, containerId) {
   el.innerHTML = getPaymentMethods().map(m => {
     const isChosen = m === selected;
     return `<button type="button" onclick="selectPayment('${m}', '${containerId}')"
-      class="cat-chip px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${isChosen
-        ? 'bg-indigo-600 text-white border-indigo-600 selected'
+      class="cat-chip px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all border ${isChosen
+        ? 'text-white selected'
         : 'bg-white text-gray-600 border-gray-200 opacity-60'}"
+      style="${isChosen ? 'background:#006b55;border-color:#006b55' : ''}"
     >${paymentIcon(m)} ${m}</button>`;
   }).join("");
 }
@@ -529,47 +815,187 @@ async function autoClassify() {
 }
 
 // ── Receipt scanning ──────────────────────────────────────────────────────────
-function triggerFileSelect() { document.getElementById("receipt-file").click(); }
+let _scanAbort = null;   // AbortController for the in-flight scan request
+
+function triggerCamera()     { document.getElementById("receipt-file-camera").click(); }
+function triggerFileSelect() { document.getElementById("receipt-file-gallery").click(); }
 
 function onFileSelected(event) {
   const file = event.target.files[0];
-  if (file) handleFile(file);
+  if (file) handleScanFile(file);
 }
 
-function handleDrop(event) {
+function handleScanDrop(event) {
   event.preventDefault();
-  document.getElementById("drop-zone").classList.remove("drag-over");
+  document.getElementById("scan-drop-hint").classList.add("hidden");
   const file = event.dataTransfer.files[0];
-  if (file && file.type.startsWith("image/")) handleFile(file);
+  if (file && (file.type.startsWith("image/") || file.type === "application/pdf")) handleScanFile(file);
 }
 
-function handleFile(file) {
+function handleScanFile(file) {
   state.receiptFile = file;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    document.getElementById("preview-img").src = e.target.result;
-    document.getElementById("upload-zone").classList.add("hidden");
-    document.getElementById("preview-zone").classList.remove("hidden");
+  const isPdf = file.type === "application/pdf";
+  const imgEl = document.getElementById("preview-img");
+  const pdfEl = document.getElementById("preview-pdf");
+  const pdfNameEl = document.getElementById("preview-pdf-name");
+
+  const showPreview = () => {
+    document.getElementById("scan-upload-area").classList.add("hidden");
+    document.getElementById("scan-preview-area").classList.remove("hidden");
+    document.getElementById("scan-confirm-area").classList.remove("hidden");
+    document.getElementById("scan-analyzing-area").classList.add("hidden");
   };
-  reader.readAsDataURL(file);
+
+  if (isPdf) {
+    imgEl.classList.add("hidden");
+    pdfEl.classList.remove("hidden");
+    if (pdfNameEl) pdfNameEl.textContent = file.name;
+    showPreview();
+  } else {
+    pdfEl.classList.add("hidden");
+    imgEl.classList.remove("hidden");
+    const reader = new FileReader();
+    reader.onload = (e) => { imgEl.src = e.target.result; showPreview(); };
+    reader.readAsDataURL(file);
+  }
 }
 
-function clearScan() {
+function confirmAndAnalyze() {
+  document.getElementById("scan-confirm-area").classList.add("hidden");
+  document.getElementById("scan-analyzing-area").classList.remove("hidden");
+  analyzeScanReceipt();
+}
+
+// Cancel scan view — go back to method picker
+function cancelScanView() {
+  clearScanView();
+  showView("add-method");
+}
+
+// Reset scan view UI to initial upload state
+function clearScanView() {
+  // Abort any in-flight scan so a late API response is ignored.
+  _scanAbort?.abort();
+  _scanAbort = null;
   state.receiptFile  = null;
   state.isReceipt    = false;
   state.receiptItems = [];
-  document.getElementById("receipt-file").value = "";
-  document.getElementById("preview-img").src    = "";
-  document.getElementById("upload-zone").classList.remove("hidden");
-  document.getElementById("preview-zone").classList.add("hidden");
-  document.getElementById("receipt-banner").classList.add("hidden");
+  ["receipt-file-camera", "receipt-file-gallery"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = "";
+  });
+  const img = document.getElementById("preview-img");
+  if (img) { img.src = ""; img.classList.remove("hidden"); }
+  const pdfEl = document.getElementById("preview-pdf");
+  if (pdfEl) pdfEl.classList.add("hidden");
+  document.getElementById("scan-upload-area")?.classList.remove("hidden");
+  document.getElementById("scan-preview-area")?.classList.add("hidden");
+  document.getElementById("scan-confirm-area")?.classList.remove("hidden");
+  document.getElementById("scan-analyzing-area")?.classList.add("hidden");
+  document.querySelector("#scan-preview-area button.scan-retry")?.remove();
+}
+
+// Called after saving or when resetting form state
+function clearScan() {
+  state.isVoice = false;
+  clearScanView();
   document.getElementById("items-section").classList.add("hidden");
+  document.getElementById("items-list").innerHTML = "";
   document.getElementById("save-label").textContent = "Add Expense";
   document.getElementById("cat-confidence").classList.add("hidden");
   resetForm();
 }
 
+async function analyzeScanReceipt() {
+  if (!state.receiptFile) return;
+  const statusEl  = document.getElementById("scan-status");
+  const spinnerEl = document.getElementById("scan-spinner-el");
+  if (statusEl)  statusEl.textContent = "Analyzing with AI…";
+  if (spinnerEl) spinnerEl.classList.remove("hidden");
+  // Remove any previous retry button
+  document.querySelector("#scan-preview-area .scan-retry")?.remove();
+
+  // Abort any prior in-flight scan, then track this one so a cancel can stop it.
+  _scanAbort?.abort();
+  const abort = new AbortController();
+  _scanAbort  = abort;
+
+  try {
+    const formData = new FormData();
+    formData.append("file", state.receiptFile);
+    formData.append("api_key", localStorage.getItem("googleApiKey") || "");
+    formData.append("payment_methods", getPaymentMethods().join(","));
+    const resp = await postWithOverloadRetry("/api/scan_receipt", formData, {
+      signal: abort.signal,
+      onRetry: (n, total) => {
+        const msg = `The model is in high demand. Please wait… (retry ${n}/${total})`;
+        if (statusEl) statusEl.textContent = msg;
+        showToast(msg, true);
+      },
+    });
+    // User cancelled while the request was in flight — ignore the late response.
+    if (abort.signal.aborted) return;
+    showVerifyView(resp.data);
+  } catch (e) {
+    // Cancelled request — silently ignore, the user has already moved on.
+    if (e.name === "AbortError" || abort.signal.aborted) return;
+    showToast(e.retryable ? e.message : "Failed: " + e.message, true);
+    if (statusEl)  statusEl.textContent = "Analysis failed";
+    if (spinnerEl) spinnerEl.classList.add("hidden");
+    // Offer retry inline
+    const area = document.getElementById("scan-preview-area");
+    if (area) {
+      const btn = document.createElement("button");
+      btn.textContent = "Retry Analysis";
+      btn.className   = "scan-retry mt-1 px-5 py-2.5 bg-[#006b55] text-white rounded-2xl text-sm font-bold";
+      btn.onclick     = () => { btn.remove(); analyzeScanReceipt(); };
+      area.appendChild(btn);
+    }
+  }
+}
+
+let _receiptRefBlobUrl = null;
+
+function showReceiptRef(file) {
+  const strip = document.getElementById("receipt-ref-strip");
+  if (!strip) return;
+  if (_receiptRefBlobUrl) { URL.revokeObjectURL(_receiptRefBlobUrl); _receiptRefBlobUrl = null; }
+  const isPdf = file.type === "application/pdf";
+  const imgEl = document.getElementById("receipt-ref-img");
+  const pdfEl = document.getElementById("receipt-ref-pdf");
+  const pdfName = document.getElementById("receipt-ref-pdf-name");
+  if (isPdf) {
+    imgEl.classList.add("hidden");
+    pdfEl.classList.remove("hidden");
+    if (pdfName) pdfName.textContent = file.name;
+  } else {
+    _receiptRefBlobUrl = URL.createObjectURL(file);
+    imgEl.src = _receiptRefBlobUrl;
+    imgEl.classList.remove("hidden");
+    pdfEl.classList.add("hidden");
+  }
+  document.getElementById("receipt-ref-panel").classList.add("hidden");
+  document.getElementById("receipt-ref-chevron").style.transform = "";
+  strip.classList.remove("hidden");
+}
+
+function hideReceiptRef() {
+  const strip = document.getElementById("receipt-ref-strip");
+  if (strip) strip.classList.add("hidden");
+  if (_receiptRefBlobUrl) { URL.revokeObjectURL(_receiptRefBlobUrl); _receiptRefBlobUrl = null; }
+  const imgEl = document.getElementById("receipt-ref-img");
+  if (imgEl) imgEl.src = "";
+}
+
+function toggleReceiptRef() {
+  const panel = document.getElementById("receipt-ref-panel");
+  const chevron = document.getElementById("receipt-ref-chevron");
+  const open = !panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", open);
+  chevron.style.transform = open ? "" : "rotate(180deg)";
+}
+
 function resetForm() {
+  hideReceiptRef();
   const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   document.getElementById("f-merchant").value      = "";
   document.getElementById("f-amount").value        = "";
@@ -577,6 +1003,8 @@ function resetForm() {
   document.getElementById("f-cur-sym").textContent = curSym(defaultCurrency);
   document.getElementById("f-date").value          = new Date().toISOString().split("T")[0];
   document.getElementById("f-notes").value         = "";
+  document.getElementById("f-location").value      = "";
+  document.getElementById("f-nearby-results").classList.add("hidden");
   const rateRow = document.getElementById("f-rate-row");
   if (rateRow) rateRow.style.display = "none";
   state.selectedCategory = null;
@@ -586,40 +1014,207 @@ function resetForm() {
   renderPaymentButtons(null, "payment-buttons");
 }
 
-async function analyzeReceipt() {
-  if (!state.receiptFile) return;
-  const btn     = document.getElementById("analyze-btn");
-  const label   = document.getElementById("analyze-label");
-  const spinner = document.getElementById("analyze-spinner");
-  btn.disabled      = true;
-  label.textContent = "Analyzing…";
-  spinner.classList.remove("hidden");
-  try {
-    const formData = new FormData();
-    formData.append("image", state.receiptFile);
-    formData.append("api_key", localStorage.getItem("googleApiKey") || "");
-    const r    = await fetch("/api/scan_receipt", { method: "POST", body: formData });
-    const resp = await r.json();
-    if (!r.ok || resp.error) throw new Error(resp.error || "Unknown error");
-    populateFormFromReceipt(resp.data);
-    showToast("Receipt analyzed successfully!");
-  } catch (e) {
-    showToast("Failed: " + e.message, true);
-    label.textContent = "Retry Analysis";
-    btn.disabled      = false;
-    spinner.classList.add("hidden");
+// ── Receipt verify view ───────────────────────────────────────────────────────
+let _verifyBlobUrl = null;
+let _verifyZoomed  = false;
+
+function showVerifyView(data) {
+  state.pendingReceiptData = JSON.parse(JSON.stringify(data));
+  state.pendingReceiptData.items = mergeItems(state.pendingReceiptData.items || []);
+
+  const imgEl  = document.getElementById("verify-img");
+  const pdfEl  = document.getElementById("verify-pdf");
+  const zoomBtn = document.getElementById("verify-zoom-btn");
+
+  const panel = document.getElementById("verify-img-panel");
+
+  if (state.receiptFile) {
+    if (_verifyBlobUrl) { URL.revokeObjectURL(_verifyBlobUrl); }
+    _verifyBlobUrl = URL.createObjectURL(state.receiptFile);
+
+    if (state.receiptFile.type === "application/pdf") {
+      imgEl.classList.add("hidden");
+      pdfEl.classList.remove("hidden");
+      if (zoomBtn) zoomBtn.classList.add("hidden");
+      panel.style.height = "55%";
+      renderPdfPages(state.receiptFile);
+    } else {
+      imgEl.src = _verifyBlobUrl;
+      imgEl.classList.remove("hidden");
+      pdfEl.classList.add("hidden");
+      if (zoomBtn) zoomBtn.classList.remove("hidden");
+      panel.style.height = "42%";
+    }
+  }
+
+  _verifyZoomed = false;
+  imgEl.style.width = "100%";
+  document.getElementById("verify-zoom-icon-in").classList.remove("hidden");
+  document.getElementById("verify-zoom-icon-out").classList.add("hidden");
+  panel.scrollTop = 0;
+  panel.scrollLeft = 0;
+
+  document.getElementById("v-merchant").value = data.merchant || "";
+  if (data.total != null) document.getElementById("v-total").value = Number(data.total).toFixed(2);
+  else document.getElementById("v-total").value = "";
+  const code = data.currency ? data.currency.toUpperCase() : (localStorage.getItem("defaultCurrency") || "EUR");
+  populateCurrencySelect("v-currency", code);
+  document.getElementById("v-date").value = data.date || new Date().toISOString().split("T")[0];
+
+  renderVerifyItems();
+  showView("verify");
+}
+
+function renderVerifyItems() {
+  const items = state.pendingReceiptData?.items || [];
+  const countEl = document.getElementById("v-items-count");
+  if (countEl) countEl.textContent = items.length > 0 ? `(${items.length})` : "";
+  document.getElementById("v-items-list").innerHTML = items.map((item, i) => `
+    <div class="flex items-center gap-2">
+      <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
+             oninput="state.pendingReceiptData.items[${i}].name = this.value"
+             class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
+             oninput="state.pendingReceiptData.items[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
+             class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01" min="0"
+             oninput="state.pendingReceiptData.items[${i}].price = this.value === '' ? null : parseFloat(this.value)"
+             class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <button type="button" onclick="removeVerifyItem(${i})"
+              class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`).join("");
+}
+
+function addVerifyItem() {
+  if (!state.pendingReceiptData) return;
+  state.pendingReceiptData.items = state.pendingReceiptData.items || [];
+  state.pendingReceiptData.items.push({ name: "", price: null, quantity: 1 });
+  renderVerifyItems();
+  const rows = document.querySelectorAll("#v-items-list > div");
+  if (rows.length) rows[rows.length - 1].querySelector("input[type=text]")?.focus();
+}
+
+function removeVerifyItem(idx) {
+  if (!state.pendingReceiptData?.items) return;
+  state.pendingReceiptData.items.splice(idx, 1);
+  renderVerifyItems();
+}
+
+function renderAddFormItems() {
+  const el = document.getElementById("items-list");
+  if (!el) return;
+  if (!state.receiptItems || state.receiptItems.length === 0) {
+    el.innerHTML = "";
     return;
   }
-  btn.disabled      = true;
-  label.textContent = "Receipt Analyzed ✓";
-  spinner.classList.add("hidden");
+  el.innerHTML = state.receiptItems.map((item, i) => `
+    <div class="flex items-center gap-2">
+      <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
+             oninput="state.receiptItems[${i}].name = this.value"
+             class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
+             oninput="state.receiptItems[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
+             class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01" min="0"
+             oninput="state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value)"
+             class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <button type="button" onclick="removeFormItem(${i})"
+              class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`).join("");
+}
+
+function addFormItem() {
+  state.receiptItems = state.receiptItems || [];
+  state.receiptItems.push({ name: "", price: null, quantity: 1 });
+  renderAddFormItems();
+  const rows = document.querySelectorAll("#items-list > div");
+  if (rows.length) rows[rows.length - 1].querySelector("input[type=text]")?.focus();
+}
+
+function removeFormItem(idx) {
+  state.receiptItems.splice(idx, 1);
+  renderAddFormItems();
+}
+
+function toggleVerifyZoom() {
+  _verifyZoomed = !_verifyZoomed;
+  const imgEl = document.getElementById("verify-img");
+  if (imgEl) imgEl.style.width = _verifyZoomed ? "200%" : "100%";
+  const panel = document.getElementById("verify-img-panel");
+  if (!_verifyZoomed && panel) { panel.scrollLeft = 0; }
+  document.getElementById("verify-zoom-icon-in").classList.toggle("hidden", _verifyZoomed);
+  document.getElementById("verify-zoom-icon-out").classList.toggle("hidden", !_verifyZoomed);
+}
+
+async function renderPdfPages(file) {
+  const wrap = document.getElementById("verify-pdf-canvas-wrap");
+  if (!wrap) return;
+  wrap.innerHTML = '<p class="text-xs text-center text-[#44474a] py-4">Loading PDF…</p>';
+  try {
+    if (typeof pdfjsLib === "undefined") throw new Error("PDF.js not loaded");
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    wrap.innerHTML = "";
+    const panelWidth = document.getElementById("verify-img-panel").clientWidth;
+    const dpr = window.devicePixelRatio || 1;
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page        = await pdf.getPage(p);
+      const baseScale   = panelWidth / page.getViewport({ scale: 1 }).width;
+      const viewport    = page.getViewport({ scale: baseScale * dpr });
+      const canvas      = document.createElement("canvas");
+      canvas.width      = viewport.width;
+      canvas.height     = viewport.height;
+      canvas.style.width   = "100%";
+      canvas.style.display = "block";
+      wrap.appendChild(canvas);
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+    }
+  } catch (e) {
+    wrap.innerHTML = `<p class="text-xs text-center text-red-500 py-4">Could not render PDF: ${e.message}</p>`;
+  }
+}
+
+function clearVerifyView() {
+  if (_verifyBlobUrl) { URL.revokeObjectURL(_verifyBlobUrl); _verifyBlobUrl = null; }
+  const imgEl = document.getElementById("verify-img");
+  if (imgEl) imgEl.src = "";
+  const wrap = document.getElementById("verify-pdf-canvas-wrap");
+  if (wrap) wrap.innerHTML = "";
+  state.pendingReceiptData = null;
+}
+
+function confirmVerify() {
+  if (!state.pendingReceiptData) return;
+  const data = { ...state.pendingReceiptData };
+  data.merchant = document.getElementById("v-merchant").value.trim();
+  const tv = document.getElementById("v-total").value;
+  data.total    = tv !== "" ? parseFloat(tv) : null;
+  data.currency = document.getElementById("v-currency").value;
+  data.date     = document.getElementById("v-date").value;
+  if (_verifyBlobUrl) { URL.revokeObjectURL(_verifyBlobUrl); _verifyBlobUrl = null; }
+  const wrap = document.getElementById("verify-pdf-canvas-wrap");
+  if (wrap) wrap.innerHTML = "";
+  populateFormFromReceipt(data);
+  showToast("Receipt verified successfully!");
 }
 
 function populateFormFromReceipt(data) {
+  // Navigate to add view first (runs prepareAddForm for fresh state)
+  showView("add");
+
   state.isReceipt    = true;
-  state.receiptItems = data.items || [];
+  state.receiptItems = mergeItems(data.items || []);
+
+  if (state.receiptFile) showReceiptRef(state.receiptFile);
+
   document.getElementById("f-merchant").value = data.merchant || "";
-  if (data.total != null)  document.getElementById("f-amount").value   = Number(data.total).toFixed(2);
+  if (data.total != null) document.getElementById("f-amount").value = Number(data.total).toFixed(2);
   if (data.currency) {
     const code   = data.currency.toUpperCase();
     const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
@@ -628,8 +1223,8 @@ function populateFormFromReceipt(data) {
     document.getElementById("f-cur-sym").textContent = curSym(code);
     updateRateRow("f", code, defCur, null);
   }
-  if (data.date)  document.getElementById("f-date").value  = data.date;
-  if (data.notes) document.getElementById("f-notes").value = data.notes;
+  if (data.date)     document.getElementById("f-date").value     = data.date;
+  if (data.location) document.getElementById("f-location").value = data.location;
 
   const pm = data.payment_method && getPaymentMethods().includes(data.payment_method) ? data.payment_method : null;
   state.selectedPayment = pm;
@@ -647,15 +1242,396 @@ function populateFormFromReceipt(data) {
 
   if (state.receiptItems.length > 0) {
     document.getElementById("items-section").classList.remove("hidden");
-    document.getElementById("items-list").innerHTML = state.receiptItems.map(item => {
-      const price = item.price != null
-        ? `<span class="font-semibold">${fmtAmount(item.price, document.getElementById("f-currency").value)}</span>` : "";
-      return `<div class="flex items-center justify-between py-0.5 border-b border-gray-100 last:border-0">
-        <span class="truncate mr-2">${esc(item.name || "")}</span>${price}</div>`;
-    }).join("");
+    renderAddFormItems();
   }
-  document.getElementById("receipt-banner").classList.remove("hidden");
   document.getElementById("save-label").textContent = "Confirm & Save";
+}
+
+// ── Voice input ───────────────────────────────────────────────────────────────
+let _voiceStream       = null;    // mic MediaStream (held so we can stop its tracks)
+let _isRecording       = false;
+let _liveWS            = null;
+let _audioCtx          = null;
+let _audioProcessor    = null;
+let _liveTranscript    = '';
+let _interimTranscript = '';
+let _voiceFinalized    = false;   // guards finalizeVoiceTranscript() against double-run
+let _voiceOriginal     = '';      // raw transcript from Gemini Live
+let _voiceSummary      = '';      // clean summary of the spoken note
+let _voiceCancelled    = false;   // set true by cancelVoiceView() to abort server call
+let _voiceAbort        = null;    // AbortController for the in-flight extraction request
+
+// ── Voice view UI helpers ─────────────────────────────────────────────────────
+function _vvSetState(state) {
+  // state: 'idle' | 'recording' | 'processing'
+  const btn      = document.getElementById('voice-btn');
+  const micIcon  = document.getElementById('vv-mic-icon');
+  const stopIcon = document.getElementById('vv-stop-icon');
+  const ringOut  = document.getElementById('vv-ring-outer');
+  const ringIn   = document.getElementById('vv-ring-inner');
+  const label    = document.getElementById('voice-label');
+  const status   = document.getElementById('voice-status');
+
+  // The transcript-confirmation card is its own display (shown via
+  // showVoiceConfirm); the idle/recording/processing states never use it.
+  document.getElementById('voice-confirm')?.classList.add('hidden');
+  document.getElementById('vv-mic-wrap')?.classList.remove('hidden');
+  if (label) label.classList.remove('hidden');
+
+  if (state === 'recording') {
+    btn?.classList.add('voice-recording');
+    btn?.classList.remove('voice-idle');
+    micIcon?.classList.add('hidden');
+    stopIcon?.classList.remove('hidden');
+    ringOut?.classList.remove('hidden');
+    ringIn?.classList.remove('hidden');
+    if (label)  label.textContent  = 'Tap to stop';
+    if (status) status.textContent = 'Listening…';
+  } else if (state === 'processing') {
+    btn?.classList.remove('voice-recording');
+    btn?.classList.add('voice-idle');
+    micIcon?.classList.remove('hidden');
+    stopIcon?.classList.add('hidden');
+    ringOut?.classList.add('hidden');
+    ringIn?.classList.add('hidden');
+    if (label)  label.textContent  = 'Processing…';
+    if (status) status.textContent = 'Analyzing with AI…';
+  } else { // idle
+    btn?.classList.remove('voice-recording');
+    btn?.classList.add('voice-idle');
+    micIcon?.classList.remove('hidden');
+    stopIcon?.classList.add('hidden');
+    ringOut?.classList.add('hidden');
+    ringIn?.classList.add('hidden');
+    if (label)  label.textContent  = 'Tap to start';
+    if (status) status.textContent = 'Tap the mic to start recording';
+    const sub = document.getElementById('voice-subtitle');
+    if (sub) sub.classList.add('hidden');
+    const fin = document.getElementById('voice-subtitle-final');
+    if (fin) fin.textContent = '';
+    const itr = document.getElementById('voice-subtitle-interim');
+    if (itr) itr.textContent = '';
+  }
+}
+
+// ── Tear down mic + live-transcription capture ────────────────────────────────
+function teardownVoiceCapture() {
+  if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+  if (_audioCtx)       { try { _audioCtx.close(); } catch {} _audioCtx = null; }
+  if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
+    try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
+    try { _liveWS.close(); } catch {}
+  }
+  _liveWS = null;
+  if (_voiceStream) { _voiceStream.getTracks().forEach(t => t.stop()); _voiceStream = null; }
+}
+
+// ── Cancel / back from voice view ─────────────────────────────────────────────
+function cancelVoiceView() {
+  // Cancel a request already sent to the server (processing phase) and stop any
+  // pending finalize from firing after the user has navigated away.
+  _voiceCancelled = true;
+  _voiceFinalized = true;
+  _voiceAbort?.abort();
+  _voiceAbort = null;
+  _isRecording = false;
+  teardownVoiceCapture();
+  resetVoiceBtn();
+  showView('add-method');
+}
+
+async function toggleVoiceRecording() {
+  if (_isRecording) {
+    stopVoiceRecording();
+  } else {
+    await startVoiceRecording();
+  }
+}
+
+async function startVoiceRecording() {
+  try {
+    const apiKey = localStorage.getItem('googleApiKey') || '';
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+    _voiceStream       = stream;
+    _voiceCancelled    = false;
+    _voiceFinalized    = false;
+    _isRecording       = true;
+    _liveTranscript    = '';
+    _interimTranscript = '';
+
+    // AudioContext for Gemini Live PCM stream (live subtitles).
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+    const actualRate = _audioCtx.sampleRate;
+
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    _liveWS = new WebSocket(`${wsProto}//${location.host}/ws/voice_live`);
+
+    _liveWS.onopen = () => {
+      _liveWS.send(JSON.stringify({ api_key: apiKey, sample_rate: actualRate }));
+      const source = _audioCtx.createMediaStreamSource(stream);
+      _audioProcessor = _audioCtx.createScriptProcessor(4096, 1, 1);
+      source.connect(_audioProcessor);
+      _audioProcessor.connect(_audioCtx.destination);
+      _audioProcessor.onaudioprocess = ev => {
+        if (!_liveWS || _liveWS.readyState !== WebSocket.OPEN) return;
+        const f32  = ev.inputBuffer.getChannelData(0);
+        const i16  = new Int16Array(f32.length);
+        for (let i = 0; i < f32.length; i++)
+          i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i] * 32767)));
+        const bytes = new Uint8Array(i16.buffer);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        _liveWS.send(JSON.stringify({ type: 'audio', data: btoa(bin) }));
+      };
+    };
+
+    _liveWS.onmessage = ev => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.transcript !== undefined) {
+          _liveTranscript = msg.transcript;
+          const sub = document.getElementById('voice-subtitle');
+          const fin = document.getElementById('voice-subtitle-final');
+          const itr = document.getElementById('voice-subtitle-interim');
+          if (fin) fin.textContent = _liveTranscript;
+          if (itr) itr.textContent = '';
+          if (sub) { sub.classList.remove('hidden'); sub.scrollTop = sub.scrollHeight; }
+        } else if (msg.error) {
+          console.warn('[Live] Gemini error:', msg.error);
+          showToast('Live transcription error: ' + msg.error, true);
+        }
+      } catch {}
+    };
+
+    _liveWS.onerror = ev => console.warn('[Live] WS error:', ev);
+    _liveWS.onclose = () => {
+      if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+      // Socket closed after the user tapped stop → the transcript is final.
+      if (!_isRecording) finalizeVoiceTranscript();
+    };
+
+    _vvSetState('recording');
+  } catch (e) {
+    showToast('Microphone access denied: ' + e.message, true);
+  }
+}
+
+function stopVoiceRecording() {
+  if (!_isRecording) return;
+  _isRecording = false;
+
+  // Stop capturing, but keep the live socket open briefly so Gemini can flush
+  // any trailing transcription before we read the final transcript.
+  if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
+  if (_audioCtx)       { try { _audioCtx.close(); } catch {} _audioCtx = null; }
+  if (_voiceStream)    { _voiceStream.getTracks().forEach(t => t.stop()); _voiceStream = null; }
+  _vvSetState('processing');
+
+  if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
+    try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
+    // onclose finalizes when the flush completes; this is a fallback in case
+    // the socket lingers.
+    setTimeout(() => finalizeVoiceTranscript(), 1500);
+  } else {
+    finalizeVoiceTranscript();
+  }
+}
+
+// Read the final live transcript and show the confirmation step. Guarded so it
+// runs at most once per recording. The summary is fetched asynchronously and
+// fills the box when ready (loadVoiceSummary).
+async function finalizeVoiceTranscript() {
+  if (_voiceFinalized) return;
+  _voiceFinalized = true;
+  teardownVoiceCapture();
+
+  if (_voiceCancelled) { _voiceCancelled = false; return; }
+
+  const original = (_liveTranscript || '').trim();
+  if (!original) {
+    showToast('No speech detected. Please try again.', true);
+    _vvSetState('idle');
+    return;
+  }
+
+  _voiceOriginal = original;
+  _voiceSummary  = original;
+
+  // Hide mic UI and show a loading state while waiting for the summary API call.
+  document.getElementById('voice-subtitle')?.classList.add('hidden');
+  document.getElementById('vv-mic-wrap')?.classList.add('hidden');
+  document.getElementById('voice-label')?.classList.add('hidden');
+  const status = document.getElementById('voice-status');
+  if (status) status.textContent = 'Summarizing what you said…';
+
+  await loadVoiceSummary();
+}
+
+// Fetch (or re-fetch) the summary for the current transcript and fill the box.
+// Honest on failure: shows the raw transcript and says so, rather than passing
+// it off as a summary. Also bound to the "Regenerate" button.
+async function loadVoiceSummary() {
+  const original = _voiceOriginal;
+  if (!original) return;
+
+  const box     = document.getElementById('vc-summary');
+  const origWrap = document.getElementById('vc-original-wrap');
+  const regen   = document.getElementById('vc-regen');
+  const status  = document.getElementById('voice-status');
+
+  box.value       = '';
+  box.placeholder = '';
+  origWrap.classList.add('hidden');
+  if (regen)  regen.disabled = true;
+  if (status) status.textContent = 'Summarizing what you said…';
+
+  const formData = new FormData();
+  formData.append('transcript', original);
+  formData.append('api_key', localStorage.getItem('googleApiKey') || '');
+
+  try {
+    const resp = await postWithOverloadRetry('/api/voice_summary', formData, {
+      onRetry: (n, total) => {
+        if (status) status.textContent = `Model busy — retrying (${n}/${total})…`;
+      },
+    });
+    const summary = (resp.summary || original).trim() || original;
+    _voiceSummary = summary;
+    box.value     = summary;
+    const same = summary === original;
+    document.getElementById('vc-original').textContent = original;
+    origWrap.classList.toggle('hidden', same);
+    document.getElementById('voice-confirm')?.classList.remove('hidden');
+    if (status) status.textContent = same
+      ? 'Does this look right? Edit it if needed.'
+      : 'Here\'s a summary — edit it, or keep what was heard.';
+  } catch (e) {
+    // Couldn't summarise (e.g. model overloaded) — show the raw transcript and
+    // be clear that it isn't a summary, with Regenerate available.
+    _voiceSummary = original;
+    box.value     = original;
+    origWrap.classList.add('hidden');
+    document.getElementById('vc-original').textContent = original;
+    document.getElementById('voice-confirm')?.classList.remove('hidden');
+    if (status) status.textContent =
+      'Couldn\'t summarize (model busy). Showing what you said — edit it, or tap Regenerate.';
+  } finally {
+    if (regen) regen.disabled = false;
+  }
+}
+
+// Restore the editable field back to the raw transcript Gemini Live heard.
+function revertVoiceCorrection() {
+  document.getElementById('vc-summary').value = _voiceOriginal;
+}
+
+// User picked which text to use → extract the expense from it.
+// useSummary=true uses the (possibly edited) summary in the box; false uses the
+// raw transcript as heard.
+async function confirmVoiceTranscript(useSummary) {
+  const transcript = (useSummary
+    ? document.getElementById('vc-summary').value
+    : _voiceOriginal).trim();
+  if (!transcript) { showToast('Transcript is empty — please edit it first.', true); return; }
+
+  document.getElementById('voice-confirm')?.classList.add('hidden');
+  _vvSetState('processing');
+
+  const formData = new FormData();
+  formData.append('transcript', transcript);
+  formData.append('api_key', localStorage.getItem('googleApiKey') || '');
+
+  const btn = document.getElementById('voice-btn');
+  if (btn) btn.disabled = true;
+
+  const abort = new AbortController();
+  _voiceAbort = abort;
+
+  try {
+    const resp = await postWithOverloadRetry('/api/voice_extract', formData, {
+      signal: abort.signal,
+      onRetry: (n, total) =>
+        showToast(`The model is in high demand. Please wait… (retry ${n}/${total})`, true),
+    });
+    if (abort.signal.aborted) return;
+    populateFormFromVoice(resp.data);
+    showToast('Voice input captured!');
+  } catch (e) {
+    if (e.name === 'AbortError' || abort.signal.aborted) return;
+    showToast(e.retryable ? e.message : 'Voice failed: ' + e.message, true);
+    resetVoiceBtn();
+  } finally {
+    if (_voiceAbort === abort) _voiceAbort = null;
+    if (btn) btn.disabled = false;
+  }
+}
+
+function resetVoiceBtn() {
+  _isRecording       = false;
+  _liveTranscript    = '';
+  _interimTranscript = '';
+  _liveWS            = null;
+  _audioCtx          = null;
+  _audioProcessor    = null;
+  _voiceStream       = null;
+  _vvSetState('idle');
+}
+
+function populateFormFromVoice(data) {
+  // Navigate to add view first (runs prepareAddForm for fresh form state)
+  showView('add');
+
+  state.isVoice      = true;
+  state.isReceipt    = false;
+  state.receiptItems = mergeItems(data.items || []);
+  state.receiptFile  = null;
+
+  document.getElementById("f-merchant").value = data.merchant || "";
+  if (data.total != null) document.getElementById("f-amount").value = Number(data.total).toFixed(2);
+
+  if (data.currency) {
+    const code   = data.currency.toUpperCase();
+    const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+    const sel    = document.getElementById("f-currency");
+    if ([...sel.options].some(o => o.value === code)) sel.value = code;
+    document.getElementById("f-cur-sym").textContent = curSym(code);
+    updateRateRow("f", code, defCur, null);
+  }
+  if (data.date)     document.getElementById("f-date").value     = data.date;
+  if (data.location) document.getElementById("f-location").value = data.location;
+
+  const pm = data.payment_method && getPaymentMethods().includes(data.payment_method) ? data.payment_method : null;
+  state.selectedPayment = pm;
+  renderPaymentButtons(pm, "payment-buttons");
+
+  const cat = data.predicted_category || "Others";
+  selectCategory(cat);
+  state.originalCategory = cat;
+
+  const confEl = document.getElementById("cat-confidence");
+  const pct    = Math.round((data.confidence || 0) * 100);
+  confEl.textContent = `Voice: ${pct}% confidence`;
+  confEl.className   = `text-xs ${(data.confidence || 0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
+  confEl.classList.remove("hidden");
+
+  if (state.receiptItems.length > 0) {
+    document.getElementById("items-section").classList.remove("hidden");
+    renderAddFormItems();
+  }
+
+  document.getElementById("save-label").textContent = "Confirm & Save";
+  resetVoiceBtn();
+}
+
+function clearVoice() {
+  state.isVoice = false;
+  document.getElementById("cat-confidence").classList.add("hidden");
+  document.getElementById("save-label").textContent = "Add Expense";
+  resetVoiceBtn();
+  resetForm();
+  showView('voice');
 }
 
 // ── Save expense ──────────────────────────────────────────────────────────────
@@ -665,6 +1641,7 @@ async function saveExpense() {
   const currency       = document.getElementById("f-currency").value || "EUR";
   const date_val       = document.getElementById("f-date").value;
   const notes          = document.getElementById("f-notes").value.trim();
+  const location       = document.getElementById("f-location").value.trim();
   let   category       = state.selectedCategory;
   const payment_method = state.selectedPayment || "";
   const defCur         = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
@@ -714,8 +1691,9 @@ async function saveExpense() {
       confidence,
       payment_method,
       notes,
-      items:          state.isReceipt ? state.receiptItems : [],
-      source:         state.isReceipt ? "receipt" : "manual",
+      location,
+      items:          (state.isReceipt || state.isVoice) ? state.receiptItems : [],
+      source:         state.isReceipt ? "receipt" : state.isVoice ? "voice" : "manual",
       created_at:     new Date().toISOString(),
     };
 
@@ -739,16 +1717,69 @@ async function saveExpense() {
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
+let _historySorted  = [];
+let _historySelCats = new Set();
+
 async function loadHistory() {
   await loadRates();
   const expenses = getExpenses();
   expenses.forEach(e => { state.expenseMap[e.id] = e; });
-  const sorted = expenses.slice().sort((a, b) => {
+  _historySorted = expenses.slice().sort((a, b) => {
     const ka = (a.date || '') + (a.created_at || '');
     const kb = (b.date || '') + (b.created_at || '');
     return kb > ka ? 1 : -1;
   });
-  renderHistory(sorted);
+  renderHistoryCatFilters(_historySorted);
+  filterHistory();
+}
+
+function renderHistoryCatFilters(expenses) {
+  const el = document.getElementById('history-cat-filters');
+  if (!el) return;
+  const cats = [...new Set(expenses.map(e => e.category).filter(Boolean))].sort();
+  el.innerHTML = ['All', ...cats].map(cat => {
+    const isAll    = cat === 'All';
+    const isActive = isAll ? _historySelCats.size === 0 : _historySelCats.has(cat);
+    const col      = isAll ? '#006b55' : catColor(cat);
+    const bg       = isActive ? col : (isDark() ? '#1e1e1e' : '#f8f9fa');
+    const text     = isActive ? 'white' : (isDark() ? '#b0b0b0' : '#44474a');
+    const border   = isActive ? col : (isDark() ? '#2e2e2e' : '#e8e9ea');
+    return `<button type="button"
+      onclick="selectHistoryCat('${esc(cat)}')"
+      class="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
+      style="background:${bg};color:${text};border-color:${border}">
+      ${isAll ? 'All' : catEmoji(cat) + ' ' + esc(cat)}
+    </button>`;
+  }).join('');
+}
+
+function selectHistoryCat(cat) {
+  if (cat === 'All') {
+    _historySelCats.clear();
+  } else if (_historySelCats.has(cat)) {
+    _historySelCats.delete(cat);
+  } else {
+    _historySelCats.add(cat);
+  }
+  renderHistoryCatFilters(_historySorted);
+  filterHistory();
+}
+
+function filterHistory() {
+  const query = (document.getElementById('history-search')?.value || '').trim().toLowerCase();
+
+  let filtered = _historySorted;
+  if (_historySelCats.size > 0) {
+    filtered = filtered.filter(e => _historySelCats.has(e.category));
+  }
+  if (query) {
+    filtered = filtered.filter(e =>
+      (e.merchant || '').toLowerCase().includes(query) ||
+      (e.notes    || '').toLowerCase().includes(query) ||
+      (e.items || []).some(i => (i.name || '').toLowerCase().includes(query))
+    );
+  }
+  renderHistory(filtered);
 }
 
 function renderHistory(exps) {
@@ -791,7 +1822,10 @@ function historyExpenseCard(exp) {
   const col    = catColor(exp.category);
   const em     = catEmoji(exp.category);
   const badge  = exp.source === "receipt"
-    ? `<span class="text-[9px] bg-blue-100 text-blue-500 px-1 py-0.5 rounded font-bold ml-1">📷</span>` : "";
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-bold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>`
+    : exp.source === "voice"
+    ? `<span class="text-[9px] bg-rose-100 text-rose-500 px-1 py-0.5 rounded font-bold ml-1">🎤</span>`
+    : "";
   const notes  = exp.notes
     ? `<span class="text-gray-400 text-xs truncate ml-1">· ${esc(exp.notes)}</span>` : "";
   const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
@@ -869,6 +1903,14 @@ function _renderDetailView(exp) {
     notesRow.classList.add("hidden");
   }
 
+  const locationRow = document.getElementById("det-location-row");
+  if (exp.location) {
+    locationRow.classList.remove("hidden");
+    document.getElementById("det-location").textContent = exp.location;
+  } else {
+    locationRow.classList.add("hidden");
+  }
+
   const isReceipt = exp.source === "receipt";
   document.getElementById("det-source-icon").textContent = isReceipt ? "📷" : "💳";
   document.getElementById("det-source").textContent      = isReceipt ? "Scanned receipt" : "Manual entry";
@@ -877,10 +1919,11 @@ function _renderDetailView(exp) {
   if (exp.items && exp.items.length > 0) {
     itemsSect.classList.remove("hidden");
     document.getElementById("det-items-list").innerHTML = exp.items.map(item => {
+      const qty   = (item.quantity ?? 1) > 1 ? `<span class="text-[#44474a] mr-1">×${item.quantity}</span>` : "";
       const price = item.price != null
         ? `<span class="font-semibold">${fmtAmount(item.price, exp.currency)}</span>` : "";
       return `<div class="flex items-center justify-between py-0.5 border-b border-gray-100 last:border-0">
-        <span class="truncate mr-2">${esc(item.name || "")}</span>${price}</div>`;
+        <span class="truncate mr-2">${qty}${esc(item.name || "")}</span>${price}</div>`;
     }).join("");
   } else {
     itemsSect.classList.add("hidden");
@@ -910,6 +1953,7 @@ function openEdit() {
   document.getElementById("edit-cur-sym").textContent  = curSym(cur);
   document.getElementById("edit-date").value           = exp.date || "";
   document.getElementById("edit-notes").value          = exp.notes || "";
+  document.getElementById("edit-location").value       = exp.location || "";
   updateRateRow("edit", cur, defCur, exp.rate ?? null);
 
   state.editCategory = exp.category || null;
@@ -918,7 +1962,7 @@ function openEdit() {
   state.editPayment = exp.payment_method || null;
   renderPaymentButtons(state.editPayment, "edit-payment-buttons");
 
-  state.editItems = (exp.items || []).map(i => ({ name: i.name || "", price: i.price ?? null }));
+  state.editItems = (exp.items || []).map(i => ({ name: i.name || "", price: i.price ?? null, quantity: i.quantity ?? 1 }));
   renderEditItems();
 
   document.getElementById("det-view-mode").classList.add("hidden");
@@ -965,17 +2009,20 @@ function renderEditItems() {
     <div class="flex items-center gap-2">
       <input type="text" value="${esc(item.name)}" placeholder="Item name"
              oninput="state.editItems[${idx}].name = this.value"
-             class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white min-w-0" />
+             class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white min-w-0" />
+      <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
+             oninput="state.editItems[${idx}].quantity = this.value === '' ? 1 : parseInt(this.value)"
+             class="w-12 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
       <input type="number" value="${item.price ?? ""}" placeholder="0.00" min="0" step="0.01"
              oninput="state.editItems[${idx}].price = this.value === '' ? null : parseFloat(this.value)"
-             class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white flex-shrink-0" />
+             class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
       <button type="button" onclick="removeEditItem(${idx})"
               class="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 flex-shrink-0 transition-colors text-sm">✕</button>
     </div>`).join("");
 }
 
 function addEditItem() {
-  state.editItems.push({ name: "", price: null });
+  state.editItems.push({ name: "", price: null, quantity: 1 });
   renderEditItems();
   setTimeout(() => {
     const inputs = document.querySelectorAll("#edit-items-list input[type=text]");
@@ -997,6 +2044,7 @@ async function saveEdit() {
   const currency       = document.getElementById("edit-currency").value.trim().toUpperCase() || "EUR";
   const date_val       = document.getElementById("edit-date").value;
   const notes          = document.getElementById("edit-notes").value.trim();
+  const location       = document.getElementById("edit-location").value.trim();
   const category       = state.editCategory;
   const payment_method = state.editPayment || "";
   const defCurE        = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
@@ -1013,7 +2061,7 @@ async function saveEdit() {
 
   const items = state.editItems
     .filter(i => i.name.trim() !== "")
-    .map(i => ({ name: i.name.trim(), price: i.price }));
+    .map(i => ({ name: i.name.trim(), price: i.price, quantity: i.quantity ?? 1 }));
 
   try {
     const oldExp = state.expenseMap[id];
@@ -1035,6 +2083,7 @@ async function saveEdit() {
       date:           date_val,
       category:       category || oldCat,
       notes,
+      location,
       payment_method,
       items,
       updated_at:     new Date().toISOString(),
@@ -1199,7 +2248,7 @@ function renderPieChart(breakdown, defCur = "EUR") {
         data:            entries.map(([, amt]) => amt),
         backgroundColor: entries.map(([cat]) => catColor(cat)),
         borderWidth:     2,
-        borderColor:     dark ? "#1e293b" : "#ffffff",
+        borderColor:     dark ? "#141414" : "#ffffff",
         hoverOffset:     6,
       }],
     },
@@ -1211,7 +2260,7 @@ function renderPieChart(breakdown, defCur = "EUR") {
           position: "bottom",
           labels: {
             font:            { size: 11 },
-            color:           dark ? "#cbd5e1" : "#374151",
+            color:           dark ? "#b0b0b0" : "#44474a",
             padding:         10,
             usePointStyle:   true,
             pointStyleWidth: 10,
@@ -1247,7 +2296,7 @@ function renderBarChart(dailyData, defCur = "EUR") {
         label:           "Spending",
         data:            dailyData.map(d => d.total),
         backgroundColor: dailyData.map(d =>
-          d.date === today ? "#4f46e5" : (dark ? "#4338ca88" : "#a5b4fc")),
+          d.date === today ? "#006b55" : (dark ? "#6dfad235" : "#6dfad2")),
         borderRadius:    6,
         borderSkipped:   false,
       }],
@@ -1264,12 +2313,12 @@ function renderBarChart(dailyData, defCur = "EUR") {
       scales: {
         x: {
           grid:  { display: false },
-          ticks: { color: dark ? "#64748b" : "#9ca3af", font: { size: 10 } },
+          ticks: { color: dark ? "#686868" : "#44474a", font: { size: 10 } },
         },
         y: {
-          grid:  { color: dark ? "#334155" : "#f3f4f6" },
+          grid:  { color: dark ? "#222222" : "#edeeef" },
           ticks: {
-            color:    dark ? "#64748b" : "#9ca3af",
+            color:    dark ? "#686868" : "#44474a",
             font:     { size: 10 },
             callback: v => curSym(defCur) + v,
           },
@@ -1278,6 +2327,37 @@ function renderBarChart(dailyData, defCur = "EUR") {
       },
     },
   });
+}
+
+// ── Fetch with auto-retry on model overload ─────────────────────────────────────
+// POSTs to a Gemini-backed endpoint and, if the model reports it is overloaded
+// (HTTP 503 with { retryable: true }), shows a "high demand" message and resends
+// the request automatically with exponential backoff. Returns the parsed JSON on
+// success; throws on a non-retryable error or once retries are exhausted.
+async function postWithOverloadRetry(url, body, { onRetry, maxRetries = 3, signal } = {}) {
+  let delay = 1500;
+  for (let attempt = 0; ; attempt++) {
+    const r    = await fetch(url, { method: "POST", body, signal });
+    const resp = await r.json();
+    if (r.ok && !resp.error) return resp;
+
+    if (resp.retryable && attempt < maxRetries) {
+      onRetry?.(attempt + 1, maxRetries);
+      // Abortable sleep — bail out immediately if the request was cancelled.
+      await new Promise((res, rej) => {
+        const t = setTimeout(res, delay);
+        signal?.addEventListener("abort", () => {
+          clearTimeout(t);
+          rej(new DOMException("Aborted", "AbortError"));
+        }, { once: true });
+      });
+      delay *= 2;
+      continue;
+    }
+    const err = new Error(resp.error || "Unknown error");
+    err.retryable = resp.retryable;
+    throw err;
+  }
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -1292,9 +2372,10 @@ function showToast(msg, isError = false) {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 async function loadSettingsView() {
+  let data = {};
   try {
-    const r    = await fetch("/api/settings");
-    const data = await r.json();
+    const r = await fetch("/api/settings");
+    data = await r.json();
     if (data.env_key_set) {
       document.getElementById("s-env-notice").classList.remove("hidden");
     }
@@ -1315,9 +2396,28 @@ async function loadSettingsView() {
     }
   } catch (e) { console.error("loadSettings:", e); }
 
+  const placesKey    = localStorage.getItem("placesApiKey") || "";
+  const placesStatus = document.getElementById("s-places-status");
+  if (placesStatus) {
+    if (placesKey) {
+      const preview = placesKey.length > 10
+        ? placesKey.slice(0, 6) + "…" + placesKey.slice(-4)
+        : "***";
+      placesStatus.textContent = `Saved key: ${preview}`;
+      placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
+    } else if (data?.places_server_key) {
+      placesStatus.textContent = "Using server-provided Places API key.";
+      placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
+    } else {
+      placesStatus.textContent = "No key saved — location autocomplete will be a plain text field.";
+      placesStatus.className   = "text-xs text-amber-500 mt-1.5";
+    }
+  }
+
   const storedCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("s-currency", storedCurrency);
   renderCustomCurrenciesSettings();
+  _refreshBudgetStatus();
 
   const rateEl  = document.getElementById("s-rates-date");
   const cached  = localStorage.getItem("flo_rates_" + storedCurrency);
@@ -1379,6 +2479,53 @@ function saveCurrency() {
   showToast("Currency saved.");
 }
 
+function saveBudgetLimit() {
+  const val = parseFloat(document.getElementById("s-budget").value);
+  if (!val || val <= 0) { showToast("Enter a valid budget amount", true); return; }
+  saveBudget(val);
+  document.getElementById("s-budget").value = "";
+  _refreshBudgetStatus();
+  showToast("Budget saved!");
+  loadHome();
+}
+
+function clearBudgetLimit() {
+  showConfirm({
+    title:   "Clear monthly budget?",
+    message: "The budget progress bar will be hidden from the home screen.",
+    okLabel: "Clear",
+    okColor: "bg-[#006b55] hover:bg-[#004d3f]",
+    onOk: () => {
+      clearBudget();
+      _refreshBudgetStatus();
+      loadHome();
+      showToast("Budget cleared.");
+    },
+  });
+}
+
+function _refreshBudgetStatus() {
+  const budget    = getBudget();
+  const statusEl  = document.getElementById("s-budget-status");
+  const clearBtn  = document.getElementById("s-budget-clear");
+  const symEl     = document.getElementById("s-budget-sym");
+  const defCur    = localStorage.getItem("defaultCurrency") || "EUR";
+  if (symEl) symEl.textContent = curSym(defCur);
+  if (budget && budget > 0) {
+    if (statusEl) {
+      statusEl.textContent = `Current budget: ${fmtAmount(budget, defCur)} / month`;
+      statusEl.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
+    }
+    clearBtn?.classList.remove("hidden");
+  } else {
+    if (statusEl) {
+      statusEl.textContent = "No budget set — progress bar will be hidden.";
+      statusEl.className   = "text-xs text-[#44474a] mt-1.5";
+    }
+    clearBtn?.classList.add("hidden");
+  }
+}
+
 function loadOverrides() {
   const data    = getCentroids();
   const ovrs    = data?.overrides || {};
@@ -1391,7 +2538,7 @@ function loadOverrides() {
         <div class="flex items-center gap-3 px-4 py-3">
           <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${merchant}</span>
           <select onchange="updateOverride('${merchant.replace(/'/g, "\\'")}', this.value)"
-                  class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]">
             ${allCats.map(c => `<option value="${c}"${c === cat ? " selected" : ""}>${c}</option>`).join("")}
           </select>
           <button onclick="deleteOverride('${merchant.replace(/'/g, "\\'")}')"
@@ -1413,13 +2560,18 @@ function loadCategoriesView() {
   list.innerHTML = all.length
     ? all.map(cat => {
         const isCustom = custom.has(cat) && !model.has(cat);
-        const tag      = isCustom
-          ? `<span class="text-[10px] font-semibold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full">custom</span>`
-          : ``;
+        const emoji    = catEmoji(cat);
+        const tag     = isCustom
+          ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="color:${isDark()?"#6dfad2":"#006b55"};background:${isDark()?"#1e1e1e":"#f0fdf9"}">custom</span>`
+          : `<span class="text-[10px] text-[#c5c6ca]">built-in</span>`;
+        const emojiEl = `<input type="text" value="${esc(emoji)}"
+                    title="Tap to change emoji"
+                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0"
+                    onchange="updateCategoryEmoji('${cat.replace(/'/g, "\\'")}', this.value)" />`;
         return `
           <div class="flex items-center gap-3 px-4 py-3">
-            <span class="text-base">${catEmoji(cat)}</span>
-            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${cat}</span>
+            ${emojiEl}
+            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(cat)}</span>
             ${tag}
             <button onclick="deleteCategory('${cat.replace(/'/g, "\\'")}')"
                     class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>
@@ -1428,8 +2580,22 @@ function loadCategoriesView() {
     : `<div class="px-4 py-6 text-sm text-gray-400 text-center">No categories yet.</div>`;
 }
 
+function updateCategoryEmoji(cat, newEmoji) {
+  const emoji = (newEmoji || "").trim() || "📦";
+  const data  = getCentroids();
+  if (!data) return;
+  data.custom_category_emojis      = data.custom_category_emojis || {};
+  data.custom_category_emojis[cat] = emoji;
+  saveCentroids(data);
+  loadCategoriesIntoButtons();
+  showToast("Emoji updated!");
+}
+
 function addCustomCategory() {
-  const name = document.getElementById("new-category-name").value.trim();
+  const nameInput  = document.getElementById("new-category-name");
+  const emojiInput = document.getElementById("new-category-emoji");
+  const name  = nameInput.value.trim();
+  const emoji = (emojiInput?.value || "").trim() || "📦";
   if (!name) return;
   const data = getCentroids();
   if (!data) { showToast("No model loaded yet.", true); return; }
@@ -1437,11 +2603,14 @@ function addCustomCategory() {
   if (existing.includes(name)) { showToast("Category already exists.", true); return; }
   data.custom_categories = data.custom_categories || [];
   data.custom_categories.push(name);
+  data.custom_category_emojis = data.custom_category_emojis || {};
+  data.custom_category_emojis[name] = emoji;
   saveCentroids(data);
-  document.getElementById("new-category-name").value = "";
+  nameInput.value = "";
+  if (emojiInput) emojiInput.value = "";
   loadCategoriesView();
   loadCategoriesIntoButtons();
-  showToast(`"${name}" added.`);
+  showToast(`"${emoji} ${name}" added.`);
 }
 
 function deleteCategory(name) {
@@ -1453,7 +2622,8 @@ function deleteCategory(name) {
       const data = getCentroids();
       if (!data) return;
       data.custom_categories = (data.custom_categories || []).filter(c => c !== name);
-      if (data.categories?.[name]) delete data.categories[name];
+      if (data.categories?.[name])             delete data.categories[name];
+      if (data.custom_category_emojis?.[name]) delete data.custom_category_emojis[name];
       saveCentroids(data);
       loadCategoriesView();
       loadCategoriesIntoButtons();
@@ -1478,30 +2648,59 @@ function deleteOverride(merchant) {
 }
 
 function loadPaymentMethodsView() {
-  const methods = getPaymentMethods();
-  const list    = document.getElementById("payment-methods-list");
+  const methods  = getPaymentMethods();
+  const builtins = new Set(Object.keys(PAYMENT_ICONS));
+  const list     = document.getElementById("payment-methods-list");
   list.innerHTML = methods.length
-    ? methods.map(m => `
-        <div class="flex items-center gap-3 px-4 py-3">
-          <span class="text-base">${paymentIcon(m)}</span>
-          <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(m)}</span>
-          <button onclick="deletePaymentMethod('${m.replace(/'/g, "\\'")}')"
-                  class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>
-        </div>`).join("")
+    ? methods.map(m => {
+        const isCustom = !builtins.has(m);
+        const emoji    = paymentIcon(m);
+        const tag     = isCustom
+          ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="color:${isDark()?"#6dfad2":"#006b55"};background:${isDark()?"#1e1e1e":"#f0fdf9"}">custom</span>`
+          : `<span class="text-[10px] text-[#c5c6ca]">built-in</span>`;
+        const emojiEl = `<input type="text" value="${esc(emoji)}"
+                    title="Tap to change emoji"
+                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0"
+                    onchange="updatePaymentMethodEmoji('${m.replace(/'/g, "\\'")}', this.value)" />`;
+        return `
+          <div class="flex items-center gap-3 px-4 py-3">
+            ${emojiEl}
+            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(m)}</span>
+            ${tag}
+            <button onclick="deletePaymentMethod('${m.replace(/'/g, "\\'")}')"
+                    class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>
+          </div>`;
+      }).join("")
     : `<div class="px-4 py-6 text-sm text-gray-400 text-center">No payment methods.</div>`;
 }
 
+function updatePaymentMethodEmoji(method, newEmoji) {
+  const emoji  = (newEmoji || "").trim() || "💳";
+  const emojis = getPaymentEmojis();
+  emojis[method] = emoji;
+  savePaymentEmojis(emojis);
+  renderPaymentButtons(state.selectedPayment, "payment-buttons");
+  if (state.editPayment !== undefined) renderPaymentButtons(state.editPayment, "edit-payment-buttons");
+  showToast("Emoji updated!");
+}
+
 function addCustomPaymentMethod() {
-  const input  = document.getElementById("new-payment-method");
-  const name   = (input.value || "").trim();
+  const nameInput  = document.getElementById("new-payment-method");
+  const emojiInput = document.getElementById("new-payment-emoji");
+  const name  = (nameInput.value || "").trim();
+  const emoji = (emojiInput?.value || "").trim() || "💳";
   if (!name) return;
   const methods = getPaymentMethods();
   if (methods.includes(name)) { showToast("Method already exists.", true); return; }
   methods.push(name);
   savePaymentMethods(methods);
-  input.value = "";
+  const emojis = getPaymentEmojis();
+  emojis[name] = emoji;
+  savePaymentEmojis(emojis);
+  nameInput.value = "";
+  if (emojiInput) emojiInput.value = "";
   loadPaymentMethodsView();
-  showToast(`"${name}" added.`);
+  showToast(`"${emoji} ${name}" added.`);
 }
 
 function deletePaymentMethod(method) {
@@ -1512,6 +2711,9 @@ function deletePaymentMethod(method) {
     onOk: () => {
       const methods = getPaymentMethods().filter(m => m !== method);
       savePaymentMethods(methods);
+      const emojis = getPaymentEmojis();
+      delete emojis[method];
+      savePaymentEmojis(emojis);
       loadPaymentMethodsView();
     },
   });
@@ -1540,6 +2742,26 @@ function toggleApiVis() {
   hideEye.classList.toggle("hidden", !isHidden);
 }
 
+function savePlacesApiKey() {
+  const key = document.getElementById("s-places-key").value.trim();
+  if (!key) return;
+  localStorage.setItem("placesApiKey", key);
+  _gmapsLoadPromise = null; // reset so the next autocomplete init picks up the new key
+  document.getElementById("s-places-key").value = "";
+  showToast("Places API key saved.");
+  loadSettingsView();
+}
+
+function togglePlacesKeyVis() {
+  const input   = document.getElementById("s-places-key");
+  const showEye = document.getElementById("places-eye-show");
+  const hideEye = document.getElementById("places-eye-hide");
+  const isHidden = input.type === "password";
+  input.type = isHidden ? "text" : "password";
+  showEye.classList.toggle("hidden", isHidden);
+  hideEye.classList.toggle("hidden", !isHidden);
+}
+
 // ── Export / Import ───────────────────────────────────────────────────────────
 function exportJSON() {
   const expenses = getExpenses();
@@ -1556,7 +2778,7 @@ function exportJSON() {
 function exportCSV() {
   const expenses = getExpenses();
   if (!expenses.length) { showToast("No expenses to export", true); return; }
-  const headers = ["date", "merchant", "amount", "currency", "category", "payment_method", "notes", "source", "created_at"];
+  const headers = ["date", "merchant", "amount", "currency", "category", "payment_method", "notes", "location", "source", "created_at"];
   const escape  = v => {
     const s = String(v ?? "").replace(/"/g, '""');
     return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s}"` : s;
@@ -1616,6 +2838,20 @@ function init() {
   syncDarkToggle();
   hydrateCentroids();
   loadHome();
+
+  // Close nearby-results dropdowns when clicking outside their wrapper
+  document.addEventListener('click', e => {
+    for (const [wrapId, resultsId] of [
+      ['f-location-wrap', 'f-nearby-results'],
+      ['edit-location-wrap', 'edit-nearby-results'],
+    ]) {
+      const wrap = document.getElementById(wrapId);
+      const res  = document.getElementById(resultsId);
+      if (res && !res.classList.contains('hidden') && !wrap?.contains(e.target)) {
+        res.classList.add('hidden');
+      }
+    }
+  });
   loadCategoriesIntoButtons();
   const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("f-currency", defaultCurrency);

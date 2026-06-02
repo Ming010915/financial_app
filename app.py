@@ -3,18 +3,33 @@ Flo — Personal Finance Tracker
 Flask entry point: app creation, routes, and startup.
 """
 
+import asyncio
+import base64
 import json
 import os
+import queue
+import re
+import threading
 import urllib.request
 
 from flask import Flask, render_template, request, jsonify
+from flask_sock import Sock
 
+<<<<<<< HEAD
 import classifier
 import receipt
 import summary
 from config import ASK_BELOW, CENTROIDS_FILE, MONTHLY_SPENDING_DATASET
+=======
+import services.classifier as classifier
+import services.receipt as receipt
+import services.voice as voice
+from services.gemini_utils import ModelOverloadedError
+from config import ASK_BELOW, CENTROIDS_FILE, GEMINI_LIVE_MODEL, MONTHLY_SPENDING_DATASET, SERVER_API_KEY, SERVER_PLACES_API_KEY
+>>>>>>> main
 
-app = Flask(__name__)
+app  = Flask(__name__)
+sock = Sock(app)
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
@@ -102,24 +117,271 @@ def api_learn():
 def api_scan_receipt():
     api_key = (
         request.form.get("api_key", "").strip()
-        or os.environ.get("GOOGLE_API_KEY", "")
+        or SERVER_API_KEY
     )
     if not api_key:
         return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
 
-    if "image" not in request.files:
-        return jsonify({"error": "No image file uploaded"}), 400
+    file = request.files.get("file") or request.files.get("image")
+    if file is None:
+        return jsonify({"error": "No file uploaded"}), 400
 
-    file       = request.files["image"]
-    image_data = file.read()
-    if not image_data:
-        return jsonify({"error": "Empty image file"}), 400
+    file_data = file.read()
+    if not file_data:
+        return jsonify({"error": "Empty file"}), 400
+
+    mime_type = file.content_type or "image/jpeg"
+    allowed = ("image/", "application/pdf")
+    if not any(mime_type.startswith(p) for p in allowed):
+        return jsonify({"error": "Unsupported file type. Please upload an image or PDF."}), 400
 
     try:
-        data = receipt.scan_receipt(image_data, file.content_type or "image/jpeg", api_key)
+        pm_raw = request.form.get("payment_methods", "")
+        payment_methods = [m.strip() for m in pm_raw.split(",") if m.strip()] if pm_raw else []
+        data = receipt.scan_receipt(file_data, mime_type, api_key, payment_methods or None)
         return jsonify({"success": True, "data": data})
+    except ModelOverloadedError as e:
+        return jsonify({"error": str(e), "retryable": True}), 503
     except Exception as e:
         return jsonify({"error": f"Receipt processing failed: {str(e)}"}), 500
+
+
+# ── Voice input API ───────────────────────────────────────────────────────────
+
+@app.route("/api/voice_input", methods=["POST"])
+def api_voice_input():
+    api_key = (
+        request.form.get("api_key", "").strip()
+        or SERVER_API_KEY
+    )
+    if not api_key:
+        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file uploaded"}), 400
+
+    file       = request.files["audio"]
+    audio_data = file.read()
+    if not audio_data:
+        return jsonify({"error": "Empty audio file"}), 400
+
+    try:
+        data = voice.process_voice_input(audio_data, file.content_type or "audio/webm", api_key)
+        return jsonify({"success": True, "data": data})
+    except ModelOverloadedError as e:
+        return jsonify({"error": str(e), "retryable": True}), 503
+    except Exception as e:
+        return jsonify({"error": f"Voice processing failed: {str(e)}"}), 500
+
+
+@app.route("/api/voice_summary", methods=["POST"])
+def api_voice_summary():
+    """Summarise a raw live transcript into a clean purchase note before extraction."""
+    api_key = (request.form.get("api_key", "").strip() or SERVER_API_KEY)
+    if not api_key:
+        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+
+    transcript = (request.form.get("transcript", "") or "").strip()
+    if not transcript:
+        return jsonify({"error": "Empty transcript"}), 400
+
+    try:
+        summary = voice.summarize_transcript(transcript, api_key)
+        return jsonify({"success": True, "original": transcript, "summary": summary})
+    except ModelOverloadedError as e:
+        return jsonify({"error": str(e), "retryable": True}), 503
+    except Exception as e:
+        return jsonify({"error": f"Transcript summary failed: {str(e)}"}), 500
+
+
+@app.route("/api/voice_extract", methods=["POST"])
+def api_voice_extract():
+    """Extract expense details from a user-confirmed transcript (text only)."""
+    api_key = (request.form.get("api_key", "").strip() or SERVER_API_KEY)
+    if not api_key:
+        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+
+    transcript = (request.form.get("transcript", "") or "").strip()
+    if not transcript:
+        return jsonify({"error": "Empty transcript"}), 400
+
+    try:
+        data = voice.process_voice_text(transcript, api_key)
+        return jsonify({"success": True, "data": data})
+    except ModelOverloadedError as e:
+        return jsonify({"error": str(e), "retryable": True}), 503
+    except Exception as e:
+        return jsonify({"error": f"Voice processing failed: {str(e)}"}), 500
+
+
+# ── Gemini Live WebSocket ─────────────────────────────────────────────────────
+
+@sock.route('/ws/voice_live')
+def voice_live_ws(ws):
+    """WebSocket relay: browser audio → Gemini Live → browser transcription."""
+    from google import genai
+    from google.genai import types as genai_types
+
+    try:
+        init     = json.loads(ws.receive())
+        api_key  = (init.get('api_key', '').strip()
+                    or os.environ.get('GOOGLE_API_KEY', ''))
+        pcm_rate = int(init.get('sample_rate', 16000))
+        print(f"[Live] WebSocket connection initiated. api_key: {'***' if api_key else 'None'}, sample_rate: {pcm_rate}")
+    except Exception as e:
+        print(f"[Live] Init error: {e}")
+        return
+
+    if not api_key:
+        try:
+            ws.send(json.dumps({'error': 'No API key configured'}))
+        except Exception:
+            pass
+        return
+
+    mime_type  = f'audio/pcm;rate={pcm_rate}'
+    audio_q    = queue.Queue()
+    stop_event = threading.Event()
+
+    def _queue_get(q):
+        try:
+            return q.get(timeout=0.1)
+        except queue.Empty:
+            return ...
+
+    async def _gemini_session():
+        print("[Live] Starting Gemini Session thread...")
+        client = genai.Client(api_key=api_key)
+        config = genai_types.LiveConnectConfig(
+            response_modalities=["AUDIO"],
+            input_audio_transcription=genai_types.AudioTranscriptionConfig(),
+        )
+        try:
+            print(f"[Live] Connecting to Gemini Live with model {GEMINI_LIVE_MODEL}...")
+            async with client.aio.live.connect(
+                model=GEMINI_LIVE_MODEL,
+                config=config,
+            ) as session:
+                print("[Live] Connected to Gemini Live API session successfully!")
+
+                async def _send():
+                    loop = asyncio.get_running_loop()
+                    while not stop_event.is_set():
+                        item = await loop.run_in_executor(None, _queue_get, audio_q)
+                        if item is None:
+                            print("[Live] Send task: poison pill received, stopping.")
+                            break
+                        if item is ...:
+                            continue
+                        try:
+                            await session.send_realtime_input(
+                                audio=genai_types.Blob(
+                                    mime_type=mime_type,
+                                    data=item,
+                                )
+                            )
+                        except Exception as e:
+                            print(f"[Live] Error sending audio chunk: {e}")
+                            break
+
+                async def _recv():
+                    loop = asyncio.get_running_loop()
+                    transcript = ''
+                    try:
+                        print("[Live] Receive task started, listening for responses...")
+                        while not stop_event.is_set():
+                            async for response in session.receive():
+                                if stop_event.is_set():
+                                    break
+                                sc = response.server_content
+                                if sc is None:
+                                    continue
+                                tc = getattr(sc, 'input_transcription', None)
+                                if tc and tc.text:
+                                    finished = bool(tc.finished)
+                                    print(f"[Live] Received input transcription: {tc.text} (finished={finished})")
+                                    # Gemini streams incremental fragments (not cumulative)
+                                    # and rarely sets finished, so accumulate every chunk.
+                                    chunk = re.sub(r'<[^>]*>', '', tc.text)
+                                    transcript += chunk
+                                    display = re.sub(r'\s+', ' ', transcript).strip()
+                                    try:
+                                        await loop.run_in_executor(
+                                            None,
+                                            ws.send,
+                                            json.dumps({
+                                                'transcript': display,
+                                                'finished': finished,
+                                            })
+                                        )
+                                    except Exception as e:
+                                        print(f"[Live] Error sending to websocket: {e}")
+                                        stop_event.set()
+                                        break
+                    except Exception as e:
+                        print(f"[Live] Error in receive loop: {e}")
+                        import traceback
+                        traceback.print_exc()
+
+                send_task = asyncio.create_task(_send())
+                recv_task = asyncio.create_task(_recv())
+                done, pending = await asyncio.wait(
+                    [send_task, recv_task],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for t in pending:
+                    t.cancel()
+                    try:
+                        await t
+                    except (asyncio.CancelledError, Exception):
+                        pass
+
+        except Exception as exc:
+            print(f"[Live] Connection exception: {exc}")
+            import traceback
+            traceback.print_exc()
+            try:
+                ws.send(json.dumps({'error': str(exc)}))
+            except Exception:
+                pass
+
+    def _run_gemini():
+        asyncio.run(_gemini_session())
+
+    worker = threading.Thread(target=_run_gemini, daemon=True)
+    worker.start()
+
+    chunk_counter = [0]
+    try:
+        while True:
+            try:
+                raw = ws.receive()
+            except Exception as e:
+                print(f"[Live] ws.receive() exception: {e}")
+                break
+            if raw is None:
+                break
+            try:
+                msg = json.loads(raw)
+                msg_type = msg.get('type')
+                if msg_type == 'audio':
+                    data_len = len(msg.get('data', ''))
+                    chunk_counter[0] += 1
+                    if chunk_counter[0] % 10 == 1:
+                        print(f"[Live] Received audio chunk #{chunk_counter[0]}, length: {data_len}")
+                    audio_q.put(base64.b64decode(msg['data']))
+                elif msg_type == 'stop':
+                    print("[Live] Received stop command from client.")
+                    break
+                else:
+                    print(f"[Live] Received unknown message type: {msg_type}")
+            except Exception as e:
+                print(f"[Live] Error parsing websocket message: {e}")
+                continue
+    finally:
+        stop_event.set()
+        audio_q.put(None)
+        worker.join(timeout=5)
 
 
 # ── Exchange Rates API ────────────────────────────────────────────────────────
@@ -143,7 +405,10 @@ def api_exchange_rates():
 
 @app.route("/api/settings")
 def api_get_settings():
-    return jsonify({"env_key_set": bool(os.environ.get("GOOGLE_API_KEY", ""))})
+    return jsonify({
+        "env_key_set":        bool(SERVER_API_KEY),
+        "places_server_key":  SERVER_PLACES_API_KEY,
+    })
 
 # ── Summary API ──────────────────────────────────────────────────────────────
 

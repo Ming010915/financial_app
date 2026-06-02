@@ -6,8 +6,10 @@ Depends on classifier for merchant prediction after OCR.
 import json
 from datetime import date
 
-import classifier
-from config import GEMINI_MODEL, ASK_BELOW
+from services import classifier
+from services.gemini_utils import generate_with_fallback
+from services.prompts import build_receipt_prompt
+from config import GEMINI_MODELS, ASK_BELOW
 
 
 def extract_json_from_text(text: str) -> dict:
@@ -43,21 +45,8 @@ def extract_json_from_text(text: str) -> dict:
     return {}
 
 
-_RECEIPT_PROMPT = (
-    "Analyze this receipt image and extract the information. "
-    "Return ONLY a valid JSON object (no markdown, no explanation) with exactly these fields:\n"
-    '{"merchant": "store or restaurant name", '
-    '"date": "YYYY-MM-DD if visible else null", '
-    '"total": numeric_total_or_null, '
-    '"currency": "currency code e.g. EUR USD GBP", '
-    '"payment_method": "one of: Cash, Debit Card, Credit Card, Mobile Pay, Bank Transfer — or null if not visible", '
-    '"items": [{"name": "item name", "price": numeric_or_null}], '
-    '"notes": "any other relevant info or null"}\n'
-    "Use the final total paid (after tax). If a field is unclear use null."
-)
-
-
-def scan_receipt(image_data: bytes, mime_type: str, api_key: str) -> dict:
+def scan_receipt(image_data: bytes, mime_type: str, api_key: str,
+                 payment_methods: list[str] | None = None) -> dict:
     """
     Send an image to Gemini, parse the receipt fields, and attach a
     category prediction. Returns the extracted dict (caller handles HTTP).
@@ -66,12 +55,13 @@ def scan_receipt(image_data: bytes, mime_type: str, api_key: str) -> dict:
     from google import genai
     from google.genai import types
 
+    prompt     = build_receipt_prompt(payment_methods or [])
     client     = genai.Client(api_key=api_key)
     image_part = types.Part.from_bytes(data=image_data, mime_type=mime_type)
-    response   = client.models.generate_content(
-        model    = GEMINI_MODEL,
-        contents = [_RECEIPT_PROMPT, image_part],
-    )
+    response   = generate_with_fallback(lambda model: client.models.generate_content(
+        model    = model,
+        contents = [prompt, image_part],
+    ), GEMINI_MODELS)
     extracted = extract_json_from_text(response.text)
 
     extracted.setdefault("merchant",       "")
@@ -80,7 +70,7 @@ def scan_receipt(image_data: bytes, mime_type: str, api_key: str) -> dict:
     extracted.setdefault("currency",       "EUR")
     extracted.setdefault("payment_method", None)
     extracted.setdefault("items",          [])
-    extracted.setdefault("notes",          "")
+    extracted.setdefault("location",       None)
 
     if not extracted.get("date"):
         extracted["date"] = date.today().isoformat()
