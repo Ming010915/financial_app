@@ -15,18 +15,12 @@ import urllib.request
 from flask import Flask, render_template, request, jsonify
 from flask_sock import Sock
 
-<<<<<<< HEAD
-import classifier
-import receipt
-import summary
-from config import ASK_BELOW, CENTROIDS_FILE, MONTHLY_SPENDING_DATASET
-=======
+import services.summary as summary
 import services.classifier as classifier
 import services.receipt as receipt
 import services.voice as voice
 from services.gemini_utils import ModelOverloadedError
 from config import ASK_BELOW, CENTROIDS_FILE, GEMINI_LIVE_MODEL, MONTHLY_SPENDING_DATASET, SERVER_API_KEY, SERVER_PLACES_API_KEY
->>>>>>> main
 
 app  = Flask(__name__)
 sock = Sock(app)

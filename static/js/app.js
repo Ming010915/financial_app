@@ -2107,15 +2107,6 @@ async function saveEdit() {
 }
 
 // ── Summary (charts) ──────────────────────────────────────────────────────────
-// async function loadSummary() {
-//   await loadRates();
-//   const data   = computeSummary();
-//   const defCur = localStorage.getItem("defaultCurrency") || "EUR";
-//   document.getElementById("sum-month").textContent = fmtAmount(data.month_total, defCur);
-//   document.getElementById("sum-today").textContent = fmtAmount(data.today_total, defCur);
-//   renderPieChart(data.category_breakdown, defCur);
-//   renderBarChart(data.daily_chart, defCur);
-// }
 async function loadSummary() {
   await loadRates();
   const data   = computeSummary();
@@ -2139,7 +2130,7 @@ async function loadAiOverview(breakdown, defCur) {
     return;
   }
   if (!Object.keys(breakdown).length) {
-    document.getElementById("ai-overview-card").classList.add("hidden");
+    el.textContent = "Start adding your expenses for the month to get an overview"
     return;
   }
 
@@ -2157,6 +2148,7 @@ async function loadAiOverview(breakdown, defCur) {
       days_elapsed:   daysElapsed,
       days_in_month:  daysInMonth,
     });
+
     const r    = await fetch(`/api/summary/overview?${params}`, {
       headers: { "X-Google-Api-Key": apiKey },
     });

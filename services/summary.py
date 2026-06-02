@@ -15,10 +15,10 @@ import numpy as np
 from sklearn.preprocessing import normalize
 
 from google import genai
-from config import GEMINI_MODEL
+from config import GEMINI_MODELS
 
  
-import classifier  # for dynamic category list
+import services.classifier as classifier   # for dynamic category list
 
 # ── Lazy ChromaDB singleton ───────────────────────────────────────────────────
  
@@ -108,5 +108,6 @@ def generate_overview(current_text: str, retrieved_summaries: list[dict[str, str
     )
  
     client   = genai.Client(api_key=api_key)
-    response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+    response = client.models.generate_content(model=GEMINI_MODELS[1], contents=prompt)
+    #response = client.models.generate_content(model=GEMINI_MODELS, contents=prompt)
     return response.text
