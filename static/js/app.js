@@ -2122,9 +2122,16 @@ async function loadAiOverview(breakdown, defCur) {
   const el = document.getElementById("ai-overview-text");
   if (!el) return;
 
-  // Need at least some spending data and an API key
+  // Need at least some spending data and an API key — either a key saved in the
+  // browser or one configured server-side via the .env file.
   const apiKey = localStorage.getItem("googleApiKey") || "";
-  if (!apiKey) {
+  let envKeySet = false;
+  try {
+    const s = await (await fetch("/api/settings")).json();
+    envKeySet = !!s.env_key_set;
+  } catch { /* ignore — treated as no server key */ }
+
+  if (!apiKey && !envKeySet) {
     el.textContent = "Add a Google API key in Settings to enable AI spending insights.";
     document.getElementById("ai-overview-card").classList.remove("hidden");
     return;
@@ -2150,7 +2157,9 @@ async function loadAiOverview(breakdown, defCur) {
     });
 
     const r    = await fetch(`/api/summary/overview?${params}`, {
-      headers: { "X-Google-Api-Key": apiKey },
+      // Only send the header when we have a browser key; otherwise the server
+      // falls back to its .env GOOGLE_API_KEY.
+      headers: apiKey ? { "X-Google-Api-Key": apiKey } : {},
     });
     const data = await r.json();
     if (!r.ok || data.error) throw new Error(data.error || "Unknown error");
