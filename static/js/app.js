@@ -2115,6 +2115,103 @@ async function loadSummary() {
   document.getElementById("sum-today").textContent = fmtAmount(data.today_total, defCur);
   renderPieChart(data.category_breakdown, defCur);
   renderBarChart(data.daily_chart, defCur);
+  loadAiOverview(data.category_breakdown, defCur);
+}
+
+async function loadAiOverview(breakdown, defCur) {
+  const el = document.getElementById("ai-overview-text");
+  if (!el) return;
+
+  // Need at least some spending data and an API key
+  const apiKey = localStorage.getItem("googleApiKey") || "";
+  if (!apiKey) {
+    el.textContent = "Add a Google API key in Settings to enable AI spending insights.";
+    document.getElementById("ai-overview-card").classList.remove("hidden");
+    return;
+  }
+  if (!Object.keys(breakdown).length) {
+    el.textContent = "Start adding your expenses for the month to get an overview"
+    return;
+  }
+
+  document.getElementById("ai-overview-card").classList.remove("hidden");
+  el.innerHTML = `<span class="text-gray-400 animate-pulse">Generating insight…</span>`;
+
+  const today         = new Date();
+  const daysElapsed   = today.getDate();
+  const daysInMonth   = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const spendingJson  = JSON.stringify(breakdown);
+
+  try {
+    const params = new URLSearchParams({
+      spending_json:  spendingJson,
+      days_elapsed:   daysElapsed,
+      days_in_month:  daysInMonth,
+    });
+
+    const r    = await fetch(`/api/summary/overview?${params}`, {
+      headers: { "X-Google-Api-Key": apiKey },
+    });
+    const data = await r.json();
+    if (!r.ok || data.error) throw new Error(data.error || "Unknown error");
+
+    el.textContent = data.overview;
+
+    // Show which months it compared against, if any
+    const basedOnEl = document.getElementById("ai-overview-based-on");
+    if (basedOnEl) {
+      basedOnEl.textContent = data.based_on?.length
+        ? `Compared to: ${data.based_on.join(", ")}`
+        : "No historical data yet — keep tracking to unlock comparisons!";
+    }
+  } catch (e) {
+    el.textContent = "Couldn't load insight: " + e.message;
+  }
+}
+
+async function archiveCurrentMonth() {
+  const apiKey = localStorage.getItem("googleApiKey") || "";
+  if (!apiKey) { showToast("Add a Google API key in Settings first.", true); return; }
+
+  const data    = computeSummary();
+  const defCur  = localStorage.getItem("defaultCurrency") || "EUR";
+  const now     = new Date();
+  const period  = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  if (!Object.keys(data.category_breakdown).length) {
+    showToast("No spending data to archive.", true);
+    return;
+  }
+
+  // Build the plain-text summary the vector store will hold
+  const items      = Object.entries(data.category_breakdown)
+    .map(([cat, amt]) => `${cat} ${fmtAmount(amt, defCur)}`).join(", ");
+  const summaryText = `${period}: ${items}. Total ${fmtAmount(data.month_total, defCur)}.`;
+
+  showConfirm({
+    title:   `Archive ${period}?`,
+    message: `This saves your spending summary so future months can be compared against it.\n\n"${summaryText}"`,
+    okLabel: "Archive",
+    okColor: "bg-indigo-600 hover:bg-indigo-700",
+    onOk: async () => {
+      try {
+        const r = await fetch("/api/summary/store", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            period,
+            text:     summaryText,
+            spending: data.category_breakdown,
+          }),
+        });
+        const resp = await r.json();
+        if (!r.ok || resp.error) throw new Error(resp.error || "Unknown error");
+        showToast(`${period} archived!`);
+      } catch (e) {
+        showToast("Archive failed: " + e.message, true);
+      }
+    },
+  });
 }
 
 function renderPieChart(breakdown, defCur = "EUR") {
