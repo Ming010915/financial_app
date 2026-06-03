@@ -11,8 +11,10 @@ import queue
 import re
 import threading
 import urllib.request
+import urllib.parse
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+
 from flask_sock import Sock
 
 import services.summary as summary
@@ -20,10 +22,65 @@ import services.classifier as classifier
 import services.receipt as receipt
 import services.voice as voice
 from services.gemini_utils import ModelOverloadedError
-from config import ASK_BELOW, CENTROIDS_FILE, GEMINI_LIVE_MODEL, MONTHLY_SPENDING_DATASET, SERVER_API_KEY, SERVER_PLACES_API_KEY
+from config import (
+    ASK_BELOW, CENTROIDS_FILE, GEMINI_LIVE_MODEL, MONTHLY_SPENDING_DATASET,
+    SERVER_API_KEY, SERVER_PLACES_API_KEY,
+    REQUIRE_PASSWORD, APP_PASSWORD, SECRET_KEY,
+)
 
 app  = Flask(__name__)
+app.secret_key = SECRET_KEY
 sock = Sock(app)
+
+
+# ── Access control ────────────────────────────────────────────────────────────
+
+# Endpoints reachable without being logged in.
+PUBLIC_ENDPOINTS = {"login", "static"}
+
+
+@app.before_request
+def require_login():
+    """Gate every request behind the login page when REQUIRE_PASSWORD is on."""
+    if not REQUIRE_PASSWORD:
+        return None
+    if request.endpoint in PUBLIC_ENDPOINTS:
+        return None
+    if session.get("authenticated"):
+        return None
+    # Unauthenticated: send pages to the login screen, reject API/WS calls.
+    if request.path.startswith("/api/") or request.path.startswith("/ws/"):
+        return jsonify({"error": "Authentication required"}), 401
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    # If the gate is off, there's nothing to log into.
+    if not REQUIRE_PASSWORD:
+        return redirect(url_for("index"))
+    if session.get("authenticated"):
+        return redirect(url_for("index"))
+
+    error = None
+    if request.method == "POST":
+        password = (request.form.get("password") or "").strip()
+        # No password configured at all → deny everyone for security.
+        if not APP_PASSWORD:
+            error = "No password is configured on the server. Access is denied."
+        elif password and password == APP_PASSWORD:
+            session["authenticated"] = True
+            session.permanent = True
+            return redirect(url_for("index"))
+        else:
+            error = "Incorrect password. Please try again."
+    return render_template("login.html", error=error), (401 if error else 200)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
@@ -399,10 +456,87 @@ def api_exchange_rates():
 
 @app.route("/api/settings")
 def api_get_settings():
+    # Never expose the actual key values to the browser — only whether they exist.
     return jsonify({
-        "env_key_set":        bool(SERVER_API_KEY),
-        "places_server_key":  SERVER_PLACES_API_KEY,
+        "env_key_set":     bool(SERVER_API_KEY),
+        "places_key_set":  bool(SERVER_PLACES_API_KEY),
     })
+
+
+# ── Google Places proxy ───────────────────────────────────────────────────────
+# The browser never receives the Places key; it calls these endpoints and the
+# server talks to Google on its behalf.
+
+def _places_request(path, params):
+    """Call a Google Places web-service endpoint and return parsed JSON."""
+    qs  = urllib.parse.urlencode(params)
+    req = urllib.request.Request(
+        f"https://maps.googleapis.com/maps/api/place/{path}?{qs}",
+        headers={"User-Agent": "Flo-Finance/1.0"},
+    )
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        return json.loads(resp.read())
+
+
+def _normalize_places(results):
+    """Reduce Google's payload to just what the UI renders."""
+    out = []
+    for r in (results or [])[:12]:
+        out.append({
+            "name":              r.get("name", ""),
+            "formatted_address": r.get("formatted_address", ""),
+            "vicinity":          r.get("vicinity", ""),
+        })
+    return out
+
+
+@app.route("/api/places/text_search", methods=["POST"])
+def api_places_text_search():
+    body = request.get_json(silent=True) or {}
+    # A user-supplied key (from their own browser settings) overrides the server key.
+    api_key = (body.get("api_key") or "").strip() or SERVER_PLACES_API_KEY
+    if not api_key:
+        return jsonify({"error": "No Places API key configured"}), 400
+
+    query = (body.get("query") or "").strip()
+    if not query:
+        return jsonify({"results": []})
+
+    params = {"query": query, "key": api_key}
+    lat, lng = body.get("lat"), body.get("lng")
+    if lat is not None and lng is not None:
+        params["location"] = f"{lat},{lng}"
+        params["radius"]   = 10000
+
+    try:
+        data = _places_request("textsearch/json", params)
+    except Exception as exc:
+        return jsonify({"error": f"Places request failed: {exc}"}), 502
+    return jsonify({"results": _normalize_places(data.get("results"))})
+
+
+@app.route("/api/places/nearby", methods=["POST"])
+def api_places_nearby():
+    body = request.get_json(silent=True) or {}
+    api_key = (body.get("api_key") or "").strip() or SERVER_PLACES_API_KEY
+    if not api_key:
+        return jsonify({"error": "No Places API key configured"}), 400
+
+    lat, lng = body.get("lat"), body.get("lng")
+    if lat is None or lng is None:
+        return jsonify({"error": "lat and lng are required"}), 400
+
+    params = {
+        "location": f"{lat},{lng}",
+        "radius":   500,
+        "type":     "establishment",
+        "key":      api_key,
+    }
+    try:
+        data = _places_request("nearbysearch/json", params)
+    except Exception as exc:
+        return jsonify({"error": f"Places request failed: {exc}"}), 502
+    return jsonify({"results": _normalize_places(data.get("results"))})
 
 # ── Summary API ──────────────────────────────────────────────────────────────
 

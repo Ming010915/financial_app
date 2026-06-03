@@ -183,34 +183,38 @@ const state = {
 let pieChartInst = null;
 let lineChartInst = null;
 
-// ── Google Places (custom dropdown, no Autocomplete widget) ──────────────────
-let _gmapsLoadPromise  = null;
+// ── Google Places (server-proxied — the server key never reaches the browser) ──
 let _cachedPosition    = null;
 let _locationTimer     = null;
-let _serverPlacesKey   = null;
+let _placesKeySet      = null;   // whether the server has a Places key configured
 
-async function loadGoogleMapsAPI() {
-  if (window.google?.maps?.places) return true;
-  if (_serverPlacesKey === null) {
+// True if Places lookups are available: either the user saved their own key,
+// or the server has one configured.
+async function placesAvailable() {
+  if (localStorage.getItem('placesApiKey')) return true;
+  if (_placesKeySet === null) {
     try {
       const r = await fetch('/api/settings');
       const d = await r.json();
-      _serverPlacesKey = d.places_server_key || '';
-    } catch { _serverPlacesKey = ''; }
+      _placesKeySet = !!d.places_key_set;
+    } catch { _placesKeySet = false; }
   }
-  const key = localStorage.getItem('placesApiKey') || _serverPlacesKey;
-  if (!key) return false;
-  if (_gmapsLoadPromise) return _gmapsLoadPromise;
-  _gmapsLoadPromise = new Promise(resolve => {
-    const cb = '_gmapsInit_' + Date.now();
-    window[cb] = () => resolve(true);
-    const s = document.createElement('script');
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&callback=${cb}`;
-    s.async = true;
-    s.onerror = () => { _gmapsLoadPromise = null; resolve(false); };
-    document.head.appendChild(s);
+  return _placesKeySet;
+}
+
+// Call the server-side Places proxy. A user-supplied key (if any) is forwarded;
+// otherwise the server falls back to its own key, which stays server-side.
+async function _placesProxy(endpoint, payload) {
+  const userKey = localStorage.getItem('placesApiKey') || '';
+  const body    = userKey ? { ...payload, api_key: userKey } : payload;
+  const r = await fetch(endpoint, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
   });
-  return _gmapsLoadPromise;
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Places request failed');
+  return d.results || [];
 }
 
 async function getPosition() {
@@ -254,25 +258,23 @@ async function onLocationInput(inputId, resultsId) {
   if (!query) { resultsEl.classList.add('hidden'); return; }
 
   _locationTimer = setTimeout(async () => {
-    const ok = await loadGoogleMapsAPI();
-    if (!ok) return;
+    if (!(await placesAvailable())) return;
     resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Searching…</div>';
     resultsEl.classList.remove('hidden');
 
     const pos     = _cachedPosition;
-    const service = new google.maps.places.PlacesService(document.createElement('div'));
-    const opts    = { query };
+    const payload = { query };
     if (pos) {
-      opts.location = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
-      opts.radius   = 10000;
+      payload.lat = pos.coords.latitude;
+      payload.lng = pos.coords.longitude;
     }
-    service.textSearch(opts, (results, status) => {
-      if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
-        resultsEl.classList.add('hidden');
-        return;
-      }
+    try {
+      const results = await _placesProxy('/api/places/text_search', payload);
+      if (!results.length) { resultsEl.classList.add('hidden'); return; }
       _renderPlaceResults(inputId, resultsId, results, 'name', 'formatted_address');
-    });
+    } catch {
+      resultsEl.classList.add('hidden');
+    }
   }, 350);
 }
 
@@ -293,8 +295,7 @@ async function findNearbyPlaces(inputId, resultsId, btnEl) {
     return;
   }
 
-  const ok = await loadGoogleMapsAPI();
-  if (!ok) {
+  if (!(await placesAvailable())) {
     resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-amber-500 text-center">Add a Google Places API key in Settings to enable this</div>';
     setBtn(origLabel, false);
     return;
@@ -302,16 +303,21 @@ async function findNearbyPlaces(inputId, resultsId, btnEl) {
 
   resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Searching nearby…</div>';
 
-  const loc     = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-  const service = new google.maps.places.PlacesService(document.createElement('div'));
-  service.nearbySearch({ location: loc, radius: 500, type: 'establishment' }, (results, status) => {
+  try {
+    const results = await _placesProxy('/api/places/nearby', {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+    });
     setBtn(origLabel, false);
-    if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
+    if (!results.length) {
       resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">No nearby places found</div>';
       return;
     }
     _renderPlaceResults(inputId, resultsId, results, 'name', 'vicinity');
-  });
+  } catch {
+    setBtn(origLabel, false);
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-red-500 text-center">Nearby search failed</div>';
+  }
 }
 
 function selectNearbyPlace(inputId, resultsId, el) {
@@ -2406,7 +2412,7 @@ async function loadSettingsView() {
         : "***";
       placesStatus.textContent = `Saved key: ${preview}`;
       placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
-    } else if (data?.places_server_key) {
+    } else if (data?.places_key_set) {
       placesStatus.textContent = "Using server-provided Places API key.";
       placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
     } else {
@@ -2747,7 +2753,6 @@ function savePlacesApiKey() {
   const key = document.getElementById("s-places-key").value.trim();
   if (!key) return;
   localStorage.setItem("placesApiKey", key);
-  _gmapsLoadPromise = null; // reset so the next autocomplete init picks up the new key
   document.getElementById("s-places-key").value = "";
   showToast("Places API key saved.");
   loadSettingsView();

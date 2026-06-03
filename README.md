@@ -198,13 +198,22 @@ GOOGLE_PLACES_API_KEY=AIza...    # Google Maps Platform — Places autocomplete
 
 ### Share over a tunnel
 
-[`run_and_share.sh`](run_and_share.sh) starts the app and exposes it through [localtunnel](https://github.com/localtunnel/localtunnel), printing a QR code for quick mobile access:
+[`run_and_share.sh`](run_and_share.sh) starts the app, exposes it through a public tunnel, and prints a QR code for quick mobile access:
 
 ```bash
 ./run_and_share.sh
 ```
 
-Requires `lt` (localtunnel) and one of `qrencode` / Python `qrcode` on `PATH`.
+By default it uses [`lt`](https://github.com/localtunnel/localtunnel) with a fixed subdomain, giving a **stable URL** (`https://myfloapp-tum.loca.lt`) across runs. Override the subdomain with `LT_SUBDOMAIN`, or switch to a [`cloudflared`](https://developers.cloudflare.com/cloudflare-tunnel/) quick tunnel (no reminder page, but a **random URL** each run) with `TUNNEL=cloudflared`:
+
+```bash
+LT_SUBDOMAIN=my-custom-name ./run_and_share.sh   # fixed lt URL
+TUNNEL=cloudflared ./run_and_share.sh            # random, no reminder page
+```
+
+Requires one of those tunnel tools plus one of `qrencode` / Python `qrcode` on `PATH`.
+
+> With `lt`, browser visitors may see localtunnel's reminder page once per public IP (every 7 days). Programmatic callers can bypass it with a `bypass-tunnel-reminder` request header (any value) or a non-standard `User-Agent`. Those are request headers, so they don't help a fresh browser navigation — use `TUNNEL=cloudflared` to avoid the page entirely (at the cost of a fixed URL).
 
 ### Data Export / Import
 
