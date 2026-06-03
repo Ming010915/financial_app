@@ -33,6 +33,8 @@ function getBudget() {
 }
 function saveBudget(amount) { localStorage.setItem('flo_budget', String(amount)); }
 function clearBudget()      { localStorage.removeItem('flo_budget'); }
+function getPendingScans()  { return JSON.parse(localStorage.getItem('flo_pending_scans') || '[]'); }
+function savePendingScans(s){ localStorage.setItem('flo_pending_scans', JSON.stringify(s)); }
 
 function generateId() {
   return crypto.randomUUID
@@ -178,10 +180,13 @@ const state = {
   editPayment:      null,
   editItems:        [],
   rates:            null, // { base, rates: {USD:…}, date }
+  currentPendingScanId: null,
 };
 
 let pieChartInst = null;
 let lineChartInst = null;
+const _pendingScansFiles  = {};  // id → File (in-memory only)
+const _pendingScansAborts = {};  // id → AbortController
 
 // ── Google Places (server-proxied — the server key never reaches the browser) ──
 let _cachedPosition    = null;
@@ -632,6 +637,7 @@ async function loadHome() {
   renderDailyChart(data.daily_chart);
   renderCategoryBreakdown(data.category_breakdown, data.month_total, defCur);
   renderRecentExpenses(data.recent);
+  renderPendingScans();
 }
 
 function renderDailyChart(data) {
@@ -866,10 +872,13 @@ function handleScanFile(file) {
   }
 }
 
-function confirmAndAnalyze() {
-  document.getElementById("scan-confirm-area").classList.add("hidden");
-  document.getElementById("scan-analyzing-area").classList.remove("hidden");
-  analyzeScanReceipt();
+async function confirmAndAnalyze() {
+  if (!state.receiptFile) return;
+  const file = state.receiptFile;
+  await queueBackgroundScan(file);
+  clearScanView();
+  showView('home');
+  showToast('Analyzing receipt in background…');
 }
 
 // Cancel scan view — go back to method picker
@@ -909,6 +918,174 @@ function clearScan() {
   document.getElementById("save-label").textContent = "Add Expense";
   document.getElementById("cat-confidence").classList.add("hidden");
   resetForm();
+}
+
+// ── Background receipt scanning queue ─────────────────────────────────────────
+
+async function _makeThumbnail(file) {
+  if (file.type === 'application/pdf') return null;
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 120;
+        const scale = Math.min(1, MAX / img.width, MAX / img.height);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = () => resolve(null);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function queueBackgroundScan(file) {
+  const id        = generateId();
+  const thumbnail = await _makeThumbnail(file);
+
+  _pendingScansFiles[id]  = file;
+  _pendingScansAborts[id] = new AbortController();
+
+  const scans = getPendingScans();
+  scans.push({
+    id,
+    status:           'processing',
+    fileName:         file.name || 'receipt',
+    isPdf:            file.type === 'application/pdf',
+    thumbnailDataUrl: thumbnail,
+    extractedData:    null,
+    errorMessage:     null,
+    createdAt:        new Date().toISOString(),
+  });
+  savePendingScans(scans);
+  _runBackgroundScan(id, file, _pendingScansAborts[id]);
+}
+
+async function _runBackgroundScan(id, file, abort) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('api_key', localStorage.getItem('googleApiKey') || '');
+    formData.append('payment_methods', getPaymentMethods().join(','));
+
+    const resp = await postWithOverloadRetry('/api/scan_receipt', formData, { signal: abort.signal });
+    if (abort.signal.aborted) return;
+
+    const scans = getPendingScans();
+    const scan  = scans.find(s => s.id === id);
+    if (scan) { scan.status = 'ready'; scan.extractedData = resp.data; savePendingScans(scans); }
+    delete _pendingScansAborts[id];
+
+    _refreshHomePendingScans();
+    showToast('Receipt ready — tap to review!');
+  } catch (e) {
+    if (e.name === 'AbortError' || abort.signal.aborted) return;
+
+    const scans = getPendingScans();
+    const scan  = scans.find(s => s.id === id);
+    if (scan) { scan.status = 'error'; scan.errorMessage = e.message || 'Analysis failed'; savePendingScans(scans); }
+    delete _pendingScansAborts[id];
+
+    _refreshHomePendingScans();
+    showToast('Scan failed: ' + (e.message || 'unknown error'), true);
+  }
+}
+
+function _refreshHomePendingScans() {
+  if (document.getElementById('home-pending-scans')) renderPendingScans();
+}
+
+function renderPendingScans() {
+  const section = document.getElementById('home-pending-scans');
+  const list    = document.getElementById('pending-scans-list');
+  if (!section || !list) return;
+  const scans = getPendingScans();
+  if (scans.length === 0) { section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+  list.innerHTML = scans.map(pendingScanCard).join('');
+}
+
+function pendingScanCard(scan) {
+  const thumb = scan.thumbnailDataUrl
+    ? `<img src="${scan.thumbnailDataUrl}" class="w-10 h-10 object-cover rounded-xl flex-shrink-0" />`
+    : `<div class="w-10 h-10 rounded-xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-xl">${scan.isPdf ? '📄' : '🧾'}</div>`;
+  const closeBtn = `<button onclick="event.stopPropagation();dismissPendingScan('${scan.id}')"
+    class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 flex-shrink-0 transition-colors ml-1">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+  </button>`;
+
+  if (scan.status === 'processing') {
+    return `<div class="flex items-center gap-3 py-0.5">${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-[#191c1d] truncate">${esc(scan.fileName || 'Receipt')}</div>
+        <div class="text-xs text-[#44474a]">Analyzing with AI…</div>
+      </div>
+      <span class="loader flex-shrink-0 ml-1" style="width:18px;height:18px;border-width:2px;border-color:rgba(0,107,85,0.25);border-top-color:#006b55;"></span>
+      ${closeBtn}</div>`;
+  }
+  if (scan.status === 'ready') {
+    const merchant = scan.extractedData?.merchant || scan.fileName || 'Receipt';
+    const total    = scan.extractedData?.total != null
+      ? ' · ' + fmtAmount(scan.extractedData.total, scan.extractedData.currency || (localStorage.getItem('defaultCurrency') || 'EUR'))
+      : '';
+    return `<div onclick="resumePendingScan('${scan.id}')"
+      class="flex items-center gap-3 cursor-pointer active:opacity-70 py-0.5 rounded-xl transition-opacity">${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm font-semibold text-[#191c1d] truncate">${esc(merchant)}</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+        </div>
+        <div class="text-xs font-medium text-emerald-600">Tap to review${total}</div>
+      </div>${closeBtn}</div>`;
+  }
+  if (scan.status === 'error') {
+    return `<div class="flex items-center gap-3 py-0.5">${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-[#191c1d] truncate">${esc(scan.fileName || 'Receipt')}</div>
+        <div class="text-xs text-red-500 truncate">${esc(scan.errorMessage || 'Analysis failed')}</div>
+      </div>
+      <button onclick="retryPendingScan('${scan.id}')"
+        class="text-xs font-bold text-[#006b55] px-2 py-1 rounded-xl border border-[#006b55] flex-shrink-0 whitespace-nowrap">Retry</button>
+      ${closeBtn}</div>`;
+  }
+  return '';
+}
+
+function resumePendingScan(id) {
+  const scan = getPendingScans().find(s => s.id === id);
+  if (!scan || scan.status !== 'ready' || !scan.extractedData) return;
+  state.currentPendingScanId = id;
+  state.receiptFile          = _pendingScansFiles[id] || null;
+  showVerifyView(scan.extractedData);
+}
+
+function dismissPendingScan(id) {
+  _pendingScansAborts[id]?.abort();
+  delete _pendingScansAborts[id];
+  delete _pendingScansFiles[id];
+  savePendingScans(getPendingScans().filter(s => s.id !== id));
+  renderPendingScans();
+}
+
+async function retryPendingScan(id) {
+  const file = _pendingScansFiles[id];
+  if (!file) { showToast('Original file no longer available — please re-upload', true); dismissPendingScan(id); return; }
+  const scans = getPendingScans();
+  const scan  = scans.find(s => s.id === id);
+  if (!scan) return;
+  scan.status = 'processing'; scan.errorMessage = null;
+  savePendingScans(scans);
+  renderPendingScans();
+  const abort = new AbortController();
+  _pendingScansAborts[id] = abort;
+  _runBackgroundScan(id, file, abort);
 }
 
 async function analyzeScanReceipt() {
@@ -1193,6 +1370,13 @@ function clearVerifyView() {
   const wrap = document.getElementById("verify-pdf-canvas-wrap");
   if (wrap) wrap.innerHTML = "";
   state.pendingReceiptData = null;
+}
+
+function cancelVerifyView() {
+  const fromBackground = !!state.currentPendingScanId;
+  state.currentPendingScanId = null;
+  clearVerifyView();
+  showView(fromBackground ? 'home' : 'scan');
 }
 
 function confirmVerify() {
@@ -1711,6 +1895,12 @@ async function saveExpense() {
     showToast("Expense saved!");
     btn.disabled = false;
     spinner.classList.add("hidden");
+    if (state.currentPendingScanId) {
+      savePendingScans(getPendingScans().filter(s => s.id !== state.currentPendingScanId));
+      delete _pendingScansFiles[state.currentPendingScanId];
+      delete _pendingScansAborts[state.currentPendingScanId];
+      state.currentPendingScanId = null;
+    }
     clearScan();
     resetForm();
     showView("home");
@@ -2843,6 +3033,15 @@ function init() {
   document.getElementById("f-date").value = now.toISOString().split("T")[0];
   syncDarkToggle();
   hydrateCentroids();
+
+  // Mark interrupted in-flight scans as errors (page was refreshed mid-scan)
+  const _staleScans = getPendingScans();
+  let _staleChanged = false;
+  for (const s of _staleScans) {
+    if (s.status === 'processing') { s.status = 'error'; s.errorMessage = 'Interrupted — tap Retry'; _staleChanged = true; }
+  }
+  if (_staleChanged) savePendingScans(_staleScans);
+
   loadHome();
 
   // Close nearby-results dropdowns when clicking outside their wrapper
