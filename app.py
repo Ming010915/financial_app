@@ -637,11 +637,14 @@ def api_get_overview():
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    print("=" * 55)
-    print("  Flo — AI-Powered Personal Finance Assistant")
-    print("=" * 55)
-    print(f"\n  Model : {classifier.MODEL_NAME}")
+def initialize():
+    """Load the model and classifier state.
+
+    Runs both for local `python app.py` and under a production WSGI server
+    (e.g. gunicorn on Cloud Run), which imports `app:app` and never executes
+    the `__main__` block below — so this must NOT live inside it.
+    """
+    print(f"  Model : {classifier.MODEL_NAME}")
     print("  Loading sentence transformer ...")
     classifier.get_model()
     print("  Model ready.")
@@ -655,7 +658,16 @@ if __name__ == "__main__":
     else:
         print("[data] No data source found — starting with empty centroids.")
 
-    print(f"\n  Categories ({len(classifier.centroids)}): {list(classifier.centroids.keys())}")
-    print(f"\n  Open http://localhost:5000 in your browser")
-    print("=" * 55 + "\n")
-    app.run(debug=False, port=5000)
+    print(f"  Categories ({len(classifier.centroids)}): {list(classifier.centroids.keys())}")
+
+
+# Run at import time so gunicorn workers come up warm and ready.
+initialize()
+
+
+if __name__ == "__main__":
+    # Local development server. Cloud Run / gunicorn use the module-level
+    # `app` object and the initialize() call above instead.
+    port = int(os.environ.get("PORT", 5000))
+    print(f"\n  Open http://localhost:{port} in your browser\n")
+    app.run(debug=False, host="0.0.0.0", port=port)

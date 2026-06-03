@@ -1,0 +1,9 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+.env
+environment.yml
+run_and_share.sh
+README.md
+flo_db
