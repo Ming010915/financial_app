@@ -15,13 +15,27 @@
       <div id="home-trend-badge" class="hidden px-3 py-1 rounded-full text-xs font-bold"></div>
     </div>
     <!-- Amount -->
-    <div id="home-month" class="text-4xl font-bold text-[#191c1d] mb-4 tracking-tight">—</div>
+    <div id="home-month" class="text-4xl font-bold text-[#191c1d] mb-3 tracking-tight">—</div>
+    <!-- Quick budget edit (hidden until triggered) -->
+    <div id="home-budget-edit" class="hidden mb-3">
+      <div class="flex gap-2 items-center">
+        <input type="number" id="home-budget-input" min="0" step="any" placeholder="New monthly budget"
+               class="flex-1 border border-[#e8e9ea] rounded-xl px-3 py-2 text-sm bg-[#f8f9fa] focus:outline-none focus:border-[#006b55]" />
+        <button onclick="saveHomeBudget()" class="bg-[#006b55] text-white rounded-xl px-4 py-2 text-sm font-bold whitespace-nowrap">Set</button>
+        <button onclick="toggleBudgetEdit()" class="border border-[#e8e9ea] text-[#44474a] rounded-xl px-4 py-2 text-sm font-bold whitespace-nowrap">Cancel</button>
+      </div>
+    </div>
+    <!-- Shown when no budget is set -->
+    <button id="home-no-budget-btn" onclick="toggleBudgetEdit()" class="hidden text-sm text-[#006b55] font-bold mb-1">+ Set a monthly budget</button>
 
     <!-- Budget progress (hidden when no budget set) -->
     <div id="home-budget-section" class="hidden">
       <div class="flex items-center justify-between mb-2">
         <span class="text-sm font-bold text-[#191c1d]">Budget Progress</span>
-        <span id="home-budget-pct" class="text-sm font-bold text-[#191c1d]">0% used</span>
+        <div class="flex items-center gap-3">
+          <span id="home-budget-pct" class="text-sm font-bold text-[#191c1d]">0% used</span>
+          <button onclick="toggleBudgetEdit()" class="text-xs text-[#006b55] font-bold underline underline-offset-2">Edit</button>
+        </div>
       </div>
       <div class="h-3 bg-[#edeeef] rounded-full overflow-hidden mb-2.5">
         <div id="home-budget-bar" class="h-full rounded-full budget-bar-fill" style="width:0%;background:#006b55;transition:width 0.8s cubic-bezier(0.4,0,0.2,1)"></div>

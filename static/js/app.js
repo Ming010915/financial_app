@@ -80,8 +80,8 @@ function computeSummary() {
     .filter(e => (e.date || '') >= weekStart && (e.date || '') <= today)
     .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
-  // Last calendar month total (for trend badge)
-  const lastMonthDate = new Date();
+  // Last calendar month full total (daily-average comparison handles unequal month lengths)
+  const lastMonthDate  = new Date();
   lastMonthDate.setDate(1);
   lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
   const lastMonthStr   = lastMonthDate.toISOString().slice(0, 7);
@@ -95,9 +95,11 @@ function computeSummary() {
     catBreakdown[cat] = (catBreakdown[cat] || 0) + convertToDefault(e.amount, e.currency, e.rate);
   });
 
-  const daysData = [];
-  for (let i = 6; i >= 0; i--) {
-    const d     = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+  const daysData  = [];
+  const daysToMon = dow === 0 ? 6 : dow - 1;
+  const monday    = new Date(Date.now() - daysToMon * 86400000);
+  for (let i = 0; i < 7; i++) {
+    const d     = new Date(monday.getTime() + i * 86400000).toISOString().split('T')[0];
     const total = expenses.filter(e => e.date === d).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
     daysData.push({ date: d, total: Math.round(total * 100) / 100 });
   }
@@ -538,6 +540,8 @@ function showView(name) {
     const searchEl = document.getElementById('history-search');
     if (searchEl) searchEl.value = '';
     _historySelCats.clear();
+    _historySelPayments.clear();
+    _historySelTime = null;
     loadHistory();
   }
   if (name === "summary")  loadSummary();
@@ -582,18 +586,23 @@ async function loadHome() {
   document.getElementById("home-today").textContent = fmtAmount(data.today_total, defCur);
   document.getElementById("home-week").textContent  = fmtAmount(data.week_total,  defCur);
 
-  // ── Trend badge vs last month
+  // ── Trend badge: compare daily spending rate vs last month
   const trendEl = document.getElementById("home-trend-badge");
   if (data.last_month_total > 0) {
-    const diff = data.month_total - data.last_month_total;
-    const pct  = Math.round(Math.abs(diff / data.last_month_total) * 100);
+    const todayDay       = new Date().getDate();
+    const lmDate         = new Date(); lmDate.setDate(1); lmDate.setMonth(lmDate.getMonth() - 1);
+    const daysInLastMonth = new Date(lmDate.getFullYear(), lmDate.getMonth() + 1, 0).getDate();
+    const thisAvg        = data.month_total / todayDay;
+    const lastAvg        = data.last_month_total / daysInLastMonth;
+    const diff           = thisAvg - lastAvg;
+    const pct            = Math.round(Math.abs(diff / lastAvg) * 100);
     if (diff <= 0) {
-      trendEl.textContent   = `↘ ${pct}% lower`;
+      trendEl.textContent   = `↘ ${pct}% less per day`;
       trendEl.style.cssText = isDark()
         ? "background:#0d2e28;color:#6dfad2"
         : "background:#f0fdf9;color:#006b55";
     } else {
-      trendEl.textContent   = `↗ ${pct}% higher`;
+      trendEl.textContent   = `↗ ${pct}% more per day`;
       trendEl.style.cssText = isDark()
         ? "background:#2d1a08;color:#fb923c"
         : "background:#fff7ed;color:#ea580c";
@@ -607,9 +616,11 @@ async function loadHome() {
   const budget         = getBudget();
   const budgetSection  = document.getElementById("home-budget-section");
   const homeLeftEl     = document.getElementById("home-left");
+  const noBudgetBtn    = document.getElementById("home-no-budget-btn");
 
   if (budget && budget > 0) {
     budgetSection.classList.remove("hidden");
+    noBudgetBtn.classList.add("hidden");
     const spent     = data.month_total;
     const pct       = Math.min(Math.round((spent / budget) * 100), 100);
     const remaining = Math.max(budget - spent, 0);
@@ -629,6 +640,7 @@ async function loadHome() {
     setTimeout(() => { barEl.style.width = pct + "%"; }, 80);
   } else {
     budgetSection.classList.add("hidden");
+    noBudgetBtn.classList.remove("hidden");
     homeLeftEl.textContent  = "—";
     homeLeftEl.style.color  = isDark() ? "#6dfad2" : "#006b55";
   }
@@ -640,25 +652,49 @@ async function loadHome() {
   renderPendingScans();
 }
 
+function toggleBudgetEdit() {
+  const el = document.getElementById("home-budget-edit");
+  el.classList.toggle("hidden");
+  if (!el.classList.contains("hidden")) {
+    document.getElementById("home-budget-input").focus();
+  }
+}
+
+function saveHomeBudget() {
+  const val = parseFloat(document.getElementById("home-budget-input").value);
+  if (!val || val <= 0) { showToast("Enter a valid budget amount", true); return; }
+  saveBudget(val);
+  document.getElementById("home-budget-edit").classList.add("hidden");
+  document.getElementById("home-budget-input").value = "";
+  showToast("Budget saved!");
+  loadHome();
+}
+
 function renderDailyChart(data) {
   const maxVal   = Math.max(...data.map(d => d.total), 0.01);
   const today    = new Date().toISOString().split("T")[0];
   const barsEl   = document.getElementById("chart-bars");
   const labelsEl = document.getElementById("chart-labels");
 
+  const dark = isDark();
+  const todayBarCol  = "#6dfad2";
+  const otherBarCol  = "#006b55";
+  const todayLblCol  = dark ? "#6dfad2" : "#006b55";
+  const otherLblCol  = dark ? "#686868" : "#44474a";
+
   barsEl.innerHTML = data.map(d => {
     const pct     = Math.max(Math.round((d.total / maxVal) * 100), d.total > 0 ? 4 : 0);
     const isToday = d.date === today;
     return `<div class="flex-1 flex flex-col justify-end h-full">
         <div class="w-full rounded-t-md bar-fill"
-             style="height:0%;background:${isToday ? "#006b55" : "#6dfad2"}" data-h="${pct}%"></div>
+             style="height:0%;background:${isToday ? todayBarCol : otherBarCol}" data-h="${pct}%"></div>
       </div>`;
   }).join("");
 
   labelsEl.innerHTML = data.map(d => {
     const isToday = d.date === today;
     const day = new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" }).slice(0,2);
-    return `<div class="flex-1 text-center text-[10px] font-semibold" style="color:${isToday ? "#006b55" : "#44474a"}">${day}</div>`;
+    return `<div class="flex-1 text-center text-[10px] font-semibold" style="color:${isToday ? todayLblCol : otherLblCol}">${day}</div>`;
   }).join("");
 
   setTimeout(() => {
@@ -688,7 +724,7 @@ function renderCategoryBreakdown(breakdown, total, defCur = "EUR") {
             <span class="text-xs font-bold text-gray-700 ml-2">${fmtAmount(amt, defCur)}</span>
           </div>
           <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full rounded-full bar-fill" style="width:0%;background:${col}" data-w="${pct}%"></div>
+            <div class="h-full rounded-full bar-fill" style="width:0%;background:${col}" data-w="${share}%"></div>
           </div>
         </div>
         <span class="text-[10px] text-gray-400 w-7 text-right flex-shrink-0">${share}%</span>
@@ -1913,8 +1949,19 @@ async function saveExpense() {
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
-let _historySorted  = [];
-let _historySelCats = new Set();
+let _historySorted      = [];
+let _historySelCats     = new Set();
+let _historySelPayments = new Set();
+let _historySelTime     = null;
+
+const HISTORY_TIME_OPTS = [
+  { key: 'today',      label: 'Today' },
+  { key: 'week',       label: 'This week' },
+  { key: 'month',      label: 'This month' },
+  { key: 'last_month', label: 'Last month' },
+  { key: '3months',    label: 'Last 3 months' },
+  { key: 'year',       label: 'This year' },
+];
 
 async function loadHistory() {
   await loadRates();
@@ -1925,28 +1972,87 @@ async function loadHistory() {
     const kb = (b.date || '') + (b.created_at || '');
     return kb > ka ? 1 : -1;
   });
-  renderHistoryCatFilters(_historySorted);
+  updateHistoryFilterBadge();
   filterHistory();
 }
 
-function renderHistoryCatFilters(expenses) {
-  const el = document.getElementById('history-cat-filters');
+function openHistoryFilters() {
+  renderHistoryFilterSheet();
+  document.getElementById('history-filter-overlay').classList.remove('hidden');
+}
+
+function closeHistoryFilters() {
+  document.getElementById('history-filter-overlay').classList.add('hidden');
+}
+
+function clearHistoryFilters() {
+  _historySelCats.clear();
+  _historySelPayments.clear();
+  _historySelTime = null;
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
+function renderHistoryFilterSheet() {
+  _renderHFChips('hf-cat',
+    ['All', ...[...new Set(_historySorted.map(e => e.category).filter(Boolean))].sort()],
+    cat => cat === 'All' ? _historySelCats.size === 0 : _historySelCats.has(cat),
+    cat => cat === 'All' ? '#006b55' : catColor(cat),
+    cat => `selectHistoryCat('${esc(cat)}')`,
+    cat => cat === 'All' ? 'All' : catEmoji(cat) + ' ' + esc(cat)
+  );
+
+  const methods = [...new Set(_historySorted.map(e => e.payment_method).filter(Boolean))].sort();
+  const pmSection = document.getElementById('hf-payment')?.closest('div.mb-4');
+  if (pmSection) pmSection.style.display = methods.length ? '' : 'none';
+  _renderHFChips('hf-payment',
+    ['All', ...methods],
+    m => m === 'All' ? _historySelPayments.size === 0 : _historySelPayments.has(m),
+    () => '#006b55',
+    m => `selectHistoryPayment('${esc(m)}')`,
+    m => m === 'All' ? 'All' : paymentIcon(m) + ' ' + esc(m)
+  );
+
+  _renderHFChips('hf-time',
+    ['All', ...HISTORY_TIME_OPTS.map(o => o.key)],
+    k => k === 'All' ? !_historySelTime : _historySelTime === k,
+    () => '#006b55',
+    k => `selectHistoryTime('${k}')`,
+    k => k === 'All' ? 'All' : HISTORY_TIME_OPTS.find(o => o.key === k)?.label || k
+  );
+}
+
+function _renderHFChips(elId, items, isActiveFn, colorFn, onclickFn, labelFn) {
+  const el = document.getElementById(elId);
   if (!el) return;
-  const cats = [...new Set(expenses.map(e => e.category).filter(Boolean))].sort();
-  el.innerHTML = ['All', ...cats].map(cat => {
-    const isAll    = cat === 'All';
-    const isActive = isAll ? _historySelCats.size === 0 : _historySelCats.has(cat);
-    const col      = isAll ? '#006b55' : catColor(cat);
-    const bg       = isActive ? col : (isDark() ? '#1e1e1e' : '#f8f9fa');
-    const text     = isActive ? 'white' : (isDark() ? '#b0b0b0' : '#44474a');
-    const border   = isActive ? col : (isDark() ? '#2e2e2e' : '#e8e9ea');
-    return `<button type="button"
-      onclick="selectHistoryCat('${esc(cat)}')"
-      class="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
+  el.innerHTML = items.map(item => {
+    const isActive = isActiveFn(item);
+    const col      = colorFn(item);
+    const bg       = isActive ? col : '#f8f9fa';
+    const text     = isActive ? 'white' : '#44474a';
+    const border   = isActive ? col : '#e8e9ea';
+    return `<button type="button" onclick="${onclickFn(item)}"
+      class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
       style="background:${bg};color:${text};border-color:${border}">
-      ${isAll ? 'All' : catEmoji(cat) + ' ' + esc(cat)}
+      ${labelFn(item)}
     </button>`;
   }).join('');
+}
+
+function updateHistoryFilterBadge() {
+  const count = _historySelCats.size + _historySelPayments.size + (_historySelTime ? 1 : 0);
+  const badge = document.getElementById('history-filter-badge');
+  const btn   = document.getElementById('history-filter-btn');
+  if (!badge || !btn) return;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove('hidden');
+    btn.style.borderColor = '#006b55';
+  } else {
+    badge.classList.add('hidden');
+    btn.style.borderColor = '';
+  }
 }
 
 function selectHistoryCat(cat) {
@@ -1957,9 +2063,33 @@ function selectHistoryCat(cat) {
   } else {
     _historySelCats.add(cat);
   }
-  renderHistoryCatFilters(_historySorted);
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
   filterHistory();
 }
+
+function selectHistoryPayment(method) {
+  if (method === 'All') {
+    _historySelPayments.clear();
+  } else if (_historySelPayments.has(method)) {
+    _historySelPayments.delete(method);
+  } else {
+    _historySelPayments.add(method);
+  }
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
+function selectHistoryTime(key) {
+  _historySelTime = (key === 'All' || _historySelTime === key) ? null : key;
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
+function renderHistoryCatFilters() {}   // kept so any stale references don't throw
+function renderHistoryPaymentFilters() {}
 
 function filterHistory() {
   const query = (document.getElementById('history-search')?.value || '').trim().toLowerCase();
@@ -1967,6 +2097,34 @@ function filterHistory() {
   let filtered = _historySorted;
   if (_historySelCats.size > 0) {
     filtered = filtered.filter(e => _historySelCats.has(e.category));
+  }
+  if (_historySelPayments.size > 0) {
+    filtered = filtered.filter(e => _historySelPayments.has(e.payment_method));
+  }
+  if (_historySelTime) {
+    const today      = new Date().toISOString().split('T')[0];
+    const todayDate  = new Date(today);
+    const dow        = todayDate.getDay();
+    const monOffset  = dow === 0 ? 6 : dow - 1;
+    const weekStart  = new Date(todayDate - monOffset * 86400000).toISOString().split('T')[0];
+    const monthStart = today.slice(0, 7) + '-01';
+    const lmDate     = new Date(todayDate); lmDate.setDate(1); lmDate.setMonth(lmDate.getMonth() - 1);
+    const lmStart    = lmDate.toISOString().slice(0, 7) + '-01';
+    const lmEnd      = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0).toISOString().split('T')[0];
+    const m3Date     = new Date(todayDate); m3Date.setMonth(m3Date.getMonth() - 3);
+    const m3Start    = m3Date.toISOString().split('T')[0];
+    const yearStart  = today.slice(0, 4) + '-01-01';
+
+    filtered = filtered.filter(e => {
+      const d = e.date || '';
+      if (_historySelTime === 'today')      return d === today;
+      if (_historySelTime === 'week')       return d >= weekStart && d <= today;
+      if (_historySelTime === 'month')      return d >= monthStart && d <= today;
+      if (_historySelTime === 'last_month') return d >= lmStart && d <= lmEnd;
+      if (_historySelTime === '3months')    return d >= m3Start && d <= today;
+      if (_historySelTime === 'year')       return d >= yearStart && d <= today;
+      return true;
+    });
   }
   if (query) {
     filtered = filtered.filter(e =>
