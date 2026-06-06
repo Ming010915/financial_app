@@ -12,16 +12,16 @@ from services.prompts import VOICE_PROMPT, ADD_EXPENSE_FUNC, build_summary_promp
 from config import GEMINI_MODELS, ASK_BELOW
 
 
-def summarize_transcript(transcript: str, api_key: str) -> str:
+def summarize_transcript(transcript: str) -> str:
     """
     Turn a raw speech-to-text transcript into a short, clean summary of the
     purchase — fixing mis-hearings, resolving self-corrections, and dropping
     filler — without inventing content. Returns the summary, or the original
     transcript if the model returns nothing useful. Raises on any error.
     """
-    from google import genai
+    from config import get_genai_client
 
-    client   = genai.Client(api_key=api_key)
+    client   = get_genai_client()
     response = generate_with_fallback(lambda model: client.models.generate_content(
         model    = model,
         contents = [build_summary_prompt(transcript)],
@@ -31,16 +31,16 @@ def summarize_transcript(transcript: str, api_key: str) -> str:
     return summary or transcript
 
 
-def process_voice_text(transcript: str, api_key: str) -> dict:
+def process_voice_text(transcript: str) -> dict:
     """
     Extract expense details from a (user-confirmed) transcript via function
     calling, attach a category prediction, and return the structured dict.
     Raises on any error.
     """
-    from google import genai
     from google.genai import types
+    from config import get_genai_client
 
-    client = genai.Client(api_key=api_key)
+    client = get_genai_client()
     tool   = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
 
     response = generate_with_fallback(lambda model: client.models.generate_content(
@@ -61,16 +61,16 @@ def process_voice_text(transcript: str, api_key: str) -> dict:
     return _finalize_extracted(extracted)
 
 
-def process_voice_input(audio_data: bytes, mime_type: str, api_key: str) -> dict:
+def process_voice_input(audio_data: bytes, mime_type: str) -> dict:
     """
     Send audio to Gemini, extract expense details via function calling,
     attach a category prediction, and return the structured dict.
     Raises on any error.
     """
-    from google import genai
     from google.genai import types
+    from config import get_genai_client
 
-    client     = genai.Client(api_key=api_key)
+    client     = get_genai_client()
     audio_part = types.Part.from_bytes(data=audio_data, mime_type=mime_type)
     tool       = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
 

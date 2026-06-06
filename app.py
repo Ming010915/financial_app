@@ -24,8 +24,9 @@ import services.voice as voice
 from services.gemini_utils import ModelOverloadedError
 from config import (
     ASK_BELOW, CENTROIDS_FILE, GEMINI_LIVE_MODEL, MONTHLY_SPENDING_DATASET,
-    SERVER_API_KEY, SERVER_PLACES_API_KEY,
+    SERVER_PLACES_API_KEY, GOOGLE_CLOUD_PROJECT,
     REQUIRE_PASSWORD, APP_PASSWORD, SECRET_KEY,
+    get_genai_client,
 )
 
 app  = Flask(__name__)
@@ -166,12 +167,8 @@ def api_learn():
 
 @app.route("/api/scan_receipt", methods=["POST"])
 def api_scan_receipt():
-    api_key = (
-        request.form.get("api_key", "").strip()
-        or SERVER_API_KEY
-    )
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
 
     file = request.files.get("file") or request.files.get("image")
     if file is None:
@@ -189,7 +186,7 @@ def api_scan_receipt():
     try:
         pm_raw = request.form.get("payment_methods", "")
         payment_methods = [m.strip() for m in pm_raw.split(",") if m.strip()] if pm_raw else []
-        data = receipt.scan_receipt(file_data, mime_type, api_key, payment_methods or None)
+        data = receipt.scan_receipt(file_data, mime_type, payment_methods or None)
         return jsonify({"success": True, "data": data})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
@@ -201,12 +198,8 @@ def api_scan_receipt():
 
 @app.route("/api/voice_input", methods=["POST"])
 def api_voice_input():
-    api_key = (
-        request.form.get("api_key", "").strip()
-        or SERVER_API_KEY
-    )
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
 
     if "audio" not in request.files:
         return jsonify({"error": "No audio file uploaded"}), 400
@@ -217,7 +210,7 @@ def api_voice_input():
         return jsonify({"error": "Empty audio file"}), 400
 
     try:
-        data = voice.process_voice_input(audio_data, file.content_type or "audio/webm", api_key)
+        data = voice.process_voice_input(audio_data, file.content_type or "audio/webm")
         return jsonify({"success": True, "data": data})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
@@ -228,16 +221,15 @@ def api_voice_input():
 @app.route("/api/voice_summary", methods=["POST"])
 def api_voice_summary():
     """Summarise a raw live transcript into a clean purchase note before extraction."""
-    api_key = (request.form.get("api_key", "").strip() or SERVER_API_KEY)
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
 
     transcript = (request.form.get("transcript", "") or "").strip()
     if not transcript:
         return jsonify({"error": "Empty transcript"}), 400
 
     try:
-        summary = voice.summarize_transcript(transcript, api_key)
+        summary = voice.summarize_transcript(transcript)
         return jsonify({"success": True, "original": transcript, "summary": summary})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
@@ -248,16 +240,15 @@ def api_voice_summary():
 @app.route("/api/voice_extract", methods=["POST"])
 def api_voice_extract():
     """Extract expense details from a user-confirmed transcript (text only)."""
-    api_key = (request.form.get("api_key", "").strip() or SERVER_API_KEY)
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
 
     transcript = (request.form.get("transcript", "") or "").strip()
     if not transcript:
         return jsonify({"error": "Empty transcript"}), 400
 
     try:
-        data = voice.process_voice_text(transcript, api_key)
+        data = voice.process_voice_text(transcript)
         return jsonify({"success": True, "data": data})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
@@ -270,22 +261,19 @@ def api_voice_extract():
 @sock.route('/ws/voice_live')
 def voice_live_ws(ws):
     """WebSocket relay: browser audio → Gemini Live → browser transcription."""
-    from google import genai
     from google.genai import types as genai_types
 
     try:
         init     = json.loads(ws.receive())
-        api_key  = (init.get('api_key', '').strip()
-                    or os.environ.get('GOOGLE_API_KEY', ''))
         pcm_rate = int(init.get('sample_rate', 16000))
-        print(f"[Live] WebSocket connection initiated. api_key: {'***' if api_key else 'None'}, sample_rate: {pcm_rate}")
+        print(f"[Live] WebSocket connection initiated. sample_rate: {pcm_rate}")
     except Exception as e:
         print(f"[Live] Init error: {e}")
         return
 
-    if not api_key:
+    if not GOOGLE_CLOUD_PROJECT:
         try:
-            ws.send(json.dumps({'error': 'No API key configured'}))
+            ws.send(json.dumps({'error': 'GOOGLE_CLOUD_PROJECT is not configured on the server.'}))
         except Exception:
             pass
         return
@@ -302,7 +290,7 @@ def voice_live_ws(ws):
 
     async def _gemini_session():
         print("[Live] Starting Gemini Session thread...")
-        client = genai.Client(api_key=api_key)
+        client = get_genai_client()
         config = genai_types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             input_audio_transcription=genai_types.AudioTranscriptionConfig(),
@@ -456,10 +444,9 @@ def api_exchange_rates():
 
 @app.route("/api/settings")
 def api_get_settings():
-    # Never expose the actual key values to the browser — only whether they exist.
     return jsonify({
-        "env_key_set":     bool(SERVER_API_KEY),
-        "places_key_set":  bool(SERVER_PLACES_API_KEY),
+        "vertex_ai_configured": bool(GOOGLE_CLOUD_PROJECT),
+        "places_key_set":       bool(SERVER_PLACES_API_KEY),
     })
 
 
@@ -575,14 +562,9 @@ def api_get_overview():
     from calendar import monthrange
     from datetime import date
  
-    # ── API key ───────────────────────────────────────────────────────────────
-    api_key = (
-        request.headers.get("X-Google-Api-Key", "").strip()
-        or os.environ.get("GOOGLE_API_KEY", "")
-    )
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
- 
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
+
     # ── spending ──────────────────────────────────────────────────────────────
     spending_raw = request.args.get("spending_json", "").strip()
     if not spending_raw:
@@ -624,7 +606,7 @@ def api_get_overview():
             days_elapsed  = days_elapsed,
             days_in_month = days_in_month,
         )
-        overview = summary.generate_overview(current_text, retrieved, api_key)
+        overview = summary.generate_overview(current_text, retrieved)
     except Exception as exc:
         return jsonify({"error": f"Failed to generate overview: {exc}"}), 500
  
