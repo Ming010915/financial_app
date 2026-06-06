@@ -15,7 +15,11 @@
       <div id="home-trend-badge" class="hidden px-3 py-1 rounded-full text-xs font-bold"></div>
     </div>
     <!-- Amount -->
-    <div id="home-month" class="text-4xl font-bold text-[#191c1d] mb-3 tracking-tight">—</div>
+    <div id="home-month" class="text-4xl font-bold text-[#191c1d] tracking-tight">—</div>
+  </div>
+
+  <!-- ── Budget Progress + Today / This Week / Left ─────────────────── -->
+  <div class="bg-white rounded-3xl p-5 border border-[#e8e9ea] shadow-sm">
     <!-- Quick budget edit (hidden until triggered) -->
     <div id="home-budget-edit" class="hidden mb-3">
       <div class="flex gap-2 items-center">
@@ -26,7 +30,7 @@
       </div>
     </div>
     <!-- Shown when no budget is set -->
-    <button id="home-no-budget-btn" onclick="toggleBudgetEdit()" class="hidden text-sm text-[#006b55] font-bold mb-1">+ Set a monthly budget</button>
+    <button id="home-no-budget-btn" onclick="toggleBudgetEdit()" class="hidden text-sm text-[#006b55] font-bold mb-3">+ Set a monthly budget</button>
 
     <!-- Budget progress (hidden when no budget set) -->
     <div id="home-budget-section" class="hidden">
@@ -40,26 +44,46 @@
       <div class="h-3 bg-[#edeeef] rounded-full overflow-hidden mb-2.5">
         <div id="home-budget-bar" class="h-full rounded-full budget-bar-fill" style="width:0%;background:#006b55;transition:width 0.8s cubic-bezier(0.4,0,0.2,1)"></div>
       </div>
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between mb-4">
         <span id="home-budget-limit" class="text-xs text-[#44474a]"></span>
         <span id="home-budget-remaining" class="text-xs font-bold text-[#006b55]"></span>
+      </div>
+      <div class="border-t border-[#edeeef] mb-4"></div>
+    </div>
+
+    <!-- Three mini stats -->
+    <div class="grid grid-cols-3 gap-3">
+      <div>
+        <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1.5">Today</div>
+        <div id="home-today" class="text-lg font-bold text-[#191c1d]">—</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1.5">This Week</div>
+        <div id="home-week" class="text-lg font-bold text-[#191c1d]">—</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1.5">Left</div>
+        <div id="home-left" class="text-lg font-bold text-[#006b55]">—</div>
       </div>
     </div>
   </div>
 
-  <!-- ── Three mini stat cards ──────────────────────────────────────── -->
-  <div class="grid grid-cols-3 gap-2.5">
-    <div class="bg-white rounded-2xl p-3.5 border border-[#e8e9ea] shadow-sm">
-      <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1.5">Today</div>
-      <div id="home-today" class="text-lg font-bold text-[#191c1d]">—</div>
-    </div>
-    <div class="bg-white rounded-2xl p-3.5 border border-[#e8e9ea] shadow-sm">
-      <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1.5">This Week</div>
-      <div id="home-week" class="text-lg font-bold text-[#191c1d]">—</div>
-    </div>
-    <div class="bg-white rounded-2xl p-3.5 border border-[#e8e9ea] shadow-sm">
-      <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1.5">Left</div>
-      <div id="home-left" class="text-lg font-bold text-[#006b55]">—</div>
+  <!-- ── Income / Net Balance card (hidden when no income this month) ── -->
+  <div id="home-income-card" class="hidden bg-white rounded-3xl p-5 border border-[#e8e9ea] shadow-sm">
+    <div class="text-sm font-semibold text-[#44474a] mb-3">Monthly Balance</div>
+    <div class="grid grid-cols-3 gap-3">
+      <div>
+        <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1">Income</div>
+        <div id="home-month-income" class="text-base font-bold text-[#16a34a]">—</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1">Expenses</div>
+        <div id="home-month-expense" class="text-base font-bold text-[#191c1d]">—</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-1">Net</div>
+        <div id="home-net-balance" class="text-base font-bold">—</div>
+      </div>
     </div>
   </div>
 

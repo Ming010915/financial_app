@@ -35,6 +35,16 @@ function saveBudget(amount) { localStorage.setItem('flo_budget', String(amount))
 function clearBudget()      { localStorage.removeItem('flo_budget'); }
 function getPendingScans()  { return JSON.parse(localStorage.getItem('flo_pending_scans') || '[]'); }
 function savePendingScans(s){ localStorage.setItem('flo_pending_scans', JSON.stringify(s)); }
+function getCustomIncomeCategories() {
+  const s = localStorage.getItem('flo_income_categories');
+  return s ? JSON.parse(s) : [];
+}
+function saveCustomIncomeCategories(list) { localStorage.setItem('flo_income_categories', JSON.stringify(list)); }
+function getIncomeEmojis() {
+  const s = localStorage.getItem('flo_income_emojis');
+  return s ? JSON.parse(s) : {};
+}
+function saveIncomeEmojis(map) { localStorage.setItem('flo_income_emojis', JSON.stringify(map)); }
 
 function generateId() {
   return crypto.randomUUID
@@ -69,15 +79,15 @@ function computeSummary() {
   const today     = new Date().toISOString().split('T')[0];
   const thisMonth = today.slice(0, 7);
 
-  const todayTotal = expenses.filter(e => e.date === today).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
-  const monthTotal = expenses.filter(e => (e.date || '').startsWith(thisMonth)).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  const todayTotal = expenses.filter(e => isExpenseEntry(e) && e.date === today).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  const monthTotal = expenses.filter(e => isExpenseEntry(e) && (e.date || '').startsWith(thisMonth)).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   // This week (Mon → today)
   const dow       = new Date().getDay(); // 0=Sun
   const daysBack  = dow === 0 ? 6 : dow - 1;
   const weekStart = new Date(Date.now() - daysBack * 86400000).toISOString().split('T')[0];
   const weekTotal = expenses
-    .filter(e => (e.date || '') >= weekStart && (e.date || '') <= today)
+    .filter(e => isExpenseEntry(e) && (e.date || '') >= weekStart && (e.date || '') <= today)
     .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   // Last calendar month full total (daily-average comparison handles unequal month lengths)
@@ -86,11 +96,11 @@ function computeSummary() {
   lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
   const lastMonthStr   = lastMonthDate.toISOString().slice(0, 7);
   const lastMonthTotal = expenses
-    .filter(e => (e.date || '').startsWith(lastMonthStr))
+    .filter(e => isExpenseEntry(e) && (e.date || '').startsWith(lastMonthStr))
     .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   const catBreakdown = {};
-  expenses.filter(e => (e.date || '').startsWith(thisMonth)).forEach(e => {
+  expenses.filter(e => isExpenseEntry(e) && (e.date || '').startsWith(thisMonth)).forEach(e => {
     const cat = e.category || 'Others';
     catBreakdown[cat] = (catBreakdown[cat] || 0) + convertToDefault(e.amount, e.currency, e.rate);
   });
@@ -100,7 +110,7 @@ function computeSummary() {
   const monday    = new Date(Date.now() - daysToMon * 86400000);
   for (let i = 0; i < 7; i++) {
     const d     = new Date(monday.getTime() + i * 86400000).toISOString().split('T')[0];
-    const total = expenses.filter(e => e.date === d).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+    const total = expenses.filter(e => isExpenseEntry(e) && e.date === d).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
     daysData.push({ date: d, total: Math.round(total * 100) / 100 });
   }
 
@@ -113,11 +123,20 @@ function computeSummary() {
     })
     .slice(0, 5);
 
+  const todayIncome = expenses
+    .filter(e => isIncomeEntry(e) && e.date === today)
+    .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  const monthIncome = expenses
+    .filter(e => isIncomeEntry(e) && (e.date || '').startsWith(thisMonth))
+    .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+
   return {
     today_total:       Math.round(todayTotal * 100) / 100,
     month_total:       Math.round(monthTotal * 100) / 100,
     week_total:        Math.round(weekTotal * 100) / 100,
     last_month_total:  Math.round(lastMonthTotal * 100) / 100,
+    today_income:      Math.round(todayIncome * 100) / 100,
+    month_income:      Math.round(monthIncome * 100) / 100,
     category_breakdown: Object.fromEntries(
       Object.entries(catBreakdown).map(([k, v]) => [k, Math.round(v * 100) / 100])
     ),
@@ -153,6 +172,10 @@ const CAT_EMOJI = {
   "Transport":                     "🚇",
   "Others":                        "📦",
 };
+const INCOME_CATEGORIES = ["Salary","Freelance","Investment","Rental","Gift","Refund","Other Income"];
+const INCOME_CAT_COLOR  = { "Salary":"#16a34a","Freelance":"#0891b2","Investment":"#7c3aed","Rental":"#d97706","Gift":"#db2777","Refund":"#059669","Other Income":"#64748b" };
+const INCOME_CAT_EMOJI  = { "Salary":"💼","Freelance":"💻","Investment":"📈","Rental":"🏘️","Gift":"🎁","Refund":"↩️","Other Income":"💰" };
+
 const CUR_SYM = { EUR:"€",USD:"$",GBP:"£",JPY:"¥",CHF:"Fr",SEK:"kr",NOK:"kr",DKK:"kr",PLN:"zł",CNY:"¥",HKD:"HK$",SGD:"S$",AUD:"A$",CAD:"C$" };
 const PAYMENT_ICONS   = { "Cash":"💵", "Debit Card":"💳", "Credit Card":"💳", "Mobile Pay":"📱", "Bank Transfer":"🏦" };
 const BUILTIN_CURRENCIES = [
@@ -171,6 +194,7 @@ const state = {
   selectedCategory: null,
   originalCategory: null,
   selectedPayment:  null,
+  isIncome:         false,
   isReceipt:        false,
   isVoice:          false,
   receiptFile:         null,
@@ -341,6 +365,21 @@ function catEmoji(cat) {
   if (custom) return custom;
   return CAT_EMOJI[cat] || "📦";
 }
+function isExpenseEntry(e)  { return !e.type || e.type === 'expense'; }
+function isIncomeEntry(e)   { return e.type === 'income'; }
+function getAllIncomeCategories() {
+  const custom = getCustomIncomeCategories();
+  return [...new Set([...INCOME_CATEGORIES, ...custom])];
+}
+function incomeCatColor(cat){ return INCOME_CAT_COLOR[cat] || "#16a34a"; }
+function incomeCatEmoji(cat){
+  const custom = getIncomeEmojis()[cat];
+  if (custom) return custom;
+  return INCOME_CAT_EMOJI[cat] || "💰";
+}
+function txnColor(exp)      { return isIncomeEntry(exp) ? incomeCatColor(exp.category) : catColor(exp.category); }
+function txnEmoji(exp)      { return isIncomeEntry(exp) ? incomeCatEmoji(exp.category) : catEmoji(exp.category); }
+
 function curSym(code)       { return CUR_SYM[(code||"EUR").toUpperCase()] || code || "€"; }
 function paymentIcon(m) {
   // User overrides always win over built-in defaults
@@ -542,6 +581,7 @@ function showView(name) {
     _historySelCats.clear();
     _historySelPayments.clear();
     _historySelTime = null;
+    _historySelType = null;
     loadHistory();
   }
   if (name === "summary")  loadSummary();
@@ -549,7 +589,7 @@ function showView(name) {
   if (name === "settings")        { loadSettingsView(); syncDarkToggle(); }
   if (name === "preferences")     loadSettingsView();
   if (name === "api-keys")        loadSettingsView();
-  if (name === "categories")       { loadCategoriesView(); loadOverrides(); }
+  if (name === "categories")       { loadCategoriesView(); loadIncomeCategoriesSection(); loadOverrides(); }
   if (name === "payment-methods")  loadPaymentMethodsView();
 }
 
@@ -643,6 +683,21 @@ async function loadHome() {
     noBudgetBtn.classList.remove("hidden");
     homeLeftEl.textContent  = "—";
     homeLeftEl.style.color  = isDark() ? "#6dfad2" : "#006b55";
+  }
+
+  // ── Income / net balance card
+  const incomeCard  = document.getElementById('home-income-card');
+  const monthIncome = data.month_income || 0;
+  if (monthIncome > 0) {
+    incomeCard.classList.remove('hidden');
+    document.getElementById('home-month-income').textContent  = fmtAmount(monthIncome, defCur);
+    document.getElementById('home-month-expense').textContent = fmtAmount(data.month_total, defCur);
+    const net   = monthIncome - data.month_total;
+    const netEl = document.getElementById('home-net-balance');
+    netEl.textContent = (net >= 0 ? '+' : '') + fmtAmount(Math.abs(net), defCur);
+    netEl.style.color = net >= 0 ? '#16a34a' : '#ef4444';
+  } else {
+    incomeCard.classList.add('hidden');
   }
 
   data.recent.forEach(e => { state.expenseMap[e.id] = e; });
@@ -746,14 +801,19 @@ function renderRecentExpenses(expenses) {
 }
 
 function miniExpenseCard(exp) {
-  const col    = catColor(exp.category);
-  const em     = catEmoji(exp.category);
-  const badge  = exp.source === "receipt"
+  const income = isIncomeEntry(exp);
+  const col    = txnColor(exp);
+  const em     = txnEmoji(exp);
+  const badge  = income
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1 bg-green-100 text-green-700">+ income</span>`
+    : exp.source === "receipt"
     ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>` : "";
   const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
     ? `<div class="text-[9px] text-gray-400">≈ ${fmtAmount(convertToDefault(exp.amount, exp.currency, exp.rate), defCur)}</div>` : "";
+  const amtColor  = income ? "#16a34a" : "#1f2937";
+  const amtPrefix = income ? "+" : "";
   return `
     <div onclick="showExpenseDetail('${exp.id}')"
          class="flex items-center gap-3 cursor-pointer active:opacity-70 rounded-xl p-1 -m-1 transition-opacity">
@@ -764,7 +824,7 @@ function miniExpenseCard(exp) {
         <div class="text-xs text-gray-400 truncate">${esc(exp.category)}</div>
       </div>
       <div class="text-right flex-shrink-0">
-        <div class="text-sm font-bold text-gray-800">${fmtAmount(exp.amount, exp.currency)}</div>
+        <div class="text-sm font-bold" style="color:${amtColor}">${amtPrefix}${fmtAmount(exp.amount, exp.currency)}</div>
         ${cvt}
       </div>
     </div>`;
@@ -772,13 +832,66 @@ function miniExpenseCard(exp) {
 
 // ── Add form ──────────────────────────────────────────────────────────────────
 function prepareAddForm() {
+  state.isIncome = false;
+  setFormType('expense');
   document.getElementById("f-date").value = new Date().toISOString().split("T")[0];
   const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("f-currency", defaultCurrency);
   document.getElementById("f-cur-sym").textContent = curSym(defaultCurrency);
-  loadCategoriesIntoButtons();
   renderPaymentButtons(state.selectedPayment, "payment-buttons");
 }
+
+function setFormType(type) {
+  state.isIncome = (type === 'income');
+  const expBtn = document.getElementById('toggle-expense');
+  const incBtn = document.getElementById('toggle-income');
+  if (expBtn && incBtn) {
+    if (state.isIncome) {
+      expBtn.className = 'flex-1 py-2 rounded-xl text-sm font-bold text-[#44474a] dark:text-[#aaa] transition-all';
+      incBtn.className = 'flex-1 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#1e1e1e] text-[#006b55] dark:text-[#6dfad2] shadow-sm transition-all';
+    } else {
+      expBtn.className = 'flex-1 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#1e1e1e] text-[#191c1d] dark:text-white shadow-sm transition-all';
+      incBtn.className = 'flex-1 py-2 rounded-xl text-sm font-bold text-[#44474a] dark:text-[#aaa] transition-all';
+    }
+  }
+  const titleEl   = document.getElementById('add-form-title');
+  const labelEl   = document.getElementById('f-merchant-label');
+  const inputEl   = document.getElementById('f-merchant');
+  const saveLabel = document.getElementById('save-label');
+  const locWrap   = document.getElementById('f-location-wrap');
+  const itemsSec  = document.getElementById('items-section');
+  if (titleEl)   titleEl.textContent   = state.isIncome ? 'Add Income'              : 'Add Expense';
+  if (saveLabel) saveLabel.textContent  = state.isIncome ? 'Add Income'              : 'Add Expense';
+  if (labelEl)   labelEl.textContent   = state.isIncome ? 'Source *'                : 'Merchant *';
+  if (inputEl)   inputEl.placeholder   = state.isIncome ? 'e.g. Employer, Client'   : "e.g. Lidl, McDonald's";
+  if (locWrap)   locWrap.classList.toggle('hidden', state.isIncome);
+  if (itemsSec && state.isIncome) itemsSec.classList.add('hidden');
+  const confEl = document.getElementById('cat-confidence');
+  if (confEl) confEl.classList.add('hidden');
+  if (state.isIncome) {
+    renderIncomeCatButtons(null);
+  } else {
+    loadCategoriesIntoButtons();
+  }
+  state.selectedCategory = null;
+}
+
+function renderIncomeCatButtons(selected) {
+  const el = document.getElementById('cat-buttons');
+  if (!el) return;
+  el.innerHTML = getAllIncomeCategories().map(cat => {
+    const col = incomeCatColor(cat);
+    const isChosen = cat === selected;
+    return `<button type="button" onclick="selectIncomeCategory('${esc(cat)}')"
+              class="cat-chip px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all ${isChosen ? 'selected' : 'opacity-60'}"
+              style="background:${col}">
+        ${incomeCatEmoji(cat)} ${esc(cat)}
+      </button>`;
+  }).join('');
+  state.selectedCategory = selected;
+}
+
+function selectIncomeCategory(cat) { renderIncomeCatButtons(cat); }
 
 function getAllCategories() {
   const data   = getCentroids();
@@ -843,6 +956,7 @@ function selectPayment(method, containerId) {
 
 async function autoClassify() {
   if (state.isReceipt) return;
+  if (state.isIncome)  return;
   const merchant = document.getElementById("f-merchant").value.trim();
   if (!merchant) return;
   try {
@@ -1226,6 +1340,7 @@ function resetForm() {
   document.getElementById("f-nearby-results").classList.add("hidden");
   const rateRow = document.getElementById("f-rate-row");
   if (rateRow) rateRow.style.display = "none";
+  state.isIncome         = false;
   state.selectedCategory = null;
   state.originalCategory = null;
   state.selectedPayment  = null;
@@ -1809,6 +1924,9 @@ function populateFormFromVoice(data) {
   // Navigate to add view first (runs prepareAddForm for fresh form state)
   showView('add');
 
+  const isIncome = data.transaction_type === 'income';
+  if (isIncome) setFormType('income');
+
   state.isVoice      = true;
   state.isReceipt    = false;
   state.receiptItems = mergeItems(data.items || []);
@@ -1826,23 +1944,27 @@ function populateFormFromVoice(data) {
     updateRateRow("f", code, defCur, null);
   }
   if (data.date)     document.getElementById("f-date").value     = data.date;
-  if (data.location) document.getElementById("f-location").value = data.location;
+  if (data.location && !isIncome) document.getElementById("f-location").value = data.location;
 
   const pm = data.payment_method && getPaymentMethods().includes(data.payment_method) ? data.payment_method : null;
   state.selectedPayment = pm;
   renderPaymentButtons(pm, "payment-buttons");
 
-  const cat = data.predicted_category || "Others";
-  selectCategory(cat);
-  state.originalCategory = cat;
+  const cat = data.predicted_category || (isIncome ? "Other Income" : "Others");
+  if (isIncome) {
+    renderIncomeCatButtons(cat);
+  } else {
+    selectCategory(cat);
+    state.originalCategory = cat;
 
-  const confEl = document.getElementById("cat-confidence");
-  const pct    = Math.round((data.confidence || 0) * 100);
-  confEl.textContent = `Voice: ${pct}% confidence`;
-  confEl.className   = `text-xs ${(data.confidence || 0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
-  confEl.classList.remove("hidden");
+    const confEl = document.getElementById("cat-confidence");
+    const pct    = Math.round((data.confidence || 0) * 100);
+    confEl.textContent = `Voice: ${pct}% confidence`;
+    confEl.className   = `text-xs ${(data.confidence || 0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
+    confEl.classList.remove("hidden");
+  }
 
-  if (state.receiptItems.length > 0) {
+  if (!isIncome && state.receiptItems.length > 0) {
     document.getElementById("items-section").classList.remove("hidden");
     renderAddFormItems();
   }
@@ -1874,7 +1996,7 @@ async function saveExpense() {
   const rateRaw        = parseFloat(document.getElementById("f-rate")?.value);
   const storedRate     = currency.toUpperCase() !== defCur && !isNaN(rateRaw) && rateRaw > 0 ? rateRaw : null;
 
-  if (!merchant) { showToast("Please enter a merchant name", true); return; }
+  if (!merchant) { showToast(state.isIncome ? "Please enter a source" : "Please enter a merchant name", true); return; }
   if (!amount || isNaN(parseFloat(amount))) { showToast("Please enter a valid amount", true); return; }
 
   const btn     = document.getElementById("save-btn");
@@ -1886,7 +2008,7 @@ async function saveExpense() {
 
   try {
     let confidence = 1.0;
-    if (!category) {
+    if (!category && !state.isIncome) {
       const r    = await fetch("/api/classify", {
         method: "POST", headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ name: merchant, ...getCentroids() }),
@@ -1894,17 +2016,21 @@ async function saveExpense() {
       const data = await r.json();
       category   = data.prediction || "Others";
       confidence = data.confidence || 0;
+    } else if (!category && state.isIncome) {
+      category = "Other Income";
     }
 
-    fetch("/api/learn", {
-      method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        merchant,
-        category,
-        original_category: state.originalCategory || "",
-        ...getCentroids(),
-      }),
-    }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids(d.centroids); }).catch(() => {});
+    if (!state.isIncome) {
+      fetch("/api/learn", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          merchant,
+          category,
+          original_category: state.originalCategory || "",
+          ...getCentroids(),
+        }),
+      }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids(d.centroids); }).catch(() => {});
+    }
 
     const expense = {
       id:             generateId(),
@@ -1920,6 +2046,7 @@ async function saveExpense() {
       location,
       items:          (state.isReceipt || state.isVoice) ? state.receiptItems : [],
       source:         state.isReceipt ? "receipt" : state.isVoice ? "voice" : "manual",
+      type:           state.isIncome ? "income" : "expense",
       created_at:     new Date().toISOString(),
     };
 
@@ -1928,7 +2055,7 @@ async function saveExpense() {
     saveExpenses(expenses);
     state.expenseMap[expense.id] = expense;
 
-    showToast("Expense saved!");
+    showToast(state.isIncome ? "Income saved!" : "Expense saved!");
     btn.disabled = false;
     spinner.classList.add("hidden");
     if (state.currentPendingScanId) {
@@ -1942,7 +2069,7 @@ async function saveExpense() {
     showView("home");
   } catch (e) {
     showToast("Error: " + e.message, true);
-    label.textContent = state.isReceipt ? "Confirm & Save" : "Add Expense";
+    label.textContent = state.isReceipt ? "Confirm & Save" : state.isIncome ? "Add Income" : "Add Expense";
     btn.disabled      = false;
     spinner.classList.add("hidden");
   }
@@ -1953,6 +2080,7 @@ let _historySorted      = [];
 let _historySelCats     = new Set();
 let _historySelPayments = new Set();
 let _historySelTime     = null;
+let _historySelType     = null;
 
 const HISTORY_TIME_OPTS = [
   { key: 'today',      label: 'Today' },
@@ -1989,6 +2117,7 @@ function clearHistoryFilters() {
   _historySelCats.clear();
   _historySelPayments.clear();
   _historySelTime = null;
+  _historySelType = null;
   renderHistoryFilterSheet();
   updateHistoryFilterBadge();
   filterHistory();
@@ -2021,6 +2150,14 @@ function renderHistoryFilterSheet() {
     k => `selectHistoryTime('${k}')`,
     k => k === 'All' ? 'All' : HISTORY_TIME_OPTS.find(o => o.key === k)?.label || k
   );
+
+  _renderHFChips('hf-type',
+    ['All', 'expense', 'income'],
+    k => k === 'All' ? !_historySelType : _historySelType === k,
+    k => k === 'income' ? '#16a34a' : '#006b55',
+    k => `selectHistoryType('${k}')`,
+    k => k === 'All' ? 'All' : k === 'income' ? '📥 Income' : '📤 Expenses'
+  );
 }
 
 function _renderHFChips(elId, items, isActiveFn, colorFn, onclickFn, labelFn) {
@@ -2041,7 +2178,7 @@ function _renderHFChips(elId, items, isActiveFn, colorFn, onclickFn, labelFn) {
 }
 
 function updateHistoryFilterBadge() {
-  const count = _historySelCats.size + _historySelPayments.size + (_historySelTime ? 1 : 0);
+  const count = _historySelCats.size + _historySelPayments.size + (_historySelTime ? 1 : 0) + (_historySelType ? 1 : 0);
   const badge = document.getElementById('history-filter-badge');
   const btn   = document.getElementById('history-filter-btn');
   if (!badge || !btn) return;
@@ -2088,6 +2225,13 @@ function selectHistoryTime(key) {
   filterHistory();
 }
 
+function selectHistoryType(key) {
+  _historySelType = (key === 'All' || _historySelType === key) ? null : key;
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
 function renderHistoryCatFilters() {}   // kept so any stale references don't throw
 function renderHistoryPaymentFilters() {}
 
@@ -2126,6 +2270,13 @@ function filterHistory() {
       return true;
     });
   }
+  if (_historySelType) {
+    if (_historySelType === 'income') {
+      filtered = filtered.filter(e => isIncomeEntry(e));
+    } else {
+      filtered = filtered.filter(e => isExpenseEntry(e));
+    }
+  }
   if (query) {
     filtered = filtered.filter(e =>
       (e.merchant || '').toLowerCase().includes(query) ||
@@ -2141,14 +2292,21 @@ function renderHistory(exps) {
   const totalEl = document.getElementById("history-total");
 
   if (!exps || exps.length === 0) {
-    listEl.innerHTML    = `<div class="text-center text-gray-300 py-8">No expenses yet</div>`;
+    listEl.innerHTML    = `<div class="text-center text-gray-300 py-8">No transactions yet</div>`;
     totalEl.textContent = "";
     return;
   }
 
-  const defCur     = localStorage.getItem("defaultCurrency") || "EUR";
-  const grandTotal = exps.reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
-  totalEl.textContent = `Total: ${fmtAmount(grandTotal, defCur)} · ${exps.length} items`;
+  const defCur      = localStorage.getItem("defaultCurrency") || "EUR";
+  const expenseTotal = exps.filter(isExpenseEntry).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  const incomeTotal  = exps.filter(isIncomeEntry).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  if (incomeTotal > 0 && expenseTotal > 0) {
+    totalEl.textContent = `↑ ${fmtAmount(incomeTotal, defCur)}  ↓ ${fmtAmount(expenseTotal, defCur)} · ${exps.length} items`;
+  } else if (incomeTotal > 0) {
+    totalEl.textContent = `Income: ${fmtAmount(incomeTotal, defCur)} · ${exps.length} items`;
+  } else {
+    totalEl.textContent = `Total: ${fmtAmount(expenseTotal, defCur)} · ${exps.length} items`;
+  }
 
   const grouped = {};
   for (const exp of exps) {
@@ -2159,13 +2317,17 @@ function renderHistory(exps) {
   const dates = Object.keys(grouped).sort().reverse();
 
   listEl.innerHTML = dates.map(d => {
-    const dayTotal = grouped[d].reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
-    const cards    = grouped[d].map(exp => historyExpenseCard(exp)).join("");
+    const dayExpenses = grouped[d].filter(isExpenseEntry).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+    const dayIncomes  = grouped[d].filter(isIncomeEntry).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+    const dayLabel    = dayIncomes > 0 && dayExpenses > 0
+      ? `↑${fmtAmount(dayIncomes, defCur)} ↓${fmtAmount(dayExpenses, defCur)}`
+      : dayIncomes > 0 ? `+${fmtAmount(dayIncomes, defCur)}` : fmtAmount(dayExpenses, defCur);
+    const cards = grouped[d].map(exp => historyExpenseCard(exp)).join("");
     return `
       <div>
         <div class="flex items-center justify-between mb-2">
           <span class="text-sm font-bold text-gray-600">${fmtDateLabel(d)}</span>
-          <span class="text-sm font-semibold text-gray-400">${fmtAmount(dayTotal, defCur)}</span>
+          <span class="text-sm font-semibold text-gray-400">${dayLabel}</span>
         </div>
         <div class="space-y-2">${cards}</div>
       </div>`;
@@ -2173,9 +2335,12 @@ function renderHistory(exps) {
 }
 
 function historyExpenseCard(exp) {
-  const col    = catColor(exp.category);
-  const em     = catEmoji(exp.category);
-  const badge  = exp.source === "receipt"
+  const income = isIncomeEntry(exp);
+  const col    = txnColor(exp);
+  const em     = txnEmoji(exp);
+  const badge  = income
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-bold ml-1 bg-green-100 text-green-700">+ income</span>`
+    : exp.source === "receipt"
     ? `<span class="text-[9px] px-1 py-0.5 rounded font-bold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>`
     : exp.source === "voice"
     ? `<span class="text-[9px] bg-rose-100 text-rose-500 px-1 py-0.5 rounded font-bold ml-1">🎤</span>`
@@ -2186,9 +2351,11 @@ function historyExpenseCard(exp) {
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
     ? `<div class="text-[9px] text-gray-400">≈ ${fmtAmount(convertToDefault(exp.amount, exp.currency, exp.rate), defCur)}</div>` : "";
+  const amtColor = income ? "#16a34a" : "#111827";
+  const amtPrefix = income ? "+" : "";
   return `
     <div onclick="showExpenseDetail('${exp.id}')"
-         class="bg-white rounded-xl p-3 flex items-center gap-3 shadow-sm border border-gray-100 cursor-pointer active:opacity-75 transition-opacity">
+         class="bg-white rounded-xl p-3 flex items-center gap-3 shadow-sm border ${income ? "border-green-100" : "border-gray-100"} cursor-pointer active:opacity-75 transition-opacity">
       <div class="w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0"
            style="background:${catBg(col)}">${em}</div>
       <div class="flex-1 min-w-0">
@@ -2200,7 +2367,7 @@ function historyExpenseCard(exp) {
         </div>
       </div>
       <div class="text-right flex-shrink-0">
-        <div class="font-bold text-gray-900 text-sm">${fmtAmount(exp.amount, exp.currency)}</div>
+        <div class="font-bold text-sm" style="color:${amtColor}">${amtPrefix}${fmtAmount(exp.amount, exp.currency)}</div>
         ${cvt}
         <button onclick="event.stopPropagation(); deleteExpense('${exp.id}')"
                 class="text-[10px] text-red-400 hover:text-red-600 mt-0.5 font-medium">Delete</button>
@@ -2231,13 +2398,16 @@ function showExpenseDetail(id) {
 }
 
 function _renderDetailView(exp) {
-  const col = catColor(exp.category);
-  const em  = catEmoji(exp.category);
+  const income = isIncomeEntry(exp);
+  const col    = txnColor(exp);
+  const em     = txnEmoji(exp);
 
   document.getElementById("det-badge").textContent      = `${em} ${exp.category}`;
   document.getElementById("det-badge").style.background = col;
   document.getElementById("det-merchant").textContent   = exp.merchant;
-  document.getElementById("det-amount").textContent     = fmtAmount(exp.amount, exp.currency);
+  const amtEl = document.getElementById("det-amount");
+  amtEl.textContent  = (income ? "+" : "") + fmtAmount(exp.amount, exp.currency);
+  amtEl.style.color  = income ? "#16a34a" : "";
   document.getElementById("det-date").textContent       = fmtDateLabel(exp.date);
 
   const paymentRow = document.getElementById("det-payment-row");
@@ -2310,8 +2480,20 @@ function openEdit() {
   document.getElementById("edit-location").value       = exp.location || "";
   updateRateRow("edit", cur, defCur, exp.rate ?? null);
 
+  const editIncome = isIncomeEntry(exp);
+  const titleEl    = document.getElementById("edit-mode-title");
+  const mLabelEl   = document.getElementById("edit-merchant-label");
+  const locWrapEl  = document.getElementById("edit-location-wrap");
+  if (titleEl)   titleEl.textContent  = editIncome ? "Edit Income"  : "Edit Expense";
+  if (mLabelEl)  mLabelEl.textContent = editIncome ? "Source"       : "Merchant";
+  if (locWrapEl) locWrapEl.classList.toggle("hidden", editIncome);
+
   state.editCategory = exp.category || null;
-  renderEditCatButtons(state.editCategory);
+  if (editIncome) {
+    renderEditIncomeCatButtons(state.editCategory);
+  } else {
+    renderEditCatButtons(state.editCategory);
+  }
 
   state.editPayment = exp.payment_method || null;
   renderPaymentButtons(state.editPayment, "edit-payment-buttons");
@@ -2352,6 +2534,23 @@ function renderEditCatButtons(selected) {
 }
 
 function selectEditCategory(cat) { renderEditCatButtons(cat); }
+
+function renderEditIncomeCatButtons(selected) {
+  const el = document.getElementById("edit-cat-buttons");
+  if (!el) return;
+  el.innerHTML = getAllIncomeCategories().map(cat => {
+    const col = incomeCatColor(cat);
+    const isChosen = cat === selected;
+    return `<button type="button" onclick="selectEditIncomeCategory('${esc(cat)}')"
+              class="cat-chip px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all ${isChosen ? 'selected' : 'opacity-60'}"
+              style="background:${col}">
+        ${incomeCatEmoji(cat)} ${esc(cat)}
+      </button>`;
+  }).join('');
+  state.editCategory = selected;
+}
+
+function selectEditIncomeCategory(cat) { renderEditIncomeCatButtons(cat); }
 
 function renderEditItems() {
   const el = document.getElementById("edit-items-list");
@@ -2418,10 +2617,11 @@ async function saveEdit() {
     .map(i => ({ name: i.name.trim(), price: i.price, quantity: i.quantity ?? 1 }));
 
   try {
-    const oldExp = state.expenseMap[id];
-    const oldCat = oldExp ? oldExp.category : "";
+    const oldExp     = state.expenseMap[id];
+    const oldCat     = oldExp ? oldExp.category : "";
+    const editIncome = isIncomeEntry(oldExp);
 
-    if (category && category !== oldCat) {
+    if (!editIncome && category && category !== oldCat) {
       fetch("/api/learn", {
         method: "POST", headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ merchant, category, original_category: oldCat, ...getCentroids() }),
@@ -2440,6 +2640,7 @@ async function saveEdit() {
       location,
       payment_method,
       items,
+      type:           oldExp?.type || 'expense',
       updated_at:     new Date().toISOString(),
     };
 
@@ -2986,6 +3187,85 @@ function deleteCategory(name) {
   });
 }
 
+function loadIncomeCategoriesSection() {
+  const builtins = new Set(INCOME_CATEGORIES);
+  const custom   = new Set(getCustomIncomeCategories());
+  const all      = getAllIncomeCategories();
+
+  const list = document.getElementById("income-categories-list");
+  if (!list) return;
+  list.innerHTML = all.length
+    ? all.map(cat => {
+        const isCustom = custom.has(cat) && !builtins.has(cat);
+        const emoji    = incomeCatEmoji(cat);
+        const tag      = isCustom
+          ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="color:${isDark()?"#6dfad2":"#006b55"};background:${isDark()?"#1e1e1e":"#f0fdf9"}">custom</span>`
+          : `<span class="text-[10px] text-[#c5c6ca]">built-in</span>`;
+        const emojiEl = `<input type="text" value="${esc(emoji)}"
+                    title="Tap to change emoji"
+                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0"
+                    onchange="updateIncomeCategoryEmoji('${cat.replace(/'/g, "\\'")}', this.value)" />`;
+        const delBtn = isCustom
+          ? `<button onclick="deleteIncomeCategory('${cat.replace(/'/g, "\\'")}')"
+                     class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>`
+          : `<div class="w-7 h-7 flex-shrink-0"></div>`;
+        return `
+          <div class="flex items-center gap-3 px-4 py-3">
+            ${emojiEl}
+            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(cat)}</span>
+            ${tag}
+            ${delBtn}
+          </div>`;
+      }).join("")
+    : `<div class="px-4 py-6 text-sm text-gray-400 text-center">No income categories.</div>`;
+}
+
+function updateIncomeCategoryEmoji(cat, newEmoji) {
+  const emoji = (newEmoji || "").trim() || "💰";
+  const map   = getIncomeEmojis();
+  map[cat]    = emoji;
+  saveIncomeEmojis(map);
+  loadIncomeCategoriesSection();
+  showToast("Emoji updated!");
+}
+
+function addCustomIncomeCategory() {
+  const nameInput  = document.getElementById("new-income-category-name");
+  const emojiInput = document.getElementById("new-income-category-emoji");
+  const name  = nameInput.value.trim();
+  const emoji = (emojiInput?.value || "").trim() || "💰";
+  if (!name) return;
+  const existing = getAllIncomeCategories();
+  if (existing.map(c => c.toLowerCase()).includes(name.toLowerCase())) {
+    showToast("Income category already exists.", true); return;
+  }
+  const list = getCustomIncomeCategories();
+  list.push(name);
+  saveCustomIncomeCategories(list);
+  const map = getIncomeEmojis();
+  map[name] = emoji;
+  saveIncomeEmojis(map);
+  nameInput.value = "";
+  if (emojiInput) emojiInput.value = "";
+  loadIncomeCategoriesSection();
+  showToast(`"${emoji} ${name}" added.`);
+}
+
+function deleteIncomeCategory(name) {
+  showConfirm({
+    title:   `Delete "${name}"?`,
+    message: "This removes the income category. Transactions already tagged with it are not affected.",
+    okLabel: "Delete",
+    onOk: () => {
+      saveCustomIncomeCategories(getCustomIncomeCategories().filter(c => c !== name));
+      const map = getIncomeEmojis();
+      delete map[name];
+      saveIncomeEmojis(map);
+      loadIncomeCategoriesSection();
+    },
+  });
+}
+
 function updateOverride(merchant, category) {
   const data = getCentroids();
   if (!data) return;
@@ -3132,7 +3412,7 @@ function exportJSON() {
 function exportCSV() {
   const expenses = getExpenses();
   if (!expenses.length) { showToast("No expenses to export", true); return; }
-  const headers = ["date", "merchant", "amount", "currency", "category", "payment_method", "notes", "location", "source", "created_at"];
+  const headers = ["date", "merchant", "amount", "currency", "category", "payment_method", "notes", "location", "source", "type", "created_at"];
   const escape  = v => {
     const s = String(v ?? "").replace(/"/g, '""');
     return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s}"` : s;

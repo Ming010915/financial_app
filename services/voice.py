@@ -92,18 +92,24 @@ def process_voice_input(audio_data: bytes, mime_type: str, api_key: str) -> dict
     return _finalize_extracted(extracted)
 
 
+INCOME_CATEGORIES = [
+    "Salary", "Freelance", "Investment", "Rental", "Gift", "Refund", "Other Income"
+]
+
+
 def _finalize_extracted(extracted: dict) -> dict:
     """
     Fill in defaults, normalise items, compute a missing total, and attach the
     category prediction. Shared by the audio and text extraction paths.
     """
-    extracted.setdefault("merchant",       "")
-    extracted.setdefault("total",          None)
-    extracted.setdefault("currency",       "EUR")
-    extracted.setdefault("date",           None)
-    extracted.setdefault("payment_method", None)
-    extracted.setdefault("notes",          "")
-    extracted.setdefault("items",          [])
+    extracted.setdefault("merchant",         "")
+    extracted.setdefault("total",            None)
+    extracted.setdefault("currency",         "EUR")
+    extracted.setdefault("date",             None)
+    extracted.setdefault("payment_method",   None)
+    extracted.setdefault("notes",            "")
+    extracted.setdefault("items",            [])
+    extracted.setdefault("transaction_type", "expense")
 
     # Normalise items to plain dicts (Gemini may return MapComposite objects)
     extracted["items"] = [dict(i) for i in extracted["items"]]
@@ -117,19 +123,29 @@ def _finalize_extracted(extracted: dict) -> dict:
         if prices:
             extracted["total"] = round(sum(prices), 2)
 
-    merchant = extracted.get("merchant", "")
-    if merchant:
+    is_income = extracted["transaction_type"] == "income"
+    merchant  = extracted.get("merchant", "")
+
+    if is_income:
+        # Income entries don't use the ML expense classifier
+        extracted["predicted_category"] = "Other Income"
+        extracted["confidence"]         = 1.0
+        extracted["needs_review"]       = False
+        extracted["top3"]               = []
+        extracted["categories"]         = INCOME_CATEGORIES
+    elif merchant:
         pred, conf, emb, top3 = classifier.do_classify(merchant)
         classifier.embedding_cache[merchant] = emb
         extracted["predicted_category"] = pred
         extracted["confidence"]         = conf
         extracted["needs_review"]       = conf < ASK_BELOW
         extracted["top3"]               = top3
+        extracted["categories"]         = list(classifier.centroids.keys()) + ["Others"]
     else:
         extracted["predicted_category"] = "Others"
         extracted["confidence"]         = 0.0
         extracted["needs_review"]       = True
         extracted["top3"]               = []
+        extracted["categories"]         = list(classifier.centroids.keys()) + ["Others"]
 
-    extracted["categories"] = list(classifier.centroids.keys()) + ["Others"]
     return extracted
