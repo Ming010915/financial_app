@@ -446,6 +446,7 @@ def api_exchange_rates():
 def api_get_settings():
     return jsonify({
         "vertex_ai_configured": bool(GOOGLE_CLOUD_PROJECT),
+        "env_key_set":          bool(GOOGLE_CLOUD_PROJECT),
         "places_key_set":       bool(SERVER_PLACES_API_KEY),
     })
 

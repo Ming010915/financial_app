@@ -35,7 +35,7 @@ The server is **stateless with respect to user data**. Expenses, personalised ce
 | **Add** | Receipt scan • Voice input • Manual form with auto-classification, currency conversion, and Google Places location autocomplete |
 | **History** | Full chronological expense list, grouped by date; tap to open / edit detail sheet |
 | **Summary** | Spending by category (doughnut chart) and last-7-days line chart |
-| **Settings** | Dark mode · Places API key · Default & custom currencies · JSON/CSV export & import · Reset model |
+| **Settings** | Dark mode · Default & custom currencies · JSON/CSV export & import · Reset model |
 | **Categories** | Add / remove the categories that drive classification |
 | **Category Overrides** | Manage exact-match `merchant → category` rules |
 | **Payment Methods** | Add / remove payment methods |
@@ -92,7 +92,7 @@ Each `POST /api/learn` carries the client's current centroids/overrides:
 
 ### 6. Location Autocomplete
 
-When a Google Maps Platform API key is configured (in Settings or via `GOOGLE_PLACES_API_KEY` env var), the Add / Edit forms load the Google Maps JS SDK and offer:
+When `GOOGLE_PLACES_API_KEY` is set in the environment, the Add / Edit forms load the Google Maps JS SDK and offer:
 
 - **Near me** — uses `navigator.geolocation` + Places `nearbySearch` to list nearby establishments.
 - **Type-ahead** — debounced `textSearch` biased to the cached position.
@@ -153,7 +153,6 @@ A JSON array of expense objects. Each object has:
 | `flo_custom_currencies` | JSON array | Extra ISO currency codes added by the user |
 | `flo_rates_<BASE>` | JSON | Cached FX-rate snapshot keyed by base currency |
 | `darkMode` | `"0"` or `"1"` | UI theme preference |
-| `placesApiKey` | string | Google Maps Platform API key for Places |
 | `defaultCurrency` | string | Default 3-letter currency code shown in the Add form |
 
 ---
@@ -171,7 +170,7 @@ A JSON array of expense objects. Each object has:
 | `POST` | `/api/voice_input` | Processes a recorded audio blob via Gemini function calling; multipart with `audio` |
 | `WS`   | `/ws/voice_live` | Streaming voice transcription via the Gemini Live API |
 | `GET`  | `/api/exchange_rates?base=EUR` | Proxies the Frankfurter FX-rates API |
-| `GET`  | `/api/settings` | Returns `{vertex_ai_configured, places_key_set}` so the client knows what's configured server-side |
+| `GET`  | `/api/settings` | Returns `{vertex_ai_configured, env_key_set, places_key_set}` so the client knows what's configured server-side |
 
 ---
 
@@ -188,15 +187,31 @@ python app.py
 
 ### Environment variables
 
-Create a `.env` file or export them in the shell:
+Create a `.env` file in the project root. All AI features run through **Vertex AI** — no Google API key string is needed.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GOOGLE_CLOUD_PROJECT` | **Yes** | Your GCP project ID. Enables receipt scanning, voice input, and AI spending insights. |
+| `GOOGLE_CLOUD_LOCATION` | No | Vertex AI region. Defaults to `us-central1`. |
+| `GOOGLE_PLACES_API_KEY` | No | Google Maps Platform key (`AIza…`). Enables location autocomplete in the Add/Edit form. Without it, the location field is a plain text input. |
+| `REQUIRE_PASSWORD` | No | Set to `true` (default) to protect the app with a password, or `false` to leave it open. |
+| `APP_PASSWORD` | No | The password shown on the login page. Only used when `REQUIRE_PASSWORD=true`. |
+| `SECRET_KEY` | No | Signs the session cookie. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. A new random key is generated on each restart if not set (this logs everyone out on server restart). |
+
+Example `.env`:
 
 ```bash
-# Vertex AI — Gemini (receipt, voice, summaries)
+# Required
 GOOGLE_CLOUD_PROJECT=your-gcp-project-id
-GOOGLE_CLOUD_LOCATION=us-central1        # optional, defaults to us-central1
 
-# Google Maps Platform — Places autocomplete (optional)
+# Optional
+GOOGLE_CLOUD_LOCATION=us-central1
 GOOGLE_PLACES_API_KEY=AIza...
+
+# Access control
+REQUIRE_PASSWORD=true
+APP_PASSWORD=your-secret-password
+SECRET_KEY=your-random-hex-string
 ```
 
 ### Authentication

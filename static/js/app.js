@@ -219,10 +219,7 @@ let _cachedPosition    = null;
 let _locationTimer     = null;
 let _placesKeySet      = null;   // whether the server has a Places key configured
 
-// True if Places lookups are available: either the user saved their own key,
-// or the server has one configured.
 async function placesAvailable() {
-  if (localStorage.getItem('placesApiKey')) return true;
   if (_placesKeySet === null) {
     try {
       const r = await fetch('/api/settings');
@@ -233,11 +230,7 @@ async function placesAvailable() {
   return _placesKeySet;
 }
 
-// Call the server-side Places proxy. A user-supplied key (if any) is forwarded;
-// otherwise the server falls back to its own key, which stays server-side.
 async function _placesProxy(endpoint, payload) {
-  const userKey = localStorage.getItem('placesApiKey') || '';
-  const body    = userKey ? { ...payload, api_key: userKey } : payload;
   const r = await fetch(endpoint, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -327,7 +320,7 @@ async function findNearbyPlaces(inputId, resultsId, btnEl) {
   }
 
   if (!(await placesAvailable())) {
-    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-amber-500 text-center">Add a Google Places API key in Settings to enable this</div>';
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-amber-500 text-center">Google Places is not configured on the server</div>';
     setBtn(origLabel, false);
     return;
   }
@@ -588,7 +581,6 @@ function showView(name) {
   if (name === "add")      prepareAddForm();
   if (name === "settings")        { loadSettingsView(); syncDarkToggle(); }
   if (name === "preferences")     loadSettingsView();
-  if (name === "api-keys")        loadSettingsView();
   if (name === "categories")       { loadCategoriesView(); loadIncomeCategoriesSection(); loadOverrides(); }
   if (name === "payment-methods")  loadPaymentMethodsView();
 }
@@ -695,7 +687,7 @@ async function loadHome() {
     const net   = monthIncome - data.month_total;
     const netEl = document.getElementById('home-net-balance');
     netEl.textContent = (net >= 0 ? '+' : '') + fmtAmount(Math.abs(net), defCur);
-    netEl.style.color = net >= 0 ? '#16a34a' : '#ef4444';
+    netEl.style.color = net >= 0 ? (isDark() ? '#4ade80' : '#16a34a') : '#ef4444';
   } else {
     incomeCard.classList.add('hidden');
   }
@@ -812,7 +804,7 @@ function miniExpenseCard(exp) {
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
     ? `<div class="text-[9px] text-gray-400">≈ ${fmtAmount(convertToDefault(exp.amount, exp.currency, exp.rate), defCur)}</div>` : "";
-  const amtColor  = income ? "#16a34a" : "#1f2937";
+  const amtColor  = income ? (isDark() ? "#4ade80" : "#16a34a") : (isDark() ? "#f5f5f5" : "#1f2937");
   const amtPrefix = income ? "+" : "";
   return `
     <div onclick="showExpenseDetail('${exp.id}')"
@@ -1122,7 +1114,6 @@ async function _runBackgroundScan(id, file, abort) {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('api_key', localStorage.getItem('googleApiKey') || '');
     formData.append('payment_methods', getPaymentMethods().join(','));
 
     const resp = await postWithOverloadRetry('/api/scan_receipt', formData, { signal: abort.signal });
@@ -1255,7 +1246,6 @@ async function analyzeScanReceipt() {
   try {
     const formData = new FormData();
     formData.append("file", state.receiptFile);
-    formData.append("api_key", localStorage.getItem("googleApiKey") || "");
     formData.append("payment_methods", getPaymentMethods().join(","));
     const resp = await postWithOverloadRetry("/api/scan_receipt", formData, {
       signal: abort.signal,
@@ -1691,8 +1681,7 @@ async function toggleVoiceRecording() {
 
 async function startVoiceRecording() {
   try {
-    const apiKey = localStorage.getItem('googleApiKey') || '';
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
     _voiceStream       = stream;
     _voiceCancelled    = false;
@@ -1710,7 +1699,7 @@ async function startVoiceRecording() {
     _liveWS = new WebSocket(`${wsProto}//${location.host}/ws/voice_live`);
 
     _liveWS.onopen = () => {
-      _liveWS.send(JSON.stringify({ api_key: apiKey, sample_rate: actualRate }));
+      _liveWS.send(JSON.stringify({ sample_rate: actualRate }));
       const source = _audioCtx.createMediaStreamSource(stream);
       _audioProcessor = _audioCtx.createScriptProcessor(4096, 1, 1);
       source.connect(_audioProcessor);
@@ -1830,7 +1819,6 @@ async function loadVoiceSummary() {
 
   const formData = new FormData();
   formData.append('transcript', original);
-  formData.append('api_key', localStorage.getItem('googleApiKey') || '');
 
   try {
     const resp = await postWithOverloadRetry('/api/voice_summary', formData, {
@@ -1882,7 +1870,6 @@ async function confirmVoiceTranscript(useSummary) {
 
   const formData = new FormData();
   formData.append('transcript', transcript);
-  formData.append('api_key', localStorage.getItem('googleApiKey') || '');
 
   const btn = document.getElementById('voice-btn');
   if (btn) btn.disabled = true;
@@ -2166,9 +2153,9 @@ function _renderHFChips(elId, items, isActiveFn, colorFn, onclickFn, labelFn) {
   el.innerHTML = items.map(item => {
     const isActive = isActiveFn(item);
     const col      = colorFn(item);
-    const bg       = isActive ? col : '#f8f9fa';
-    const text     = isActive ? 'white' : '#44474a';
-    const border   = isActive ? col : '#e8e9ea';
+    const bg       = isActive ? col : (isDark() ? '#1e1e1e' : '#f8f9fa');
+    const text     = isActive ? 'white' : (isDark() ? '#b0b0b0' : '#44474a');
+    const border   = isActive ? col : (isDark() ? '#333333' : '#e8e9ea');
     return `<button type="button" onclick="${onclickFn(item)}"
       class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
       style="background:${bg};color:${text};border-color:${border}">
@@ -2351,7 +2338,7 @@ function historyExpenseCard(exp) {
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
     ? `<div class="text-[9px] text-gray-400">≈ ${fmtAmount(convertToDefault(exp.amount, exp.currency, exp.rate), defCur)}</div>` : "";
-  const amtColor = income ? "#16a34a" : "#111827";
+  const amtColor = income ? (isDark() ? "#4ade80" : "#16a34a") : (isDark() ? "#f5f5f5" : "#111827");
   const amtPrefix = income ? "+" : "";
   return `
     <div onclick="showExpenseDetail('${exp.id}')"
@@ -2677,17 +2664,14 @@ async function loadAiOverview(breakdown, defCur) {
   const el = document.getElementById("ai-overview-text");
   if (!el) return;
 
-  // Need at least some spending data and an API key — either a key saved in the
-  // browser or one configured server-side via the .env file.
-  const apiKey = localStorage.getItem("googleApiKey") || "";
   let envKeySet = false;
   try {
     const s = await (await fetch("/api/settings")).json();
     envKeySet = !!s.env_key_set;
   } catch { /* ignore — treated as no server key */ }
 
-  if (!apiKey && !envKeySet) {
-    el.textContent = "Add a Google API key in Settings to enable AI spending insights.";
+  if (!envKeySet) {
+    el.textContent = "AI insights require Vertex AI to be configured on the server.";
     document.getElementById("ai-overview-card").classList.remove("hidden");
     return;
   }
@@ -2712,9 +2696,7 @@ async function loadAiOverview(breakdown, defCur) {
     });
 
     const r    = await fetch(`/api/summary/overview?${params}`, {
-      // Only send the header when we have a browser key; otherwise the server
-      // falls back to its .env GOOGLE_API_KEY.
-      headers: apiKey ? { "X-Google-Api-Key": apiKey } : {},
+      headers: {},
     });
     const data = await r.json();
     if (!r.ok || data.error) throw new Error(data.error || "Unknown error");
@@ -2734,9 +2716,6 @@ async function loadAiOverview(breakdown, defCur) {
 }
 
 async function archiveCurrentMonth() {
-  const apiKey = localStorage.getItem("googleApiKey") || "";
-  if (!apiKey) { showToast("Add a Google API key in Settings first.", true); return; }
-
   const data    = computeSummary();
   const defCur  = localStorage.getItem("defaultCurrency") || "EUR";
   const now     = new Date();
@@ -2932,43 +2911,7 @@ async function loadSettingsView() {
   try {
     const r = await fetch("/api/settings");
     data = await r.json();
-    if (data.env_key_set) {
-      document.getElementById("s-env-notice").classList.remove("hidden");
-    }
-
-    const storedKey = localStorage.getItem("googleApiKey") || "";
-    const statusEl  = document.getElementById("s-key-status");
-    if (storedKey) {
-      const preview = storedKey.length > 10
-        ? storedKey.slice(0, 6) + "…" + storedKey.slice(-4)
-        : "***";
-      statusEl.textContent = `Saved key: ${preview}`;
-      statusEl.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
-    } else if (!data.env_key_set) {
-      statusEl.textContent = "No API key saved — receipt scanning will be unavailable.";
-      statusEl.className   = "text-xs text-amber-500 mt-1.5";
-    } else {
-      statusEl.textContent = "";
-    }
   } catch (e) { console.error("loadSettings:", e); }
-
-  const placesKey    = localStorage.getItem("placesApiKey") || "";
-  const placesStatus = document.getElementById("s-places-status");
-  if (placesStatus) {
-    if (placesKey) {
-      const preview = placesKey.length > 10
-        ? placesKey.slice(0, 6) + "…" + placesKey.slice(-4)
-        : "***";
-      placesStatus.textContent = `Saved key: ${preview}`;
-      placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
-    } else if (data?.places_key_set) {
-      placesStatus.textContent = "Using server-provided Places API key.";
-      placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
-    } else {
-      placesStatus.textContent = "No key saved — location autocomplete will be a plain text field.";
-      placesStatus.className   = "text-xs text-amber-500 mt-1.5";
-    }
-  }
 
   const storedCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("s-currency", storedCurrency);
@@ -3017,15 +2960,6 @@ async function resetCentroids() {
       }
     },
   });
-}
-
-function saveApiKey() {
-  const key = document.getElementById("s-api-key").value.trim();
-  if (!key) return;
-  localStorage.setItem("googleApiKey", key);
-  document.getElementById("s-api-key").value = "";
-  showToast("API key saved.");
-  loadSettingsView();
 }
 
 function saveCurrency() {
@@ -3365,35 +3299,6 @@ function addOverride() {
   document.getElementById("new-override-merchant").value = "";
   loadOverrides();
   showToast("Override added.");
-}
-
-function toggleApiVis() {
-  const input   = document.getElementById("s-api-key");
-  const showEye = document.getElementById("eye-show");
-  const hideEye = document.getElementById("eye-hide");
-  const isHidden = input.type === "password";
-  input.type = isHidden ? "text" : "password";
-  showEye.classList.toggle("hidden", isHidden);
-  hideEye.classList.toggle("hidden", !isHidden);
-}
-
-function savePlacesApiKey() {
-  const key = document.getElementById("s-places-key").value.trim();
-  if (!key) return;
-  localStorage.setItem("placesApiKey", key);
-  document.getElementById("s-places-key").value = "";
-  showToast("Places API key saved.");
-  loadSettingsView();
-}
-
-function togglePlacesKeyVis() {
-  const input   = document.getElementById("s-places-key");
-  const showEye = document.getElementById("places-eye-show");
-  const hideEye = document.getElementById("places-eye-hide");
-  const isHidden = input.type === "password";
-  input.type = isHidden ? "text" : "password";
-  showEye.classList.toggle("hidden", isHidden);
-  hideEye.classList.toggle("hidden", !isHidden);
 }
 
 // ── Export / Import ───────────────────────────────────────────────────────────
