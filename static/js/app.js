@@ -1411,7 +1411,7 @@ function renderVerifyItems() {
       <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
              oninput="state.pendingReceiptData.items[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
              class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01" min="0"
+      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01"
              oninput="state.pendingReceiptData.items[${i}].price = this.value === '' ? null : parseFloat(this.value)"
              class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
       <button type="button" onclick="removeVerifyItem(${i})"
@@ -1451,7 +1451,7 @@ function renderAddFormItems() {
       <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
              oninput="state.receiptItems[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
              class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01" min="0"
+      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01"
              oninput="state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value)"
              class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
       <button type="button" onclick="removeFormItem(${i})"
@@ -2566,7 +2566,7 @@ function renderEditItems() {
       <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
              oninput="state.editItems[${idx}].quantity = this.value === '' ? 1 : parseInt(this.value)"
              class="w-12 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
-      <input type="number" value="${item.price ?? ""}" placeholder="0.00" min="0" step="0.01"
+      <input type="number" value="${item.price ?? ""}" placeholder="0.00" step="0.01"
              oninput="state.editItems[${idx}].price = this.value === '' ? null : parseFloat(this.value)"
              class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
       <button type="button" onclick="removeEditItem(${idx})"

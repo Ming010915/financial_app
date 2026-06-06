@@ -1,6 +1,6 @@
 # Flo — AI-Powered Personal Finance Tracker
 
-A mobile-style expense tracker with on-device merchant categorisation, receipt scanning, voice input, and location autocomplete — all powered by Google Gemini.
+A mobile-style expense tracker with on-device merchant categorisation, receipt scanning, voice input, and location autocomplete — all powered by Google Gemini via Vertex AI.
 
 ---
 
@@ -35,7 +35,7 @@ The server is **stateless with respect to user data**. Expenses, personalised ce
 | **Add** | Receipt scan • Voice input • Manual form with auto-classification, currency conversion, and Google Places location autocomplete |
 | **History** | Full chronological expense list, grouped by date; tap to open / edit detail sheet |
 | **Summary** | Spending by category (doughnut chart) and last-7-days line chart |
-| **Settings** | Dark mode · API keys (Gemini, Places) · Default & custom currencies · JSON/CSV export & import · Reset model |
+| **Settings** | Dark mode · Places API key · Default & custom currencies · JSON/CSV export & import · Reset model |
 | **Categories** | Add / remove the categories that drive classification |
 | **Category Overrides** | Manage exact-match `merchant → category` rules |
 | **Payment Methods** | Add / remove payment methods |
@@ -62,7 +62,7 @@ The server is **stateless with respect to user data**. Expenses, personalised ce
 ### 3. Receipt Scanning
 
 1. User takes a photo or drops an image into the **Add** view.
-2. `POST /api/scan_receipt` sends the image (multipart/form-data) with the Google AI Studio API key (from `localStorage` or the `GOOGLE_API_KEY` env var).
+2. `POST /api/scan_receipt` sends the image (multipart/form-data) to the server, which calls Gemini via Vertex AI.
 3. The server forwards the image to **Gemini 2.5 Flash** with a structured prompt that requests a strict JSON receipt schema.
 4. Gemini returns extracted fields (merchant, date, total, currency, payment method, line items, notes). Missing date defaults to today.
 5. The extracted merchant is classified by the same ML pipeline.
@@ -153,7 +153,6 @@ A JSON array of expense objects. Each object has:
 | `flo_custom_currencies` | JSON array | Extra ISO currency codes added by the user |
 | `flo_rates_<BASE>` | JSON | Cached FX-rate snapshot keyed by base currency |
 | `darkMode` | `"0"` or `"1"` | UI theme preference |
-| `googleApiKey` | string | Google AI Studio API key for Gemini |
 | `placesApiKey` | string | Google Maps Platform API key for Places |
 | `defaultCurrency` | string | Default 3-letter currency code shown in the Add form |
 
@@ -168,11 +167,11 @@ A JSON array of expense objects. Each object has:
 | `GET`  | `/api/base_centroids` | Returns the read-only base model so new browsers can bootstrap `flo_centroids` |
 | `POST` | `/api/classify` | Classifies a merchant name. Body may include the client's `categories` + `overrides`. |
 | `POST` | `/api/learn` | Updates the (client's) centroid and overrides. Returns the new state. |
-| `POST` | `/api/scan_receipt` | Scans a receipt image; multipart with `image` + `api_key` |
-| `POST` | `/api/voice_input` | Processes a recorded audio blob via Gemini function calling; multipart with `audio` + `api_key` |
+| `POST` | `/api/scan_receipt` | Scans a receipt image; multipart with `image` |
+| `POST` | `/api/voice_input` | Processes a recorded audio blob via Gemini function calling; multipart with `audio` |
 | `WS`   | `/ws/voice_live` | Streaming voice transcription via the Gemini Live API |
 | `GET`  | `/api/exchange_rates?base=EUR` | Proxies the Frankfurter FX-rates API |
-| `GET`  | `/api/settings` | Returns `{env_key_set, places_server_key}` so the client knows what's already configured server-side |
+| `GET`  | `/api/settings` | Returns `{vertex_ai_configured, places_key_set}` so the client knows what's configured server-side |
 
 ---
 
@@ -187,13 +186,35 @@ python app.py
 # Open http://localhost:5000
 ```
 
-### Environment variables (optional — also configurable in the UI)
+### Environment variables
 
 Create a `.env` file or export them in the shell:
 
 ```bash
-GOOGLE_API_KEY=AIza...           # Gemini — receipt & voice
-GOOGLE_PLACES_API_KEY=AIza...    # Google Maps Platform — Places autocomplete
+# Vertex AI — Gemini (receipt, voice, summaries)
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_CLOUD_LOCATION=us-central1        # optional, defaults to us-central1
+
+# Google Maps Platform — Places autocomplete (optional)
+GOOGLE_PLACES_API_KEY=AIza...
+```
+
+### Authentication
+
+Gemini calls go through **Vertex AI** and use Google's [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials) — no API key required.
+
+**Local development** — run once after installing the [Google Cloud SDK](https://cloud.google.com/sdk/docs/install):
+
+```bash
+gcloud auth application-default login
+```
+
+This saves credentials to `~/.config/gcloud/application_default_credentials.json`. The SDK picks them up automatically on every subsequent run.
+
+**GCP deployment (Cloud Run, GKE, Compute Engine, etc.)** — credentials are provided automatically by the compute metadata server. No extra setup needed beyond ensuring the service account has the **Vertex AI User** role (`roles/aiplatform.user`) and the Vertex AI API is enabled in your project:
+
+```bash
+gcloud services enable aiplatform.googleapis.com
 ```
 
 ### Share over a tunnel
