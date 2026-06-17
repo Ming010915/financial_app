@@ -3617,9 +3617,48 @@ function onImportFile(event) {
       const existing    = getExpenses();
       const existingIds = new Set(existing.map(e => e.id));
       const newOnes     = imported.filter(e => e.id && e.merchant && !existingIds.has(e.id));
+
+      // Auto-add expense categories missing from settings
+      const knownExpCats = new Set(getAllCategories());
+      const newExpCats   = [...new Set(
+        newOnes.filter(e => !isIncomeEntry(e) && e.category && !knownExpCats.has(e.category))
+               .map(e => e.category)
+      )];
+      if (newExpCats.length) {
+        const data = getCentroids() || { categories: {}, custom_categories: [], overrides: {} };
+        data.custom_categories = data.custom_categories || [];
+        for (const cat of newExpCats) {
+          if (!data.custom_categories.includes(cat) && !Object.keys(data.categories || {}).includes(cat)) {
+            data.custom_categories.push(cat);
+          }
+        }
+        saveCentroids(data);
+        loadCategoriesIntoButtons();
+      }
+
+      // Auto-add income categories missing from settings
+      const knownIncCats = new Set(getAllIncomeCategories().map(c => c.toLowerCase()));
+      const newIncCats   = [...new Set(
+        newOnes.filter(e => isIncomeEntry(e) && e.category && !knownIncCats.has(e.category.toLowerCase()))
+               .map(e => e.category)
+      )];
+      if (newIncCats.length) {
+        const list = getCustomIncomeCategories();
+        for (const cat of newIncCats) {
+          if (!list.map(c => c.toLowerCase()).includes(cat.toLowerCase())) list.push(cat);
+        }
+        saveCustomIncomeCategories(list);
+      }
+
       saveExpenses([...existing, ...newOnes]);
       document.getElementById("import-file").value = "";
-      showToast(`Imported ${newOnes.length} expense${newOnes.length !== 1 ? "s" : ""}`);
+
+      const addedParts = [];
+      if (newExpCats.length) addedParts.push(`${newExpCats.length} expense categor${newExpCats.length !== 1 ? "ies" : "y"}`);
+      if (newIncCats.length) addedParts.push(`${newIncCats.length} income categor${newIncCats.length !== 1 ? "ies" : "y"}`);
+      let msg = `Imported ${newOnes.length} expense${newOnes.length !== 1 ? "s" : ""}`;
+      if (addedParts.length) msg += `. Added ${addedParts.join(" and ")}`;
+      showToast(msg);
       loadHome();
     } catch (err) {
       showToast("Import failed: " + err.message, true);
