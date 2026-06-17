@@ -1,3 +1,23 @@
+<!-- ── Home Customize Bottom Sheet ──────────────────────────────────────────── -->
+<div id="home-customize-overlay" class="hidden fixed inset-0 z-40 flex items-end justify-center"
+     style="background:rgba(0,0,0,0.5)">
+  <div onclick="closeHomeCustomize()" class="absolute inset-0"></div>
+  <div class="relative w-full max-w-[430px] bg-white rounded-t-3xl z-10 sheet-up"
+       style="max-height:80vh;overflow-y:auto;">
+    <div class="flex justify-center pt-3 pb-1 sticky top-0 bg-white z-10">
+      <div class="w-10 h-1 bg-[#c5c6ca] rounded-full"></div>
+    </div>
+    <div class="px-5 pt-2 pb-8">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-base font-bold text-[#191c1d]">Customize Home</span>
+        <button onclick="closeHomeCustomize()" class="text-sm font-semibold text-[#006b55]">Done</button>
+      </div>
+      <p class="text-xs text-[#44474a] mb-4">Drag <span class="font-bold">⠿</span> to reorder. Toggle to show or hide.</p>
+      <div id="home-customize-list" class="space-y-0.5"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ── History Filter Bottom Sheet ──────────────────────────────────────────── -->
 <div id="history-filter-overlay" class="hidden fixed inset-0 z-40 flex items-end justify-center"
      style="background:rgba(0,0,0,0.5)">

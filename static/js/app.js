@@ -46,6 +46,150 @@ function getIncomeEmojis() {
 }
 function saveIncomeEmojis(map) { localStorage.setItem('flo_income_emojis', JSON.stringify(map)); }
 
+// ── Home widget layout ─────────────────────────────────────────────────────────
+const HOME_WIDGET_DEFS = [
+  { id: 'total',      label: 'Monthly Total',   icon: '💰' },
+  { id: 'budget',     label: 'Budget & Stats',  icon: '📊' },
+  { id: 'income',     label: 'Monthly Balance', icon: '📈' },
+  { id: 'chart',      label: '7-Day Chart',     icon: '📉' },
+  { id: 'categories', label: 'Categories',      icon: '🏷' },
+  { id: 'pending',    label: 'Pending Scans',   icon: '⏳' },
+  { id: 'recent',     label: 'Recent',          icon: '🕐' },
+];
+
+function getHomeLayout() {
+  const s = localStorage.getItem('flo_home_layout');
+  if (s) {
+    try {
+      const stored = JSON.parse(s);
+      const storedIds = new Set(stored.map(w => w.id));
+      const extra = HOME_WIDGET_DEFS.filter(w => !storedIds.has(w.id)).map(w => ({ id: w.id, visible: true }));
+      return [...stored, ...extra];
+    } catch {}
+  }
+  return HOME_WIDGET_DEFS.map(w => ({ id: w.id, visible: true }));
+}
+
+function saveHomeLayout(layout) {
+  localStorage.setItem('flo_home_layout', JSON.stringify(layout));
+}
+
+function applyHomeLayout() {
+  const layout = getHomeLayout();
+  const container = document.getElementById('view-home');
+  layout.forEach(({ id, visible }) => {
+    const el = container.querySelector(`[data-widget-id="${id}"]`);
+    if (!el) return;
+    if (visible) el.removeAttribute('data-widget-hidden');
+    else el.setAttribute('data-widget-hidden', '');
+    container.appendChild(el);
+  });
+}
+
+let _dragSortCleanup = null;
+
+function _initDragSort(listEl, onSort) {
+  if (_dragSortCleanup) _dragSortCleanup();
+  let dragging = null;
+
+  function onPointerDown(e) {
+    const handle = e.target.closest('[data-drag-handle]');
+    if (!handle) return;
+    dragging = handle.closest('[data-widget-row]');
+    if (!dragging) return;
+    dragging.classList.add('dragging');
+    listEl.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  function onPointerMove(e) {
+    if (!dragging) return;
+    const rows = [...listEl.querySelectorAll('[data-widget-row]')];
+    const y = e.clientY;
+    let inserted = false;
+    for (const row of rows) {
+      if (row === dragging) continue;
+      const rect = row.getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) {
+        listEl.insertBefore(dragging, row);
+        inserted = true;
+        break;
+      }
+    }
+    if (!inserted) {
+      const last = rows[rows.length - 1];
+      if (last && last !== dragging) listEl.appendChild(dragging);
+    }
+  }
+
+  function onPointerUp() {
+    if (!dragging) return;
+    dragging.classList.remove('dragging');
+    dragging = null;
+    onSort();
+  }
+
+  function onPointerCancel() {
+    if (!dragging) return;
+    dragging.classList.remove('dragging');
+    dragging = null;
+  }
+
+  listEl.addEventListener('pointerdown', onPointerDown);
+  listEl.addEventListener('pointermove', onPointerMove);
+  listEl.addEventListener('pointerup', onPointerUp);
+  listEl.addEventListener('pointercancel', onPointerCancel);
+
+  _dragSortCleanup = () => {
+    listEl.removeEventListener('pointerdown', onPointerDown);
+    listEl.removeEventListener('pointermove', onPointerMove);
+    listEl.removeEventListener('pointerup', onPointerUp);
+    listEl.removeEventListener('pointercancel', onPointerCancel);
+    _dragSortCleanup = null;
+  };
+}
+
+function openHomeCustomize() {
+  const layout = getHomeLayout();
+  const listEl = document.getElementById('home-customize-list');
+  listEl.innerHTML = layout.map(({ id, visible }) => {
+    const def = HOME_WIDGET_DEFS.find(w => w.id === id);
+    if (!def) return '';
+    return `
+      <div class="customize-row flex items-center gap-3 py-3 px-2 border-b border-[#edeeef]" data-widget-row data-id="${id}">
+        <div class="text-[#c5c6ca] text-xl leading-none px-1 select-none" data-drag-handle title="Drag to reorder">⠿</div>
+        <div class="text-lg w-7 text-center select-none">${def.icon}</div>
+        <div class="flex-1 text-sm font-semibold text-[#191c1d]">${def.label}</div>
+        <div class="toggle-track ${visible ? 'on' : ''}" onclick="toggleHomeWidget('${id}', this)">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  _initDragSort(listEl, () => {
+    const newOrder = [...listEl.querySelectorAll('[data-widget-row]')].map(r => r.dataset.id);
+    const layoutMap = Object.fromEntries(getHomeLayout().map(w => [w.id, w]));
+    saveHomeLayout(newOrder.map(id => layoutMap[id]).filter(Boolean));
+    applyHomeLayout();
+  });
+
+  document.getElementById('home-customize-overlay').classList.remove('hidden');
+}
+
+function closeHomeCustomize() {
+  document.getElementById('home-customize-overlay').classList.add('hidden');
+}
+
+function toggleHomeWidget(id, toggleEl) {
+  const layout = getHomeLayout();
+  const item = layout.find(w => w.id === id);
+  if (!item) return;
+  item.visible = !item.visible;
+  saveHomeLayout(layout);
+  toggleEl.classList.toggle('on', item.visible);
+  applyHomeLayout();
+}
+
 function generateId() {
   return crypto.randomUUID
     ? crypto.randomUUID()
@@ -121,7 +265,7 @@ function computeSummary() {
       const kb = (b.date || '') + (b.created_at || '');
       return kb > ka ? 1 : -1;
     })
-    .slice(0, 5);
+    .slice(0, 3);
 
   const todayIncome = expenses
     .filter(e => isIncomeEntry(e) && e.date === today)
@@ -610,6 +754,7 @@ function addByManual() {
 
 // ── Home ──────────────────────────────────────────────────────────────────────
 async function loadHome() {
+  applyHomeLayout();
   await loadRates();
   const data   = computeSummary();
   const defCur = localStorage.getItem("defaultCurrency") || "EUR";
@@ -681,20 +826,16 @@ async function loadHome() {
   // ── Income / net balance card
   const incomeCard  = document.getElementById('home-income-card');
   const monthIncome = data.month_income || 0;
-  if (monthIncome > 0) {
-    incomeCard.classList.remove('hidden');
-    document.getElementById('home-month-income').textContent  = fmtAmount(monthIncome, defCur);
-    document.getElementById('home-month-expense').textContent = fmtAmount(data.month_total, defCur);
-    const net   = monthIncome - data.month_total;
-    const netEl = document.getElementById('home-net-balance');
-    netEl.textContent = (net >= 0 ? '+' : '') + fmtAmount(Math.abs(net), defCur);
-    netEl.style.color = net >= 0 ? (isDark() ? '#4ade80' : '#16a34a') : '#ef4444';
-  } else {
-    incomeCard.classList.add('hidden');
-  }
+  incomeCard.classList.remove('hidden');
+  document.getElementById('home-month-income').textContent  = fmtAmount(monthIncome, defCur);
+  document.getElementById('home-month-expense').textContent = fmtAmount(data.month_total, defCur);
+  const net   = monthIncome - data.month_total;
+  const netEl = document.getElementById('home-net-balance');
+  netEl.textContent = (net >= 0 ? '+' : '') + fmtAmount(Math.abs(net), defCur);
+  netEl.style.color = net >= 0 ? (isDark() ? '#4ade80' : '#16a34a') : '#ef4444';
 
   data.recent.forEach(e => { state.expenseMap[e.id] = e; });
-  renderDailyChart(data.daily_chart);
+  renderDailyChart(data.daily_chart, defCur);
   renderCategoryBreakdown(data.category_breakdown, data.month_total, defCur);
   renderRecentExpenses(data.recent);
   renderPendingScans();
@@ -718,7 +859,7 @@ function saveHomeBudget() {
   loadHome();
 }
 
-function renderDailyChart(data) {
+function renderDailyChart(data, defCur = "EUR") {
   const maxVal   = Math.max(...data.map(d => d.total), 0.01);
   const today    = new Date().toISOString().split("T")[0];
   const barsEl   = document.getElementById("chart-bars");
@@ -729,13 +870,23 @@ function renderDailyChart(data) {
   const otherBarCol  = "#006b55";
   const todayLblCol  = dark ? "#6dfad2" : "#006b55";
   const otherLblCol  = dark ? "#686868" : "#44474a";
+  const sym = curSym(defCur);
+
+  function compactAmt(v) {
+    if (v <= 0) return "";
+    if (v >= 1000) return sym + (v / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+    return sym + (Number.isInteger(v) ? v : v.toFixed(1));
+  }
 
   barsEl.innerHTML = data.map(d => {
     const pct     = Math.max(Math.round((d.total / maxVal) * 100), d.total > 0 ? 4 : 0);
     const isToday = d.date === today;
+    const col     = isToday ? todayBarCol : otherBarCol;
+    const lblCol  = isToday ? todayLblCol : otherLblCol;
+    const label   = d.total > 0 ? `<span class="absolute -top-[18px] inset-x-0 text-center text-[8px] font-bold leading-none whitespace-nowrap overflow-hidden" style="color:${lblCol}">${compactAmt(d.total)}</span>` : "";
     return `<div class="flex-1 flex flex-col justify-end h-full">
-        <div class="w-full rounded-t-md bar-fill"
-             style="height:0%;background:${isToday ? todayBarCol : otherBarCol}" data-h="${pct}%"></div>
+        <div class="w-full rounded-t-md bar-fill relative"
+             style="height:0%;background:${col}" data-h="${pct}%">${label}</div>
       </div>`;
   }).join("");
 
