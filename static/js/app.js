@@ -575,6 +575,7 @@ function showView(name) {
     _historySelPayments.clear();
     _historySelTime = null;
     _historySelType = null;
+    if (_histViewMode === 'calendar') _resetHistToListMode();
     loadHistory();
   }
   if (name === "summary")  loadSummary();
@@ -2068,6 +2069,9 @@ let _historySelCats     = new Set();
 let _historySelPayments = new Set();
 let _historySelTime     = null;
 let _historySelType     = null;
+let _histViewMode       = 'list';
+let _calYear            = new Date().getFullYear();
+let _calMonth           = new Date().getMonth();
 
 const HISTORY_TIME_OPTS = [
   { key: 'today',      label: 'Today' },
@@ -2275,26 +2279,14 @@ function filterHistory() {
 }
 
 function renderHistory(exps) {
-  const listEl  = document.getElementById("history-list");
-  const totalEl = document.getElementById("history-total");
+  const listEl = document.getElementById("history-list");
 
   if (!exps || exps.length === 0) {
-    listEl.innerHTML    = `<div class="text-center text-gray-300 py-8">No transactions yet</div>`;
-    totalEl.textContent = "";
+    listEl.innerHTML = `<div class="text-center text-gray-300 py-8">No transactions yet</div>`;
     return;
   }
 
-  const defCur      = localStorage.getItem("defaultCurrency") || "EUR";
-  const expenseTotal = exps.filter(isExpenseEntry).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
-  const incomeTotal  = exps.filter(isIncomeEntry).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
-  if (incomeTotal > 0 && expenseTotal > 0) {
-    totalEl.textContent = `↑ ${fmtAmount(incomeTotal, defCur)}  ↓ ${fmtAmount(expenseTotal, defCur)} · ${exps.length} items`;
-  } else if (incomeTotal > 0) {
-    totalEl.textContent = `Income: ${fmtAmount(incomeTotal, defCur)} · ${exps.length} items`;
-  } else {
-    totalEl.textContent = `Total: ${fmtAmount(expenseTotal, defCur)} · ${exps.length} items`;
-  }
-
+  const defCur  = localStorage.getItem("defaultCurrency") || "EUR";
   const grouped = {};
   for (const exp of exps) {
     const d = exp.date || "Unknown";
@@ -2370,6 +2362,132 @@ function deleteExpense(id) {
   showToast("Expense deleted");
   loadHistory();
   loadHome();
+}
+
+// ── History Calendar View ────────────────────────────────────────────────────
+function _resetHistToListMode() {
+  _histViewMode = 'list';
+  document.getElementById('history-list-controls')?.classList.remove('hidden');
+  document.getElementById('history-cal-controls')?.classList.add('hidden');
+  document.getElementById('history-list')?.classList.remove('hidden');
+  document.getElementById('history-calendar')?.classList.add('hidden');
+  document.getElementById('hist-cal-icon')?.classList.remove('hidden');
+  document.getElementById('hist-list-icon')?.classList.add('hidden');
+}
+
+function toggleHistViewMode() {
+  _histViewMode = _histViewMode === 'list' ? 'calendar' : 'list';
+  const isCal = _histViewMode === 'calendar';
+
+  document.getElementById('history-list-controls').classList.toggle('hidden', isCal);
+  document.getElementById('history-cal-controls').classList.toggle('hidden', !isCal);
+  document.getElementById('history-list').classList.toggle('hidden', isCal);
+  document.getElementById('history-calendar').classList.toggle('hidden', !isCal);
+  document.getElementById('hist-cal-icon').classList.toggle('hidden', isCal);
+  document.getElementById('hist-list-icon').classList.toggle('hidden', !isCal);
+
+  if (isCal) {
+    const now = new Date();
+    _calYear  = now.getFullYear();
+    _calMonth = now.getMonth();
+    renderCalendar();
+  }
+}
+
+function calNavMonth(delta) {
+  _calMonth += delta;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
+  document.getElementById('history-day-detail').innerHTML = '';
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const defCur   = (localStorage.getItem('defaultCurrency') || 'EUR').toUpperCase();
+  const monthStr = `${_calYear}-${String(_calMonth + 1).padStart(2, '0')}`;
+  const today    = new Date().toISOString().split('T')[0];
+
+  document.getElementById('cal-month-label').textContent =
+    new Date(_calYear, _calMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // Aggregate daily totals for this month
+  const dayTotals = {};
+  for (const e of _historySorted) {
+    if (!(e.date || '').startsWith(monthStr)) continue;
+    if (!dayTotals[e.date]) dayTotals[e.date] = { expense: 0, income: 0 };
+    const amt = convertToDefault(e.amount, e.currency, e.rate);
+    if (isIncomeEntry(e)) dayTotals[e.date].income += amt;
+    else                  dayTotals[e.date].expense += amt;
+  }
+
+  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+  // Monday-first offset: JS getDay() 0=Sun..6=Sat → Mon=0 offset = (getDay()+6)%7
+  const startOffset = (new Date(_calYear, _calMonth, 1).getDay() + 6) % 7;
+
+  const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  let html = `<div class="grid grid-cols-7 gap-1 text-center mb-1.5">
+    ${weekdays.map(w => `<div class="text-[10px] font-bold text-[#44474a] py-0.5">${w}</div>`).join('')}
+  </div>
+  <div class="grid grid-cols-7 gap-1">`;
+
+  for (let i = 0; i < startOffset; i++) html += '<div></div>';
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${monthStr}-${String(day).padStart(2, '0')}`;
+    const isToday = dateStr === today;
+    const totals  = dayTotals[dateStr];
+    const hasData = !!totals;
+
+    const base = 'rounded-xl p-1 text-center cursor-pointer flex flex-col items-center justify-start pt-1.5 transition-colors';
+    let bg, dayNumCls;
+    if (isToday) {
+      bg = 'bg-[#006b55]';
+      dayNumCls = 'text-white';
+    } else if (hasData) {
+      bg = 'bg-white border border-[#e8e9ea] active:border-[#006b55]';
+      dayNumCls = 'text-[#191c1d]';
+    } else {
+      bg = 'bg-[#f8f9fa]';
+      dayNumCls = 'text-[#c5c6ca]';
+    }
+
+    let amtHtml = '';
+    if (totals?.expense > 0) {
+      const cls = isToday ? 'text-white opacity-80' : 'text-[#191c1d]';
+      amtHtml += `<div class="text-[8px] font-bold ${cls} leading-tight mt-0.5">${fmtAmount(totals.expense, defCur)}</div>`;
+    }
+    if (totals?.income > 0) {
+      const cls = isToday ? 'text-green-200' : 'text-green-600';
+      amtHtml += `<div class="text-[8px] font-bold ${cls} leading-tight mt-0.5">+${fmtAmount(totals.income, defCur)}</div>`;
+    }
+
+    html += `<div class="${base} ${bg}" style="min-height:52px" onclick="calSelectDay('${dateStr}')">
+      <div class="text-xs font-bold ${dayNumCls}">${day}</div>
+      ${amtHtml}
+    </div>`;
+  }
+
+  html += '</div>';
+  document.getElementById('cal-grid').innerHTML = html;
+}
+
+function calSelectDay(dateStr) {
+  const detailEl  = document.getElementById('history-day-detail');
+  const dayEntries = _historySorted.filter(e => e.date === dateStr);
+
+  if (!dayEntries.length) {
+    detailEl.innerHTML = `<div class="text-center text-[#c5c6ca] py-4 text-sm mt-4 border-t border-[#e8e9ea] pt-4">No transactions on this day</div>`;
+    return;
+  }
+
+  const label = new Date(dateStr + 'T12:00:00')
+    .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  detailEl.innerHTML = `
+    <div class="mt-4 border-t border-[#e8e9ea] pt-4">
+      <div class="text-sm font-bold text-[#191c1d] mb-3">${label}</div>
+      <div class="space-y-2">${dayEntries.map(e => historyExpenseCard(e)).join('')}</div>
+    </div>`;
 }
 
 // ── Expense Detail Sheet ──────────────────────────────────────────────────────
