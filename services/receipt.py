@@ -45,18 +45,18 @@ def extract_json_from_text(text: str) -> dict:
     return {}
 
 
-def scan_receipt(image_data: bytes, mime_type: str, api_key: str,
+def scan_receipt(image_data: bytes, mime_type: str,
                  payment_methods: list[str] | None = None) -> dict:
     """
     Send an image to Gemini, parse the receipt fields, and attach a
     category prediction. Returns the extracted dict (caller handles HTTP).
     Raises on any error.
     """
-    from google import genai
     from google.genai import types
+    from config import get_genai_client
 
     prompt     = build_receipt_prompt(payment_methods or [])
-    client     = genai.Client(api_key=api_key)
+    client     = get_genai_client()
     image_part = types.Part.from_bytes(data=image_data, mime_type=mime_type)
     response   = generate_with_fallback(lambda model: client.models.generate_content(
         model    = model,

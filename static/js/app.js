@@ -33,6 +33,162 @@ function getBudget() {
 }
 function saveBudget(amount) { localStorage.setItem('flo_budget', String(amount)); }
 function clearBudget()      { localStorage.removeItem('flo_budget'); }
+function getPendingScans()  { return JSON.parse(localStorage.getItem('flo_pending_scans') || '[]'); }
+function savePendingScans(s){ localStorage.setItem('flo_pending_scans', JSON.stringify(s)); }
+function getCustomIncomeCategories() {
+  const s = localStorage.getItem('flo_income_categories');
+  return s ? JSON.parse(s) : [];
+}
+function saveCustomIncomeCategories(list) { localStorage.setItem('flo_income_categories', JSON.stringify(list)); }
+function getIncomeEmojis() {
+  const s = localStorage.getItem('flo_income_emojis');
+  return s ? JSON.parse(s) : {};
+}
+function saveIncomeEmojis(map) { localStorage.setItem('flo_income_emojis', JSON.stringify(map)); }
+
+// ── Home widget layout ─────────────────────────────────────────────────────────
+const HOME_WIDGET_DEFS = [
+  { id: 'total',      label: 'Monthly Total',   icon: '💰' },
+  { id: 'budget',     label: 'Budget & Stats',  icon: '📊' },
+  { id: 'income',     label: 'Monthly Balance', icon: '📈' },
+  { id: 'chart',      label: '7-Day Chart',     icon: '📉' },
+  { id: 'categories', label: 'Categories',      icon: '🏷' },
+  { id: 'pending',    label: 'Pending Scans',   icon: '⏳' },
+  { id: 'recent',     label: 'Recent',          icon: '🕐' },
+];
+
+function getHomeLayout() {
+  const s = localStorage.getItem('flo_home_layout');
+  if (s) {
+    try {
+      const stored = JSON.parse(s);
+      const storedIds = new Set(stored.map(w => w.id));
+      const extra = HOME_WIDGET_DEFS.filter(w => !storedIds.has(w.id)).map(w => ({ id: w.id, visible: true }));
+      return [...stored, ...extra];
+    } catch {}
+  }
+  return HOME_WIDGET_DEFS.map(w => ({ id: w.id, visible: true }));
+}
+
+function saveHomeLayout(layout) {
+  localStorage.setItem('flo_home_layout', JSON.stringify(layout));
+}
+
+function applyHomeLayout() {
+  const layout = getHomeLayout();
+  const container = document.getElementById('view-home');
+  layout.forEach(({ id, visible }) => {
+    const el = container.querySelector(`[data-widget-id="${id}"]`);
+    if (!el) return;
+    if (visible) el.removeAttribute('data-widget-hidden');
+    else el.setAttribute('data-widget-hidden', '');
+    container.appendChild(el);
+  });
+}
+
+let _dragSortCleanup = null;
+
+function _initDragSort(listEl, onSort) {
+  if (_dragSortCleanup) _dragSortCleanup();
+  let dragging = null;
+
+  function onPointerDown(e) {
+    const handle = e.target.closest('[data-drag-handle]');
+    if (!handle) return;
+    dragging = handle.closest('[data-widget-row]');
+    if (!dragging) return;
+    dragging.classList.add('dragging');
+    listEl.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  function onPointerMove(e) {
+    if (!dragging) return;
+    const rows = [...listEl.querySelectorAll('[data-widget-row]')];
+    const y = e.clientY;
+    let inserted = false;
+    for (const row of rows) {
+      if (row === dragging) continue;
+      const rect = row.getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) {
+        listEl.insertBefore(dragging, row);
+        inserted = true;
+        break;
+      }
+    }
+    if (!inserted) {
+      const last = rows[rows.length - 1];
+      if (last && last !== dragging) listEl.appendChild(dragging);
+    }
+  }
+
+  function onPointerUp() {
+    if (!dragging) return;
+    dragging.classList.remove('dragging');
+    dragging = null;
+    onSort();
+  }
+
+  function onPointerCancel() {
+    if (!dragging) return;
+    dragging.classList.remove('dragging');
+    dragging = null;
+  }
+
+  listEl.addEventListener('pointerdown', onPointerDown);
+  listEl.addEventListener('pointermove', onPointerMove);
+  listEl.addEventListener('pointerup', onPointerUp);
+  listEl.addEventListener('pointercancel', onPointerCancel);
+
+  _dragSortCleanup = () => {
+    listEl.removeEventListener('pointerdown', onPointerDown);
+    listEl.removeEventListener('pointermove', onPointerMove);
+    listEl.removeEventListener('pointerup', onPointerUp);
+    listEl.removeEventListener('pointercancel', onPointerCancel);
+    _dragSortCleanup = null;
+  };
+}
+
+function openHomeCustomize() {
+  const layout = getHomeLayout();
+  const listEl = document.getElementById('home-customize-list');
+  listEl.innerHTML = layout.map(({ id, visible }) => {
+    const def = HOME_WIDGET_DEFS.find(w => w.id === id);
+    if (!def) return '';
+    return `
+      <div class="customize-row flex items-center gap-3 py-3 px-2 border-b border-[#edeeef]" data-widget-row data-id="${id}">
+        <div class="text-[#c5c6ca] text-xl leading-none px-1 select-none" data-drag-handle title="Drag to reorder">⠿</div>
+        <div class="text-lg w-7 text-center select-none">${def.icon}</div>
+        <div class="flex-1 text-sm font-semibold text-[#191c1d]">${def.label}</div>
+        <div class="toggle-track ${visible ? 'on' : ''}" onclick="toggleHomeWidget('${id}', this)">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  _initDragSort(listEl, () => {
+    const newOrder = [...listEl.querySelectorAll('[data-widget-row]')].map(r => r.dataset.id);
+    const layoutMap = Object.fromEntries(getHomeLayout().map(w => [w.id, w]));
+    saveHomeLayout(newOrder.map(id => layoutMap[id]).filter(Boolean));
+    applyHomeLayout();
+  });
+
+  document.getElementById('home-customize-overlay').classList.remove('hidden');
+}
+
+function closeHomeCustomize() {
+  document.getElementById('home-customize-overlay').classList.add('hidden');
+}
+
+function toggleHomeWidget(id, toggleEl) {
+  const layout = getHomeLayout();
+  const item = layout.find(w => w.id === id);
+  if (!item) return;
+  item.visible = !item.visible;
+  saveHomeLayout(layout);
+  toggleEl.classList.toggle('on', item.visible);
+  applyHomeLayout();
+}
 
 function getSummaries() {
   const s = localStorage.getItem('flo_summaries');
@@ -78,36 +234,38 @@ function computeSummary() {
   const today     = new Date().toISOString().split('T')[0];
   const thisMonth = today.slice(0, 7);
 
-  const todayTotal = expenses.filter(e => e.date === today).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
-  const monthTotal = expenses.filter(e => (e.date || '').startsWith(thisMonth)).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  const todayTotal = expenses.filter(e => isExpenseEntry(e) && e.date === today).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  const monthTotal = expenses.filter(e => isExpenseEntry(e) && (e.date || '').startsWith(thisMonth)).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   // This week (Mon → today)
   const dow       = new Date().getDay(); // 0=Sun
   const daysBack  = dow === 0 ? 6 : dow - 1;
   const weekStart = new Date(Date.now() - daysBack * 86400000).toISOString().split('T')[0];
   const weekTotal = expenses
-    .filter(e => (e.date || '') >= weekStart && (e.date || '') <= today)
+    .filter(e => isExpenseEntry(e) && (e.date || '') >= weekStart && (e.date || '') <= today)
     .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
-  // Last calendar month total (for trend badge)
-  const lastMonthDate = new Date();
+  // Last calendar month full total (daily-average comparison handles unequal month lengths)
+  const lastMonthDate  = new Date();
   lastMonthDate.setDate(1);
   lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
   const lastMonthStr   = lastMonthDate.toISOString().slice(0, 7);
   const lastMonthTotal = expenses
-    .filter(e => (e.date || '').startsWith(lastMonthStr))
+    .filter(e => isExpenseEntry(e) && (e.date || '').startsWith(lastMonthStr))
     .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   const catBreakdown = {};
-  expenses.filter(e => (e.date || '').startsWith(thisMonth)).forEach(e => {
+  expenses.filter(e => isExpenseEntry(e) && (e.date || '').startsWith(thisMonth)).forEach(e => {
     const cat = e.category || 'Others';
     catBreakdown[cat] = (catBreakdown[cat] || 0) + convertToDefault(e.amount, e.currency, e.rate);
   });
 
-  const daysData = [];
-  for (let i = 6; i >= 0; i--) {
-    const d     = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
-    const total = expenses.filter(e => e.date === d).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  const daysData  = [];
+  const daysToMon = dow === 0 ? 6 : dow - 1;
+  const monday    = new Date(Date.now() - daysToMon * 86400000);
+  for (let i = 0; i < 7; i++) {
+    const d     = new Date(monday.getTime() + i * 86400000).toISOString().split('T')[0];
+    const total = expenses.filter(e => isExpenseEntry(e) && e.date === d).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
     daysData.push({ date: d, total: Math.round(total * 100) / 100 });
   }
 
@@ -118,13 +276,22 @@ function computeSummary() {
       const kb = (b.date || '') + (b.created_at || '');
       return kb > ka ? 1 : -1;
     })
-    .slice(0, 5);
+    .slice(0, 3);
+
+  const todayIncome = expenses
+    .filter(e => isIncomeEntry(e) && e.date === today)
+    .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  const monthIncome = expenses
+    .filter(e => isIncomeEntry(e) && (e.date || '').startsWith(thisMonth))
+    .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   return {
     today_total:       Math.round(todayTotal * 100) / 100,
     month_total:       Math.round(monthTotal * 100) / 100,
     week_total:        Math.round(weekTotal * 100) / 100,
     last_month_total:  Math.round(lastMonthTotal * 100) / 100,
+    today_income:      Math.round(todayIncome * 100) / 100,
+    month_income:      Math.round(monthIncome * 100) / 100,
     category_breakdown: Object.fromEntries(
       Object.entries(catBreakdown).map(([k, v]) => [k, Math.round(v * 100) / 100])
     ),
@@ -160,6 +327,10 @@ const CAT_EMOJI = {
   "Transport":                     "🚇",
   "Others":                        "📦",
 };
+const INCOME_CATEGORIES = ["Salary","Freelance","Investment","Rental","Gift","Refund","Other Income"];
+const INCOME_CAT_COLOR  = { "Salary":"#16a34a","Freelance":"#0891b2","Investment":"#7c3aed","Rental":"#d97706","Gift":"#db2777","Refund":"#059669","Other Income":"#64748b" };
+const INCOME_CAT_EMOJI  = { "Salary":"💼","Freelance":"💻","Investment":"📈","Rental":"🏘️","Gift":"🎁","Refund":"↩️","Other Income":"💰" };
+
 const CUR_SYM = { EUR:"€",USD:"$",GBP:"£",JPY:"¥",CHF:"Fr",SEK:"kr",NOK:"kr",DKK:"kr",PLN:"zł",CNY:"¥",HKD:"HK$",SGD:"S$",AUD:"A$",CAD:"C$" };
 const PAYMENT_ICONS   = { "Cash":"💵", "Debit Card":"💳", "Credit Card":"💳", "Mobile Pay":"📱", "Bank Transfer":"🏦" };
 const BUILTIN_CURRENCIES = [
@@ -178,6 +349,7 @@ const state = {
   selectedCategory: null,
   originalCategory: null,
   selectedPayment:  null,
+  isIncome:         false,
   isReceipt:        false,
   isVoice:          false,
   receiptFile:         null,
@@ -189,39 +361,39 @@ const state = {
   editPayment:      null,
   editItems:        [],
   rates:            null, // { base, rates: {USD:…}, date }
+  currentPendingScanId: null,
 };
 
 let pieChartInst = null;
 let lineChartInst = null;
+const _pendingScansFiles  = {};  // id → File (in-memory only)
+const _pendingScansAborts = {};  // id → AbortController
 
-// ── Google Places (custom dropdown, no Autocomplete widget) ──────────────────
-let _gmapsLoadPromise  = null;
+// ── Google Places (server-proxied — the server key never reaches the browser) ──
 let _cachedPosition    = null;
 let _locationTimer     = null;
-let _serverPlacesKey   = null;
+let _placesKeySet      = null;   // whether the server has a Places key configured
 
-async function loadGoogleMapsAPI() {
-  if (window.google?.maps?.places) return true;
-  if (_serverPlacesKey === null) {
+async function placesAvailable() {
+  if (_placesKeySet === null) {
     try {
       const r = await fetch('/api/settings');
       const d = await r.json();
-      _serverPlacesKey = d.places_server_key || '';
-    } catch { _serverPlacesKey = ''; }
+      _placesKeySet = !!d.places_key_set;
+    } catch { _placesKeySet = false; }
   }
-  const key = localStorage.getItem('placesApiKey') || _serverPlacesKey;
-  if (!key) return false;
-  if (_gmapsLoadPromise) return _gmapsLoadPromise;
-  _gmapsLoadPromise = new Promise(resolve => {
-    const cb = '_gmapsInit_' + Date.now();
-    window[cb] = () => resolve(true);
-    const s = document.createElement('script');
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&callback=${cb}`;
-    s.async = true;
-    s.onerror = () => { _gmapsLoadPromise = null; resolve(false); };
-    document.head.appendChild(s);
+  return _placesKeySet;
+}
+
+async function _placesProxy(endpoint, payload) {
+  const r = await fetch(endpoint, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
   });
-  return _gmapsLoadPromise;
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Places request failed');
+  return d.results || [];
 }
 
 async function getPosition() {
@@ -265,25 +437,23 @@ async function onLocationInput(inputId, resultsId) {
   if (!query) { resultsEl.classList.add('hidden'); return; }
 
   _locationTimer = setTimeout(async () => {
-    const ok = await loadGoogleMapsAPI();
-    if (!ok) return;
+    if (!(await placesAvailable())) return;
     resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Searching…</div>';
     resultsEl.classList.remove('hidden');
 
     const pos     = _cachedPosition;
-    const service = new google.maps.places.PlacesService(document.createElement('div'));
-    const opts    = { query };
+    const payload = { query };
     if (pos) {
-      opts.location = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
-      opts.radius   = 10000;
+      payload.lat = pos.coords.latitude;
+      payload.lng = pos.coords.longitude;
     }
-    service.textSearch(opts, (results, status) => {
-      if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
-        resultsEl.classList.add('hidden');
-        return;
-      }
+    try {
+      const results = await _placesProxy('/api/places/text_search', payload);
+      if (!results.length) { resultsEl.classList.add('hidden'); return; }
       _renderPlaceResults(inputId, resultsId, results, 'name', 'formatted_address');
-    });
+    } catch {
+      resultsEl.classList.add('hidden');
+    }
   }, 350);
 }
 
@@ -304,25 +474,29 @@ async function findNearbyPlaces(inputId, resultsId, btnEl) {
     return;
   }
 
-  const ok = await loadGoogleMapsAPI();
-  if (!ok) {
-    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-amber-500 text-center">Add a Google Places API key in Settings to enable this</div>';
+  if (!(await placesAvailable())) {
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-amber-500 text-center">Google Places is not configured on the server</div>';
     setBtn(origLabel, false);
     return;
   }
 
   resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Searching nearby…</div>';
 
-  const loc     = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-  const service = new google.maps.places.PlacesService(document.createElement('div'));
-  service.nearbySearch({ location: loc, radius: 500, type: 'establishment' }, (results, status) => {
+  try {
+    const results = await _placesProxy('/api/places/nearby', {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+    });
     setBtn(origLabel, false);
-    if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
+    if (!results.length) {
       resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">No nearby places found</div>';
       return;
     }
     _renderPlaceResults(inputId, resultsId, results, 'name', 'vicinity');
-  });
+  } catch {
+    setBtn(origLabel, false);
+    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-red-500 text-center">Nearby search failed</div>';
+  }
 }
 
 function selectNearbyPlace(inputId, resultsId, el) {
@@ -339,6 +513,21 @@ function catEmoji(cat) {
   if (custom) return custom;
   return CAT_EMOJI[cat] || "📦";
 }
+function isExpenseEntry(e)  { return !e.type || e.type === 'expense'; }
+function isIncomeEntry(e)   { return e.type === 'income'; }
+function getAllIncomeCategories() {
+  const custom = getCustomIncomeCategories();
+  return [...new Set([...INCOME_CATEGORIES, ...custom])];
+}
+function incomeCatColor(cat){ return INCOME_CAT_COLOR[cat] || "#16a34a"; }
+function incomeCatEmoji(cat){
+  const custom = getIncomeEmojis()[cat];
+  if (custom) return custom;
+  return INCOME_CAT_EMOJI[cat] || "💰";
+}
+function txnColor(exp)      { return isIncomeEntry(exp) ? incomeCatColor(exp.category) : catColor(exp.category); }
+function txnEmoji(exp)      { return isIncomeEntry(exp) ? incomeCatEmoji(exp.category) : catEmoji(exp.category); }
+
 function curSym(code)       { return CUR_SYM[(code||"EUR").toUpperCase()] || code || "€"; }
 function paymentIcon(m) {
   // User overrides always win over built-in defaults
@@ -538,14 +727,17 @@ function showView(name) {
     const searchEl = document.getElementById('history-search');
     if (searchEl) searchEl.value = '';
     _historySelCats.clear();
+    _historySelPayments.clear();
+    _historySelTime = null;
+    _historySelType = null;
+    if (_histViewMode === 'calendar') _resetHistToListMode();
     loadHistory();
   }
   if (name === "summary")  loadSummary();
   if (name === "add")      prepareAddForm();
   if (name === "settings")        { loadSettingsView(); syncDarkToggle(); }
   if (name === "preferences")     loadSettingsView();
-  if (name === "api-keys")        loadSettingsView();
-  if (name === "categories")       { loadCategoriesView(); loadOverrides(); }
+  if (name === "categories")       { loadCategoriesView(); loadIncomeCategoriesSection(); loadOverrides(); }
   if (name === "payment-methods")  loadPaymentMethodsView();
 }
 
@@ -573,6 +765,7 @@ function addByManual() {
 
 // ── Home ──────────────────────────────────────────────────────────────────────
 async function loadHome() {
+  applyHomeLayout();
   await loadRates();
   const data   = computeSummary();
   const defCur = localStorage.getItem("defaultCurrency") || "EUR";
@@ -582,18 +775,23 @@ async function loadHome() {
   document.getElementById("home-today").textContent = fmtAmount(data.today_total, defCur);
   document.getElementById("home-week").textContent  = fmtAmount(data.week_total,  defCur);
 
-  // ── Trend badge vs last month
+  // ── Trend badge: compare daily spending rate vs last month
   const trendEl = document.getElementById("home-trend-badge");
   if (data.last_month_total > 0) {
-    const diff = data.month_total - data.last_month_total;
-    const pct  = Math.round(Math.abs(diff / data.last_month_total) * 100);
+    const todayDay       = new Date().getDate();
+    const lmDate         = new Date(); lmDate.setDate(1); lmDate.setMonth(lmDate.getMonth() - 1);
+    const daysInLastMonth = new Date(lmDate.getFullYear(), lmDate.getMonth() + 1, 0).getDate();
+    const thisAvg        = data.month_total / todayDay;
+    const lastAvg        = data.last_month_total / daysInLastMonth;
+    const diff           = thisAvg - lastAvg;
+    const pct            = Math.round(Math.abs(diff / lastAvg) * 100);
     if (diff <= 0) {
-      trendEl.textContent   = `↘ ${pct}% lower`;
+      trendEl.textContent   = `↘ ${pct}% less per day`;
       trendEl.style.cssText = isDark()
         ? "background:#0d2e28;color:#6dfad2"
         : "background:#f0fdf9;color:#006b55";
     } else {
-      trendEl.textContent   = `↗ ${pct}% higher`;
+      trendEl.textContent   = `↗ ${pct}% more per day`;
       trendEl.style.cssText = isDark()
         ? "background:#2d1a08;color:#fb923c"
         : "background:#fff7ed;color:#ea580c";
@@ -607,9 +805,11 @@ async function loadHome() {
   const budget         = getBudget();
   const budgetSection  = document.getElementById("home-budget-section");
   const homeLeftEl     = document.getElementById("home-left");
+  const noBudgetBtn    = document.getElementById("home-no-budget-btn");
 
   if (budget && budget > 0) {
     budgetSection.classList.remove("hidden");
+    noBudgetBtn.classList.add("hidden");
     const spent     = data.month_total;
     const pct       = Math.min(Math.round((spent / budget) * 100), 100);
     const remaining = Math.max(budget - spent, 0);
@@ -629,35 +829,82 @@ async function loadHome() {
     setTimeout(() => { barEl.style.width = pct + "%"; }, 80);
   } else {
     budgetSection.classList.add("hidden");
+    noBudgetBtn.classList.remove("hidden");
     homeLeftEl.textContent  = "—";
     homeLeftEl.style.color  = isDark() ? "#6dfad2" : "#006b55";
   }
 
+  // ── Income / net balance card
+  const incomeCard  = document.getElementById('home-income-card');
+  const monthIncome = data.month_income || 0;
+  incomeCard.classList.remove('hidden');
+  document.getElementById('home-month-income').textContent  = fmtAmount(monthIncome, defCur);
+  document.getElementById('home-month-expense').textContent = fmtAmount(data.month_total, defCur);
+  const net   = monthIncome - data.month_total;
+  const netEl = document.getElementById('home-net-balance');
+  netEl.textContent = (net >= 0 ? '+' : '') + fmtAmount(Math.abs(net), defCur);
+  netEl.style.color = net >= 0 ? (isDark() ? '#4ade80' : '#16a34a') : '#ef4444';
+
   data.recent.forEach(e => { state.expenseMap[e.id] = e; });
-  renderDailyChart(data.daily_chart);
+  renderDailyChart(data.daily_chart, defCur);
   renderCategoryBreakdown(data.category_breakdown, data.month_total, defCur);
   renderRecentExpenses(data.recent);
+  renderPendingScans();
 }
 
-function renderDailyChart(data) {
+function toggleBudgetEdit() {
+  const el = document.getElementById("home-budget-edit");
+  el.classList.toggle("hidden");
+  if (!el.classList.contains("hidden")) {
+    document.getElementById("home-budget-input").focus();
+  }
+}
+
+function saveHomeBudget() {
+  const val = parseFloat(document.getElementById("home-budget-input").value);
+  if (!val || val <= 0) { showToast("Enter a valid budget amount", true); return; }
+  saveBudget(val);
+  document.getElementById("home-budget-edit").classList.add("hidden");
+  document.getElementById("home-budget-input").value = "";
+  showToast("Budget saved!");
+  loadHome();
+}
+
+function renderDailyChart(data, defCur = "EUR") {
   const maxVal   = Math.max(...data.map(d => d.total), 0.01);
   const today    = new Date().toISOString().split("T")[0];
   const barsEl   = document.getElementById("chart-bars");
   const labelsEl = document.getElementById("chart-labels");
 
+  const dark = isDark();
+  const todayBarCol  = "#6dfad2";
+  const otherBarCol  = "#006b55";
+  const todayLblCol  = dark ? "#6dfad2" : "#006b55";
+  const otherLblCol  = dark ? "#686868" : "#44474a";
+  const sym = curSym(defCur);
+
+  function compactAmt(v) {
+    if (v <= 0) return "";
+    if (v >= 1000) return sym + (v / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+    return sym + (Number.isInteger(v) ? v : v.toFixed(1));
+  }
+
   barsEl.innerHTML = data.map(d => {
     const pct     = Math.max(Math.round((d.total / maxVal) * 100), d.total > 0 ? 4 : 0);
     const isToday = d.date === today;
+    const col     = isToday ? todayBarCol : otherBarCol;
+    const lblCol  = isToday ? todayLblCol : otherLblCol;
+    const label   = d.total > 0 ? `<span class="absolute -top-[18px] inset-x-0 text-center text-[8px] font-bold leading-none whitespace-nowrap overflow-hidden" style="color:${lblCol}">${compactAmt(d.total)}</span>` : "";
     return `<div class="flex-1 flex flex-col justify-end h-full">
-        <div class="w-full rounded-t-md bar-fill"
-             style="height:0%;background:${isToday ? "#006b55" : "#6dfad2"}" data-h="${pct}%"></div>
+        <div class="w-full rounded-t-md bar-fill relative"
+             style="height:0%;background:${col}" data-h="${pct}%">${label}</div>
       </div>`;
   }).join("");
 
   labelsEl.innerHTML = data.map(d => {
     const isToday = d.date === today;
     const day = new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" }).slice(0,2);
-    return `<div class="flex-1 text-center text-[10px] font-semibold" style="color:${isToday ? "#006b55" : "#44474a"}">${day}</div>`;
+    return `<div class="flex-1 text-center text-[10px] font-semibold" style="color:${isToday ? todayLblCol : otherLblCol}">${day}</div>`;
   }).join("");
 
   setTimeout(() => {
@@ -687,7 +934,7 @@ function renderCategoryBreakdown(breakdown, total, defCur = "EUR") {
             <span class="text-xs font-bold text-gray-700 ml-2">${fmtAmount(amt, defCur)}</span>
           </div>
           <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full rounded-full bar-fill" style="width:0%;background:${col}" data-w="${pct}%"></div>
+            <div class="h-full rounded-full bar-fill" style="width:0%;background:${col}" data-w="${share}%"></div>
           </div>
         </div>
         <span class="text-[10px] text-gray-400 w-7 text-right flex-shrink-0">${share}%</span>
@@ -709,14 +956,19 @@ function renderRecentExpenses(expenses) {
 }
 
 function miniExpenseCard(exp) {
-  const col    = catColor(exp.category);
-  const em     = catEmoji(exp.category);
-  const badge  = exp.source === "receipt"
+  const income = isIncomeEntry(exp);
+  const col    = txnColor(exp);
+  const em     = txnEmoji(exp);
+  const badge  = income
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1 bg-green-100 text-green-700">+ income</span>`
+    : exp.source === "receipt"
     ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>` : "";
   const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
     ? `<div class="text-[9px] text-gray-400">≈ ${fmtAmount(convertToDefault(exp.amount, exp.currency, exp.rate), defCur)}</div>` : "";
+  const amtColor  = income ? (isDark() ? "#4ade80" : "#16a34a") : (isDark() ? "#f5f5f5" : "#1f2937");
+  const amtPrefix = income ? "+" : "";
   return `
     <div onclick="showExpenseDetail('${exp.id}')"
          class="flex items-center gap-3 cursor-pointer active:opacity-70 rounded-xl p-1 -m-1 transition-opacity">
@@ -727,7 +979,7 @@ function miniExpenseCard(exp) {
         <div class="text-xs text-gray-400 truncate">${esc(exp.category)}</div>
       </div>
       <div class="text-right flex-shrink-0">
-        <div class="text-sm font-bold text-gray-800">${fmtAmount(exp.amount, exp.currency)}</div>
+        <div class="text-sm font-bold" style="color:${amtColor}">${amtPrefix}${fmtAmount(exp.amount, exp.currency)}</div>
         ${cvt}
       </div>
     </div>`;
@@ -735,13 +987,66 @@ function miniExpenseCard(exp) {
 
 // ── Add form ──────────────────────────────────────────────────────────────────
 function prepareAddForm() {
+  state.isIncome = false;
+  setFormType('expense');
   document.getElementById("f-date").value = new Date().toISOString().split("T")[0];
   const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("f-currency", defaultCurrency);
   document.getElementById("f-cur-sym").textContent = curSym(defaultCurrency);
-  loadCategoriesIntoButtons();
   renderPaymentButtons(state.selectedPayment, "payment-buttons");
 }
+
+function setFormType(type) {
+  state.isIncome = (type === 'income');
+  const expBtn = document.getElementById('toggle-expense');
+  const incBtn = document.getElementById('toggle-income');
+  if (expBtn && incBtn) {
+    if (state.isIncome) {
+      expBtn.className = 'flex-1 py-2 rounded-xl text-sm font-bold text-[#44474a] dark:text-[#aaa] transition-all';
+      incBtn.className = 'flex-1 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#1e1e1e] text-[#006b55] dark:text-[#6dfad2] shadow-sm transition-all';
+    } else {
+      expBtn.className = 'flex-1 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#1e1e1e] text-[#191c1d] dark:text-white shadow-sm transition-all';
+      incBtn.className = 'flex-1 py-2 rounded-xl text-sm font-bold text-[#44474a] dark:text-[#aaa] transition-all';
+    }
+  }
+  const titleEl   = document.getElementById('add-form-title');
+  const labelEl   = document.getElementById('f-merchant-label');
+  const inputEl   = document.getElementById('f-merchant');
+  const saveLabel = document.getElementById('save-label');
+  const locWrap   = document.getElementById('f-location-wrap');
+  const itemsSec  = document.getElementById('items-section');
+  if (titleEl)   titleEl.textContent   = state.isIncome ? 'Add Income'              : 'Add Expense';
+  if (saveLabel) saveLabel.textContent  = state.isIncome ? 'Add Income'              : 'Add Expense';
+  if (labelEl)   labelEl.textContent   = state.isIncome ? 'Source *'                : 'Merchant *';
+  if (inputEl)   inputEl.placeholder   = state.isIncome ? 'e.g. Employer, Client'   : "e.g. Lidl, McDonald's";
+  if (locWrap)   locWrap.classList.toggle('hidden', state.isIncome);
+  if (itemsSec && state.isIncome) itemsSec.classList.add('hidden');
+  const confEl = document.getElementById('cat-confidence');
+  if (confEl) confEl.classList.add('hidden');
+  if (state.isIncome) {
+    renderIncomeCatButtons(null);
+  } else {
+    loadCategoriesIntoButtons();
+  }
+  state.selectedCategory = null;
+}
+
+function renderIncomeCatButtons(selected) {
+  const el = document.getElementById('cat-buttons');
+  if (!el) return;
+  el.innerHTML = getAllIncomeCategories().map(cat => {
+    const col = incomeCatColor(cat);
+    const isChosen = cat === selected;
+    return `<button type="button" onclick="selectIncomeCategory('${esc(cat)}')"
+              class="cat-chip px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all ${isChosen ? 'selected' : 'opacity-60'}"
+              style="background:${col}">
+        ${incomeCatEmoji(cat)} ${esc(cat)}
+      </button>`;
+  }).join('');
+  state.selectedCategory = selected;
+}
+
+function selectIncomeCategory(cat) { renderIncomeCatButtons(cat); }
 
 function getAllCategories() {
   const data   = getCentroids();
@@ -806,6 +1111,7 @@ function selectPayment(method, containerId) {
 
 async function autoClassify() {
   if (state.isReceipt) return;
+  if (state.isIncome)  return;
   const merchant = document.getElementById("f-merchant").value.trim();
   if (!merchant) return;
   try {
@@ -871,10 +1177,13 @@ function handleScanFile(file) {
   }
 }
 
-function confirmAndAnalyze() {
-  document.getElementById("scan-confirm-area").classList.add("hidden");
-  document.getElementById("scan-analyzing-area").classList.remove("hidden");
-  analyzeScanReceipt();
+async function confirmAndAnalyze() {
+  if (!state.receiptFile) return;
+  const file = state.receiptFile;
+  await queueBackgroundScan(file);
+  clearScanView();
+  showView('home');
+  showToast('Analyzing receipt in background…');
 }
 
 // Cancel scan view — go back to method picker
@@ -916,6 +1225,173 @@ function clearScan() {
   resetForm();
 }
 
+// ── Background receipt scanning queue ─────────────────────────────────────────
+
+async function _makeThumbnail(file) {
+  if (file.type === 'application/pdf') return null;
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 120;
+        const scale = Math.min(1, MAX / img.width, MAX / img.height);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = () => resolve(null);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function queueBackgroundScan(file) {
+  const id        = generateId();
+  const thumbnail = await _makeThumbnail(file);
+
+  _pendingScansFiles[id]  = file;
+  _pendingScansAborts[id] = new AbortController();
+
+  const scans = getPendingScans();
+  scans.push({
+    id,
+    status:           'processing',
+    fileName:         file.name || 'receipt',
+    isPdf:            file.type === 'application/pdf',
+    thumbnailDataUrl: thumbnail,
+    extractedData:    null,
+    errorMessage:     null,
+    createdAt:        new Date().toISOString(),
+  });
+  savePendingScans(scans);
+  _runBackgroundScan(id, file, _pendingScansAborts[id]);
+}
+
+async function _runBackgroundScan(id, file, abort) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('payment_methods', getPaymentMethods().join(','));
+
+    const resp = await postWithOverloadRetry('/api/scan_receipt', formData, { signal: abort.signal });
+    if (abort.signal.aborted) return;
+
+    const scans = getPendingScans();
+    const scan  = scans.find(s => s.id === id);
+    if (scan) { scan.status = 'ready'; scan.extractedData = resp.data; savePendingScans(scans); }
+    delete _pendingScansAborts[id];
+
+    _refreshHomePendingScans();
+    showToast('Receipt ready — tap to review!');
+  } catch (e) {
+    if (e.name === 'AbortError' || abort.signal.aborted) return;
+
+    const scans = getPendingScans();
+    const scan  = scans.find(s => s.id === id);
+    if (scan) { scan.status = 'error'; scan.errorMessage = e.message || 'Analysis failed'; savePendingScans(scans); }
+    delete _pendingScansAborts[id];
+
+    _refreshHomePendingScans();
+    showToast('Scan failed: ' + (e.message || 'unknown error'), true);
+  }
+}
+
+function _refreshHomePendingScans() {
+  if (document.getElementById('home-pending-scans')) renderPendingScans();
+}
+
+function renderPendingScans() {
+  const section = document.getElementById('home-pending-scans');
+  const list    = document.getElementById('pending-scans-list');
+  if (!section || !list) return;
+  const scans = getPendingScans();
+  if (scans.length === 0) { section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+  list.innerHTML = scans.map(pendingScanCard).join('');
+}
+
+function pendingScanCard(scan) {
+  const thumb = scan.thumbnailDataUrl
+    ? `<img src="${scan.thumbnailDataUrl}" class="w-10 h-10 object-cover rounded-xl flex-shrink-0" />`
+    : `<div class="w-10 h-10 rounded-xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-xl">${scan.isPdf ? '📄' : '🧾'}</div>`;
+  const closeBtn = `<button onclick="event.stopPropagation();dismissPendingScan('${scan.id}')"
+    class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 flex-shrink-0 transition-colors ml-1">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+  </button>`;
+
+  if (scan.status === 'processing') {
+    return `<div class="flex items-center gap-3 py-0.5">${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-[#191c1d] truncate">${esc(scan.fileName || 'Receipt')}</div>
+        <div class="text-xs text-[#44474a]">Analyzing with AI…</div>
+      </div>
+      <span class="loader flex-shrink-0 ml-1" style="width:18px;height:18px;border-width:2px;border-color:rgba(0,107,85,0.25);border-top-color:#006b55;"></span>
+      ${closeBtn}</div>`;
+  }
+  if (scan.status === 'ready') {
+    const merchant = scan.extractedData?.merchant || scan.fileName || 'Receipt';
+    const total    = scan.extractedData?.total != null
+      ? ' · ' + fmtAmount(scan.extractedData.total, scan.extractedData.currency || (localStorage.getItem('defaultCurrency') || 'EUR'))
+      : '';
+    return `<div onclick="resumePendingScan('${scan.id}')"
+      class="flex items-center gap-3 cursor-pointer active:opacity-70 py-0.5 rounded-xl transition-opacity">${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm font-semibold text-[#191c1d] truncate">${esc(merchant)}</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+        </div>
+        <div class="text-xs font-medium text-emerald-600">Tap to review${total}</div>
+      </div>${closeBtn}</div>`;
+  }
+  if (scan.status === 'error') {
+    return `<div class="flex items-center gap-3 py-0.5">${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-[#191c1d] truncate">${esc(scan.fileName || 'Receipt')}</div>
+        <div class="text-xs text-red-500 truncate">${esc(scan.errorMessage || 'Analysis failed')}</div>
+      </div>
+      <button onclick="retryPendingScan('${scan.id}')"
+        class="text-xs font-bold text-[#006b55] px-2 py-1 rounded-xl border border-[#006b55] flex-shrink-0 whitespace-nowrap">Retry</button>
+      ${closeBtn}</div>`;
+  }
+  return '';
+}
+
+function resumePendingScan(id) {
+  const scan = getPendingScans().find(s => s.id === id);
+  if (!scan || scan.status !== 'ready' || !scan.extractedData) return;
+  state.currentPendingScanId = id;
+  state.receiptFile          = _pendingScansFiles[id] || null;
+  showVerifyView(scan.extractedData);
+}
+
+function dismissPendingScan(id) {
+  _pendingScansAborts[id]?.abort();
+  delete _pendingScansAborts[id];
+  delete _pendingScansFiles[id];
+  savePendingScans(getPendingScans().filter(s => s.id !== id));
+  renderPendingScans();
+}
+
+async function retryPendingScan(id) {
+  const file = _pendingScansFiles[id];
+  if (!file) { showToast('Original file no longer available — please re-upload', true); dismissPendingScan(id); return; }
+  const scans = getPendingScans();
+  const scan  = scans.find(s => s.id === id);
+  if (!scan) return;
+  scan.status = 'processing'; scan.errorMessage = null;
+  savePendingScans(scans);
+  renderPendingScans();
+  const abort = new AbortController();
+  _pendingScansAborts[id] = abort;
+  _runBackgroundScan(id, file, abort);
+}
+
 async function analyzeScanReceipt() {
   if (!state.receiptFile) return;
   const statusEl  = document.getElementById("scan-status");
@@ -933,7 +1409,6 @@ async function analyzeScanReceipt() {
   try {
     const formData = new FormData();
     formData.append("file", state.receiptFile);
-    formData.append("api_key", localStorage.getItem("googleApiKey") || "");
     formData.append("payment_methods", getPaymentMethods().join(","));
     const resp = await postWithOverloadRetry("/api/scan_receipt", formData, {
       signal: abort.signal,
@@ -1018,6 +1493,7 @@ function resetForm() {
   document.getElementById("f-nearby-results").classList.add("hidden");
   const rateRow = document.getElementById("f-rate-row");
   if (rateRow) rateRow.style.display = "none";
+  state.isIncome         = false;
   state.selectedCategory = null;
   state.originalCategory = null;
   state.selectedPayment  = null;
@@ -1088,7 +1564,7 @@ function renderVerifyItems() {
       <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
              oninput="state.pendingReceiptData.items[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
              class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01" min="0"
+      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01"
              oninput="state.pendingReceiptData.items[${i}].price = this.value === '' ? null : parseFloat(this.value)"
              class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
       <button type="button" onclick="removeVerifyItem(${i})"
@@ -1128,7 +1604,7 @@ function renderAddFormItems() {
       <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
              oninput="state.receiptItems[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
              class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01" min="0"
+      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01"
              oninput="state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value)"
              class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
       <button type="button" onclick="removeFormItem(${i})"
@@ -1198,6 +1674,13 @@ function clearVerifyView() {
   const wrap = document.getElementById("verify-pdf-canvas-wrap");
   if (wrap) wrap.innerHTML = "";
   state.pendingReceiptData = null;
+}
+
+function cancelVerifyView() {
+  const fromBackground = !!state.currentPendingScanId;
+  state.currentPendingScanId = null;
+  clearVerifyView();
+  showView(fromBackground ? 'home' : 'scan');
 }
 
 function confirmVerify() {
@@ -1361,8 +1844,7 @@ async function toggleVoiceRecording() {
 
 async function startVoiceRecording() {
   try {
-    const apiKey = localStorage.getItem('googleApiKey') || '';
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
     _voiceStream       = stream;
     _voiceCancelled    = false;
@@ -1380,7 +1862,7 @@ async function startVoiceRecording() {
     _liveWS = new WebSocket(`${wsProto}//${location.host}/ws/voice_live`);
 
     _liveWS.onopen = () => {
-      _liveWS.send(JSON.stringify({ api_key: apiKey, sample_rate: actualRate }));
+      _liveWS.send(JSON.stringify({ sample_rate: actualRate }));
       const source = _audioCtx.createMediaStreamSource(stream);
       _audioProcessor = _audioCtx.createScriptProcessor(4096, 1, 1);
       source.connect(_audioProcessor);
@@ -1500,7 +1982,6 @@ async function loadVoiceSummary() {
 
   const formData = new FormData();
   formData.append('transcript', original);
-  formData.append('api_key', localStorage.getItem('googleApiKey') || '');
 
   try {
     const resp = await postWithOverloadRetry('/api/voice_summary', formData, {
@@ -1552,7 +2033,6 @@ async function confirmVoiceTranscript(useSummary) {
 
   const formData = new FormData();
   formData.append('transcript', transcript);
-  formData.append('api_key', localStorage.getItem('googleApiKey') || '');
 
   const btn = document.getElementById('voice-btn');
   if (btn) btn.disabled = true;
@@ -1594,6 +2074,9 @@ function populateFormFromVoice(data) {
   // Navigate to add view first (runs prepareAddForm for fresh form state)
   showView('add');
 
+  const isIncome = data.transaction_type === 'income';
+  if (isIncome) setFormType('income');
+
   state.isVoice      = true;
   state.isReceipt    = false;
   state.receiptItems = mergeItems(data.items || []);
@@ -1611,23 +2094,27 @@ function populateFormFromVoice(data) {
     updateRateRow("f", code, defCur, null);
   }
   if (data.date)     document.getElementById("f-date").value     = data.date;
-  if (data.location) document.getElementById("f-location").value = data.location;
+  if (data.location && !isIncome) document.getElementById("f-location").value = data.location;
 
   const pm = data.payment_method && getPaymentMethods().includes(data.payment_method) ? data.payment_method : null;
   state.selectedPayment = pm;
   renderPaymentButtons(pm, "payment-buttons");
 
-  const cat = data.predicted_category || "Others";
-  selectCategory(cat);
-  state.originalCategory = cat;
+  const cat = data.predicted_category || (isIncome ? "Other Income" : "Others");
+  if (isIncome) {
+    renderIncomeCatButtons(cat);
+  } else {
+    selectCategory(cat);
+    state.originalCategory = cat;
 
-  const confEl = document.getElementById("cat-confidence");
-  const pct    = Math.round((data.confidence || 0) * 100);
-  confEl.textContent = `Voice: ${pct}% confidence`;
-  confEl.className   = `text-xs ${(data.confidence || 0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
-  confEl.classList.remove("hidden");
+    const confEl = document.getElementById("cat-confidence");
+    const pct    = Math.round((data.confidence || 0) * 100);
+    confEl.textContent = `Voice: ${pct}% confidence`;
+    confEl.className   = `text-xs ${(data.confidence || 0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
+    confEl.classList.remove("hidden");
+  }
 
-  if (state.receiptItems.length > 0) {
+  if (!isIncome && state.receiptItems.length > 0) {
     document.getElementById("items-section").classList.remove("hidden");
     renderAddFormItems();
   }
@@ -1659,7 +2146,7 @@ async function saveExpense() {
   const rateRaw        = parseFloat(document.getElementById("f-rate")?.value);
   const storedRate     = currency.toUpperCase() !== defCur && !isNaN(rateRaw) && rateRaw > 0 ? rateRaw : null;
 
-  if (!merchant) { showToast("Please enter a merchant name", true); return; }
+  if (!merchant) { showToast(state.isIncome ? "Please enter a source" : "Please enter a merchant name", true); return; }
   if (!amount || isNaN(parseFloat(amount))) { showToast("Please enter a valid amount", true); return; }
 
   const btn     = document.getElementById("save-btn");
@@ -1671,7 +2158,7 @@ async function saveExpense() {
 
   try {
     let confidence = 1.0;
-    if (!category) {
+    if (!category && !state.isIncome) {
       const r    = await fetch("/api/classify", {
         method: "POST", headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ name: merchant, ...getCentroids() }),
@@ -1679,17 +2166,21 @@ async function saveExpense() {
       const data = await r.json();
       category   = data.prediction || "Others";
       confidence = data.confidence || 0;
+    } else if (!category && state.isIncome) {
+      category = "Other Income";
     }
 
-    fetch("/api/learn", {
-      method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        merchant,
-        category,
-        original_category: state.originalCategory || "",
-        ...getCentroids(),
-      }),
-    }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids(d.centroids); }).catch(() => {});
+    if (!state.isIncome) {
+      fetch("/api/learn", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          merchant,
+          category,
+          original_category: state.originalCategory || "",
+          ...getCentroids(),
+        }),
+      }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids(d.centroids); }).catch(() => {});
+    }
 
     const expense = {
       id:             generateId(),
@@ -1705,6 +2196,7 @@ async function saveExpense() {
       location,
       items:          (state.isReceipt || state.isVoice) ? state.receiptItems : [],
       source:         state.isReceipt ? "receipt" : state.isVoice ? "voice" : "manual",
+      type:           state.isIncome ? "income" : "expense",
       created_at:     new Date().toISOString(),
     };
 
@@ -1713,23 +2205,44 @@ async function saveExpense() {
     saveExpenses(expenses);
     state.expenseMap[expense.id] = expense;
 
-    showToast("Expense saved!");
+    showToast(state.isIncome ? "Income saved!" : "Expense saved!");
     btn.disabled = false;
     spinner.classList.add("hidden");
+    if (state.currentPendingScanId) {
+      savePendingScans(getPendingScans().filter(s => s.id !== state.currentPendingScanId));
+      delete _pendingScansFiles[state.currentPendingScanId];
+      delete _pendingScansAborts[state.currentPendingScanId];
+      state.currentPendingScanId = null;
+    }
     clearScan();
     resetForm();
     showView("home");
   } catch (e) {
     showToast("Error: " + e.message, true);
-    label.textContent = state.isReceipt ? "Confirm & Save" : "Add Expense";
+    label.textContent = state.isReceipt ? "Confirm & Save" : state.isIncome ? "Add Income" : "Add Expense";
     btn.disabled      = false;
     spinner.classList.add("hidden");
   }
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
-let _historySorted  = [];
-let _historySelCats = new Set();
+let _historySorted      = [];
+let _historySelCats     = new Set();
+let _historySelPayments = new Set();
+let _historySelTime     = null;
+let _historySelType     = null;
+let _histViewMode       = 'list';
+let _calYear            = new Date().getFullYear();
+let _calMonth           = new Date().getMonth();
+
+const HISTORY_TIME_OPTS = [
+  { key: 'today',      label: 'Today' },
+  { key: 'week',       label: 'This week' },
+  { key: 'month',      label: 'This month' },
+  { key: 'last_month', label: 'Last month' },
+  { key: '3months',    label: 'Last 3 months' },
+  { key: 'year',       label: 'This year' },
+];
 
 async function loadHistory() {
   await loadRates();
@@ -1740,28 +2253,96 @@ async function loadHistory() {
     const kb = (b.date || '') + (b.created_at || '');
     return kb > ka ? 1 : -1;
   });
-  renderHistoryCatFilters(_historySorted);
+  updateHistoryFilterBadge();
   filterHistory();
 }
 
-function renderHistoryCatFilters(expenses) {
-  const el = document.getElementById('history-cat-filters');
+function openHistoryFilters() {
+  renderHistoryFilterSheet();
+  document.getElementById('history-filter-overlay').classList.remove('hidden');
+}
+
+function closeHistoryFilters() {
+  document.getElementById('history-filter-overlay').classList.add('hidden');
+}
+
+function clearHistoryFilters() {
+  _historySelCats.clear();
+  _historySelPayments.clear();
+  _historySelTime = null;
+  _historySelType = null;
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
+function renderHistoryFilterSheet() {
+  _renderHFChips('hf-cat',
+    ['All', ...[...new Set(_historySorted.map(e => e.category).filter(Boolean))].sort()],
+    cat => cat === 'All' ? _historySelCats.size === 0 : _historySelCats.has(cat),
+    cat => cat === 'All' ? '#006b55' : catColor(cat),
+    cat => `selectHistoryCat('${esc(cat)}')`,
+    cat => cat === 'All' ? 'All' : catEmoji(cat) + ' ' + esc(cat)
+  );
+
+  const methods = [...new Set(_historySorted.map(e => e.payment_method).filter(Boolean))].sort();
+  const pmSection = document.getElementById('hf-payment')?.closest('div.mb-4');
+  if (pmSection) pmSection.style.display = methods.length ? '' : 'none';
+  _renderHFChips('hf-payment',
+    ['All', ...methods],
+    m => m === 'All' ? _historySelPayments.size === 0 : _historySelPayments.has(m),
+    () => '#006b55',
+    m => `selectHistoryPayment('${esc(m)}')`,
+    m => m === 'All' ? 'All' : paymentIcon(m) + ' ' + esc(m)
+  );
+
+  _renderHFChips('hf-time',
+    ['All', ...HISTORY_TIME_OPTS.map(o => o.key)],
+    k => k === 'All' ? !_historySelTime : _historySelTime === k,
+    () => '#006b55',
+    k => `selectHistoryTime('${k}')`,
+    k => k === 'All' ? 'All' : HISTORY_TIME_OPTS.find(o => o.key === k)?.label || k
+  );
+
+  _renderHFChips('hf-type',
+    ['All', 'expense', 'income'],
+    k => k === 'All' ? !_historySelType : _historySelType === k,
+    k => k === 'income' ? '#16a34a' : '#006b55',
+    k => `selectHistoryType('${k}')`,
+    k => k === 'All' ? 'All' : k === 'income' ? '📥 Income' : '📤 Expenses'
+  );
+}
+
+function _renderHFChips(elId, items, isActiveFn, colorFn, onclickFn, labelFn) {
+  const el = document.getElementById(elId);
   if (!el) return;
-  const cats = [...new Set(expenses.map(e => e.category).filter(Boolean))].sort();
-  el.innerHTML = ['All', ...cats].map(cat => {
-    const isAll    = cat === 'All';
-    const isActive = isAll ? _historySelCats.size === 0 : _historySelCats.has(cat);
-    const col      = isAll ? '#006b55' : catColor(cat);
+  el.innerHTML = items.map(item => {
+    const isActive = isActiveFn(item);
+    const col      = colorFn(item);
     const bg       = isActive ? col : (isDark() ? '#1e1e1e' : '#f8f9fa');
     const text     = isActive ? 'white' : (isDark() ? '#b0b0b0' : '#44474a');
-    const border   = isActive ? col : (isDark() ? '#2e2e2e' : '#e8e9ea');
-    return `<button type="button"
-      onclick="selectHistoryCat('${esc(cat)}')"
-      class="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
+    const border   = isActive ? col : (isDark() ? '#333333' : '#e8e9ea');
+    return `<button type="button" onclick="${onclickFn(item)}"
+      class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
       style="background:${bg};color:${text};border-color:${border}">
-      ${isAll ? 'All' : catEmoji(cat) + ' ' + esc(cat)}
+      ${labelFn(item)}
     </button>`;
   }).join('');
+}
+
+function updateHistoryFilterBadge() {
+  const count = _historySelCats.size + _historySelPayments.size + (_historySelTime ? 1 : 0) + (_historySelType ? 1 : 0);
+  const badge = document.getElementById('history-filter-badge');
+  const btn   = document.getElementById('history-filter-btn');
+  if (!badge || !btn) return;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove('hidden');
+    btn.style.borderColor = '#006b55';
+  } else {
+    badge.classList.add('hidden');
+    btn.style.borderColor = '';
+  }
 }
 
 function selectHistoryCat(cat) {
@@ -1772,9 +2353,40 @@ function selectHistoryCat(cat) {
   } else {
     _historySelCats.add(cat);
   }
-  renderHistoryCatFilters(_historySorted);
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
   filterHistory();
 }
+
+function selectHistoryPayment(method) {
+  if (method === 'All') {
+    _historySelPayments.clear();
+  } else if (_historySelPayments.has(method)) {
+    _historySelPayments.delete(method);
+  } else {
+    _historySelPayments.add(method);
+  }
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
+function selectHistoryTime(key) {
+  _historySelTime = (key === 'All' || _historySelTime === key) ? null : key;
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
+function selectHistoryType(key) {
+  _historySelType = (key === 'All' || _historySelType === key) ? null : key;
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
+function renderHistoryCatFilters() {}   // kept so any stale references don't throw
+function renderHistoryPaymentFilters() {}
 
 function filterHistory() {
   const query = (document.getElementById('history-search')?.value || '').trim().toLowerCase();
@@ -1782,6 +2394,41 @@ function filterHistory() {
   let filtered = _historySorted;
   if (_historySelCats.size > 0) {
     filtered = filtered.filter(e => _historySelCats.has(e.category));
+  }
+  if (_historySelPayments.size > 0) {
+    filtered = filtered.filter(e => _historySelPayments.has(e.payment_method));
+  }
+  if (_historySelTime) {
+    const today      = new Date().toISOString().split('T')[0];
+    const todayDate  = new Date(today);
+    const dow        = todayDate.getDay();
+    const monOffset  = dow === 0 ? 6 : dow - 1;
+    const weekStart  = new Date(todayDate - monOffset * 86400000).toISOString().split('T')[0];
+    const monthStart = today.slice(0, 7) + '-01';
+    const lmDate     = new Date(todayDate); lmDate.setDate(1); lmDate.setMonth(lmDate.getMonth() - 1);
+    const lmStart    = lmDate.toISOString().slice(0, 7) + '-01';
+    const lmEnd      = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0).toISOString().split('T')[0];
+    const m3Date     = new Date(todayDate); m3Date.setMonth(m3Date.getMonth() - 3);
+    const m3Start    = m3Date.toISOString().split('T')[0];
+    const yearStart  = today.slice(0, 4) + '-01-01';
+
+    filtered = filtered.filter(e => {
+      const d = e.date || '';
+      if (_historySelTime === 'today')      return d === today;
+      if (_historySelTime === 'week')       return d >= weekStart && d <= today;
+      if (_historySelTime === 'month')      return d >= monthStart && d <= today;
+      if (_historySelTime === 'last_month') return d >= lmStart && d <= lmEnd;
+      if (_historySelTime === '3months')    return d >= m3Start && d <= today;
+      if (_historySelTime === 'year')       return d >= yearStart && d <= today;
+      return true;
+    });
+  }
+  if (_historySelType) {
+    if (_historySelType === 'income') {
+      filtered = filtered.filter(e => isIncomeEntry(e));
+    } else {
+      filtered = filtered.filter(e => isExpenseEntry(e));
+    }
   }
   if (query) {
     filtered = filtered.filter(e =>
@@ -1794,19 +2441,14 @@ function filterHistory() {
 }
 
 function renderHistory(exps) {
-  const listEl  = document.getElementById("history-list");
-  const totalEl = document.getElementById("history-total");
+  const listEl = document.getElementById("history-list");
 
   if (!exps || exps.length === 0) {
-    listEl.innerHTML    = `<div class="text-center text-gray-300 py-8">No expenses yet</div>`;
-    totalEl.textContent = "";
+    listEl.innerHTML = `<div class="text-center text-gray-300 py-8">No transactions yet</div>`;
     return;
   }
 
-  const defCur     = localStorage.getItem("defaultCurrency") || "EUR";
-  const grandTotal = exps.reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
-  totalEl.textContent = `Total: ${fmtAmount(grandTotal, defCur)} · ${exps.length} items`;
-
+  const defCur  = localStorage.getItem("defaultCurrency") || "EUR";
   const grouped = {};
   for (const exp of exps) {
     const d = exp.date || "Unknown";
@@ -1816,13 +2458,17 @@ function renderHistory(exps) {
   const dates = Object.keys(grouped).sort().reverse();
 
   listEl.innerHTML = dates.map(d => {
-    const dayTotal = grouped[d].reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
-    const cards    = grouped[d].map(exp => historyExpenseCard(exp)).join("");
+    const dayExpenses = grouped[d].filter(isExpenseEntry).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+    const dayIncomes  = grouped[d].filter(isIncomeEntry).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+    const dayLabel    = dayIncomes > 0 && dayExpenses > 0
+      ? `↑${fmtAmount(dayIncomes, defCur)} ↓${fmtAmount(dayExpenses, defCur)}`
+      : dayIncomes > 0 ? `+${fmtAmount(dayIncomes, defCur)}` : fmtAmount(dayExpenses, defCur);
+    const cards = grouped[d].map(exp => historyExpenseCard(exp)).join("");
     return `
       <div>
         <div class="flex items-center justify-between mb-2">
           <span class="text-sm font-bold text-gray-600">${fmtDateLabel(d)}</span>
-          <span class="text-sm font-semibold text-gray-400">${fmtAmount(dayTotal, defCur)}</span>
+          <span class="text-sm font-semibold text-gray-400">${dayLabel}</span>
         </div>
         <div class="space-y-2">${cards}</div>
       </div>`;
@@ -1830,9 +2476,12 @@ function renderHistory(exps) {
 }
 
 function historyExpenseCard(exp) {
-  const col    = catColor(exp.category);
-  const em     = catEmoji(exp.category);
-  const badge  = exp.source === "receipt"
+  const income = isIncomeEntry(exp);
+  const col    = txnColor(exp);
+  const em     = txnEmoji(exp);
+  const badge  = income
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-bold ml-1 bg-green-100 text-green-700">+ income</span>`
+    : exp.source === "receipt"
     ? `<span class="text-[9px] px-1 py-0.5 rounded font-bold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>`
     : exp.source === "voice"
     ? `<span class="text-[9px] bg-rose-100 text-rose-500 px-1 py-0.5 rounded font-bold ml-1">🎤</span>`
@@ -1843,9 +2492,11 @@ function historyExpenseCard(exp) {
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
     ? `<div class="text-[9px] text-gray-400">≈ ${fmtAmount(convertToDefault(exp.amount, exp.currency, exp.rate), defCur)}</div>` : "";
+  const amtColor = income ? (isDark() ? "#4ade80" : "#16a34a") : (isDark() ? "#f5f5f5" : "#111827");
+  const amtPrefix = income ? "+" : "";
   return `
     <div onclick="showExpenseDetail('${exp.id}')"
-         class="bg-white rounded-xl p-3 flex items-center gap-3 shadow-sm border border-gray-100 cursor-pointer active:opacity-75 transition-opacity">
+         class="bg-white rounded-xl p-3 flex items-center gap-3 shadow-sm border ${income ? "border-green-100" : "border-gray-100"} cursor-pointer active:opacity-75 transition-opacity">
       <div class="w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0"
            style="background:${catBg(col)}">${em}</div>
       <div class="flex-1 min-w-0">
@@ -1857,7 +2508,7 @@ function historyExpenseCard(exp) {
         </div>
       </div>
       <div class="text-right flex-shrink-0">
-        <div class="font-bold text-gray-900 text-sm">${fmtAmount(exp.amount, exp.currency)}</div>
+        <div class="font-bold text-sm" style="color:${amtColor}">${amtPrefix}${fmtAmount(exp.amount, exp.currency)}</div>
         ${cvt}
         <button onclick="event.stopPropagation(); deleteExpense('${exp.id}')"
                 class="text-[10px] text-red-400 hover:text-red-600 mt-0.5 font-medium">Delete</button>
@@ -1875,6 +2526,132 @@ function deleteExpense(id) {
   loadHome();
 }
 
+// ── History Calendar View ────────────────────────────────────────────────────
+function _resetHistToListMode() {
+  _histViewMode = 'list';
+  document.getElementById('history-list-controls')?.classList.remove('hidden');
+  document.getElementById('history-cal-controls')?.classList.add('hidden');
+  document.getElementById('history-list')?.classList.remove('hidden');
+  document.getElementById('history-calendar')?.classList.add('hidden');
+  document.getElementById('hist-cal-icon')?.classList.remove('hidden');
+  document.getElementById('hist-list-icon')?.classList.add('hidden');
+}
+
+function toggleHistViewMode() {
+  _histViewMode = _histViewMode === 'list' ? 'calendar' : 'list';
+  const isCal = _histViewMode === 'calendar';
+
+  document.getElementById('history-list-controls').classList.toggle('hidden', isCal);
+  document.getElementById('history-cal-controls').classList.toggle('hidden', !isCal);
+  document.getElementById('history-list').classList.toggle('hidden', isCal);
+  document.getElementById('history-calendar').classList.toggle('hidden', !isCal);
+  document.getElementById('hist-cal-icon').classList.toggle('hidden', isCal);
+  document.getElementById('hist-list-icon').classList.toggle('hidden', !isCal);
+
+  if (isCal) {
+    const now = new Date();
+    _calYear  = now.getFullYear();
+    _calMonth = now.getMonth();
+    renderCalendar();
+  }
+}
+
+function calNavMonth(delta) {
+  _calMonth += delta;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
+  document.getElementById('history-day-detail').innerHTML = '';
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const defCur   = (localStorage.getItem('defaultCurrency') || 'EUR').toUpperCase();
+  const monthStr = `${_calYear}-${String(_calMonth + 1).padStart(2, '0')}`;
+  const today    = new Date().toISOString().split('T')[0];
+
+  document.getElementById('cal-month-label').textContent =
+    new Date(_calYear, _calMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // Aggregate daily totals for this month
+  const dayTotals = {};
+  for (const e of _historySorted) {
+    if (!(e.date || '').startsWith(monthStr)) continue;
+    if (!dayTotals[e.date]) dayTotals[e.date] = { expense: 0, income: 0 };
+    const amt = convertToDefault(e.amount, e.currency, e.rate);
+    if (isIncomeEntry(e)) dayTotals[e.date].income += amt;
+    else                  dayTotals[e.date].expense += amt;
+  }
+
+  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+  // Monday-first offset: JS getDay() 0=Sun..6=Sat → Mon=0 offset = (getDay()+6)%7
+  const startOffset = (new Date(_calYear, _calMonth, 1).getDay() + 6) % 7;
+
+  const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  let html = `<div class="grid grid-cols-7 gap-1 text-center mb-1.5">
+    ${weekdays.map(w => `<div class="text-[10px] font-bold text-[#44474a] py-0.5">${w}</div>`).join('')}
+  </div>
+  <div class="grid grid-cols-7 gap-1">`;
+
+  for (let i = 0; i < startOffset; i++) html += '<div></div>';
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${monthStr}-${String(day).padStart(2, '0')}`;
+    const isToday = dateStr === today;
+    const totals  = dayTotals[dateStr];
+    const hasData = !!totals;
+
+    const base = 'rounded-xl p-1 text-center cursor-pointer flex flex-col items-center justify-start pt-1.5 transition-colors';
+    let bg, dayNumCls;
+    if (isToday) {
+      bg = 'bg-[#006b55]';
+      dayNumCls = 'text-white';
+    } else if (hasData) {
+      bg = 'bg-white border border-[#e8e9ea] active:border-[#006b55]';
+      dayNumCls = 'text-[#191c1d]';
+    } else {
+      bg = 'bg-[#f8f9fa]';
+      dayNumCls = 'text-[#c5c6ca]';
+    }
+
+    let amtHtml = '';
+    if (totals?.expense > 0) {
+      const cls = isToday ? 'text-white opacity-80' : 'text-[#191c1d]';
+      amtHtml += `<div class="text-[8px] font-bold ${cls} leading-tight mt-0.5">${fmtAmount(totals.expense, defCur)}</div>`;
+    }
+    if (totals?.income > 0) {
+      const cls = isToday ? 'text-green-200' : 'text-green-600';
+      amtHtml += `<div class="text-[8px] font-bold ${cls} leading-tight mt-0.5">+${fmtAmount(totals.income, defCur)}</div>`;
+    }
+
+    html += `<div class="${base} ${bg}" style="min-height:52px" onclick="calSelectDay('${dateStr}')">
+      <div class="text-xs font-bold ${dayNumCls}">${day}</div>
+      ${amtHtml}
+    </div>`;
+  }
+
+  html += '</div>';
+  document.getElementById('cal-grid').innerHTML = html;
+}
+
+function calSelectDay(dateStr) {
+  const detailEl  = document.getElementById('history-day-detail');
+  const dayEntries = _historySorted.filter(e => e.date === dateStr);
+
+  if (!dayEntries.length) {
+    detailEl.innerHTML = `<div class="text-center text-[#c5c6ca] py-4 text-sm mt-4 border-t border-[#e8e9ea] pt-4">No transactions on this day</div>`;
+    return;
+  }
+
+  const label = new Date(dateStr + 'T12:00:00')
+    .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  detailEl.innerHTML = `
+    <div class="mt-4 border-t border-[#e8e9ea] pt-4">
+      <div class="text-sm font-bold text-[#191c1d] mb-3">${label}</div>
+      <div class="space-y-2">${dayEntries.map(e => historyExpenseCard(e)).join('')}</div>
+    </div>`;
+}
+
 // ── Expense Detail Sheet ──────────────────────────────────────────────────────
 function showExpenseDetail(id) {
   state.currentEditId = id;
@@ -1888,13 +2665,16 @@ function showExpenseDetail(id) {
 }
 
 function _renderDetailView(exp) {
-  const col = catColor(exp.category);
-  const em  = catEmoji(exp.category);
+  const income = isIncomeEntry(exp);
+  const col    = txnColor(exp);
+  const em     = txnEmoji(exp);
 
   document.getElementById("det-badge").textContent      = `${em} ${exp.category}`;
   document.getElementById("det-badge").style.background = col;
   document.getElementById("det-merchant").textContent   = exp.merchant;
-  document.getElementById("det-amount").textContent     = fmtAmount(exp.amount, exp.currency);
+  const amtEl = document.getElementById("det-amount");
+  amtEl.textContent  = (income ? "+" : "") + fmtAmount(exp.amount, exp.currency);
+  amtEl.style.color  = income ? "#16a34a" : "";
   document.getElementById("det-date").textContent       = fmtDateLabel(exp.date);
 
   const paymentRow = document.getElementById("det-payment-row");
@@ -1967,8 +2747,20 @@ function openEdit() {
   document.getElementById("edit-location").value       = exp.location || "";
   updateRateRow("edit", cur, defCur, exp.rate ?? null);
 
+  const editIncome = isIncomeEntry(exp);
+  const titleEl    = document.getElementById("edit-mode-title");
+  const mLabelEl   = document.getElementById("edit-merchant-label");
+  const locWrapEl  = document.getElementById("edit-location-wrap");
+  if (titleEl)   titleEl.textContent  = editIncome ? "Edit Income"  : "Edit Expense";
+  if (mLabelEl)  mLabelEl.textContent = editIncome ? "Source"       : "Merchant";
+  if (locWrapEl) locWrapEl.classList.toggle("hidden", editIncome);
+
   state.editCategory = exp.category || null;
-  renderEditCatButtons(state.editCategory);
+  if (editIncome) {
+    renderEditIncomeCatButtons(state.editCategory);
+  } else {
+    renderEditCatButtons(state.editCategory);
+  }
 
   state.editPayment = exp.payment_method || null;
   renderPaymentButtons(state.editPayment, "edit-payment-buttons");
@@ -2010,6 +2802,23 @@ function renderEditCatButtons(selected) {
 
 function selectEditCategory(cat) { renderEditCatButtons(cat); }
 
+function renderEditIncomeCatButtons(selected) {
+  const el = document.getElementById("edit-cat-buttons");
+  if (!el) return;
+  el.innerHTML = getAllIncomeCategories().map(cat => {
+    const col = incomeCatColor(cat);
+    const isChosen = cat === selected;
+    return `<button type="button" onclick="selectEditIncomeCategory('${esc(cat)}')"
+              class="cat-chip px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all ${isChosen ? 'selected' : 'opacity-60'}"
+              style="background:${col}">
+        ${incomeCatEmoji(cat)} ${esc(cat)}
+      </button>`;
+  }).join('');
+  state.editCategory = selected;
+}
+
+function selectEditIncomeCategory(cat) { renderEditIncomeCatButtons(cat); }
+
 function renderEditItems() {
   const el = document.getElementById("edit-items-list");
   if (!state.editItems || state.editItems.length === 0) {
@@ -2024,7 +2833,7 @@ function renderEditItems() {
       <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
              oninput="state.editItems[${idx}].quantity = this.value === '' ? 1 : parseInt(this.value)"
              class="w-12 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
-      <input type="number" value="${item.price ?? ""}" placeholder="0.00" min="0" step="0.01"
+      <input type="number" value="${item.price ?? ""}" placeholder="0.00" step="0.01"
              oninput="state.editItems[${idx}].price = this.value === '' ? null : parseFloat(this.value)"
              class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
       <button type="button" onclick="removeEditItem(${idx})"
@@ -2075,10 +2884,11 @@ async function saveEdit() {
     .map(i => ({ name: i.name.trim(), price: i.price, quantity: i.quantity ?? 1 }));
 
   try {
-    const oldExp = state.expenseMap[id];
-    const oldCat = oldExp ? oldExp.category : "";
+    const oldExp     = state.expenseMap[id];
+    const oldCat     = oldExp ? oldExp.category : "";
+    const editIncome = isIncomeEntry(oldExp);
 
-    if (category && category !== oldCat) {
+    if (!editIncome && category && category !== oldCat) {
       fetch("/api/learn", {
         method: "POST", headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ merchant, category, original_category: oldCat, ...getCentroids() }),
@@ -2097,6 +2907,7 @@ async function saveEdit() {
       location,
       payment_method,
       items,
+      type:           oldExp?.type || 'expense',
       updated_at:     new Date().toISOString(),
     };
 
@@ -2170,10 +2981,14 @@ async function loadAiOverview(breakdown, defCur) {
   const el = document.getElementById("ai-overview-text");
   if (!el) return;
 
-  // Need at least some spending data and an API key
-  const apiKey = localStorage.getItem("googleApiKey") || "";
-  if (!apiKey) {
-    el.textContent = "Add a Google API key in Settings to enable AI spending insights.";
+  let envKeySet = false;
+  try {
+    const s = await (await fetch("/api/settings")).json();
+    envKeySet = !!s.env_key_set;
+  } catch { /* ignore — treated as no server key */ }
+
+  if (!envKeySet) {
+    el.textContent = "AI insights require Vertex AI to be configured on the server.";
     document.getElementById("ai-overview-card").classList.remove("hidden");
     return;
   }
@@ -2220,9 +3035,6 @@ async function loadAiOverview(breakdown, defCur) {
 }
 
 async function archiveCurrentMonth() {
-  const apiKey = localStorage.getItem("googleApiKey") || "";
-  if (!apiKey) { showToast("Add a Google API key in Settings first.", true); return; }
-
   const data    = computeSummary();
   const defCur  = localStorage.getItem("defaultCurrency") || "EUR";
   const now     = new Date();
@@ -2408,43 +3220,7 @@ async function loadSettingsView() {
   try {
     const r = await fetch("/api/settings");
     data = await r.json();
-    if (data.env_key_set) {
-      document.getElementById("s-env-notice").classList.remove("hidden");
-    }
-
-    const storedKey = localStorage.getItem("googleApiKey") || "";
-    const statusEl  = document.getElementById("s-key-status");
-    if (storedKey) {
-      const preview = storedKey.length > 10
-        ? storedKey.slice(0, 6) + "…" + storedKey.slice(-4)
-        : "***";
-      statusEl.textContent = `Saved key: ${preview}`;
-      statusEl.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
-    } else if (!data.env_key_set) {
-      statusEl.textContent = "No API key saved — receipt scanning will be unavailable.";
-      statusEl.className   = "text-xs text-amber-500 mt-1.5";
-    } else {
-      statusEl.textContent = "";
-    }
   } catch (e) { console.error("loadSettings:", e); }
-
-  const placesKey    = localStorage.getItem("placesApiKey") || "";
-  const placesStatus = document.getElementById("s-places-status");
-  if (placesStatus) {
-    if (placesKey) {
-      const preview = placesKey.length > 10
-        ? placesKey.slice(0, 6) + "…" + placesKey.slice(-4)
-        : "***";
-      placesStatus.textContent = `Saved key: ${preview}`;
-      placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
-    } else if (data?.places_server_key) {
-      placesStatus.textContent = "Using server-provided Places API key.";
-      placesStatus.className   = "text-xs text-emerald-600 mt-1.5 font-medium";
-    } else {
-      placesStatus.textContent = "No key saved — location autocomplete will be a plain text field.";
-      placesStatus.className   = "text-xs text-amber-500 mt-1.5";
-    }
-  }
 
   const storedCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("s-currency", storedCurrency);
@@ -2493,15 +3269,6 @@ async function resetCentroids() {
       }
     },
   });
-}
-
-function saveApiKey() {
-  const key = document.getElementById("s-api-key").value.trim();
-  if (!key) return;
-  localStorage.setItem("googleApiKey", key);
-  document.getElementById("s-api-key").value = "";
-  showToast("API key saved.");
-  loadSettingsView();
 }
 
 function saveCurrency() {
@@ -2663,6 +3430,85 @@ function deleteCategory(name) {
   });
 }
 
+function loadIncomeCategoriesSection() {
+  const builtins = new Set(INCOME_CATEGORIES);
+  const custom   = new Set(getCustomIncomeCategories());
+  const all      = getAllIncomeCategories();
+
+  const list = document.getElementById("income-categories-list");
+  if (!list) return;
+  list.innerHTML = all.length
+    ? all.map(cat => {
+        const isCustom = custom.has(cat) && !builtins.has(cat);
+        const emoji    = incomeCatEmoji(cat);
+        const tag      = isCustom
+          ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="color:${isDark()?"#6dfad2":"#006b55"};background:${isDark()?"#1e1e1e":"#f0fdf9"}">custom</span>`
+          : `<span class="text-[10px] text-[#c5c6ca]">built-in</span>`;
+        const emojiEl = `<input type="text" value="${esc(emoji)}"
+                    title="Tap to change emoji"
+                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0"
+                    onchange="updateIncomeCategoryEmoji('${cat.replace(/'/g, "\\'")}', this.value)" />`;
+        const delBtn = isCustom
+          ? `<button onclick="deleteIncomeCategory('${cat.replace(/'/g, "\\'")}')"
+                     class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>`
+          : `<div class="w-7 h-7 flex-shrink-0"></div>`;
+        return `
+          <div class="flex items-center gap-3 px-4 py-3">
+            ${emojiEl}
+            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(cat)}</span>
+            ${tag}
+            ${delBtn}
+          </div>`;
+      }).join("")
+    : `<div class="px-4 py-6 text-sm text-gray-400 text-center">No income categories.</div>`;
+}
+
+function updateIncomeCategoryEmoji(cat, newEmoji) {
+  const emoji = (newEmoji || "").trim() || "💰";
+  const map   = getIncomeEmojis();
+  map[cat]    = emoji;
+  saveIncomeEmojis(map);
+  loadIncomeCategoriesSection();
+  showToast("Emoji updated!");
+}
+
+function addCustomIncomeCategory() {
+  const nameInput  = document.getElementById("new-income-category-name");
+  const emojiInput = document.getElementById("new-income-category-emoji");
+  const name  = nameInput.value.trim();
+  const emoji = (emojiInput?.value || "").trim() || "💰";
+  if (!name) return;
+  const existing = getAllIncomeCategories();
+  if (existing.map(c => c.toLowerCase()).includes(name.toLowerCase())) {
+    showToast("Income category already exists.", true); return;
+  }
+  const list = getCustomIncomeCategories();
+  list.push(name);
+  saveCustomIncomeCategories(list);
+  const map = getIncomeEmojis();
+  map[name] = emoji;
+  saveIncomeEmojis(map);
+  nameInput.value = "";
+  if (emojiInput) emojiInput.value = "";
+  loadIncomeCategoriesSection();
+  showToast(`"${emoji} ${name}" added.`);
+}
+
+function deleteIncomeCategory(name) {
+  showConfirm({
+    title:   `Delete "${name}"?`,
+    message: "This removes the income category. Transactions already tagged with it are not affected.",
+    okLabel: "Delete",
+    onOk: () => {
+      saveCustomIncomeCategories(getCustomIncomeCategories().filter(c => c !== name));
+      const map = getIncomeEmojis();
+      delete map[name];
+      saveIncomeEmojis(map);
+      loadIncomeCategoriesSection();
+    },
+  });
+}
+
 function updateOverride(merchant, category) {
   const data = getCentroids();
   if (!data) return;
@@ -2764,36 +3610,6 @@ function addOverride() {
   showToast("Override added.");
 }
 
-function toggleApiVis() {
-  const input   = document.getElementById("s-api-key");
-  const showEye = document.getElementById("eye-show");
-  const hideEye = document.getElementById("eye-hide");
-  const isHidden = input.type === "password";
-  input.type = isHidden ? "text" : "password";
-  showEye.classList.toggle("hidden", isHidden);
-  hideEye.classList.toggle("hidden", !isHidden);
-}
-
-function savePlacesApiKey() {
-  const key = document.getElementById("s-places-key").value.trim();
-  if (!key) return;
-  localStorage.setItem("placesApiKey", key);
-  _gmapsLoadPromise = null; // reset so the next autocomplete init picks up the new key
-  document.getElementById("s-places-key").value = "";
-  showToast("Places API key saved.");
-  loadSettingsView();
-}
-
-function togglePlacesKeyVis() {
-  const input   = document.getElementById("s-places-key");
-  const showEye = document.getElementById("places-eye-show");
-  const hideEye = document.getElementById("places-eye-hide");
-  const isHidden = input.type === "password";
-  input.type = isHidden ? "text" : "password";
-  showEye.classList.toggle("hidden", isHidden);
-  hideEye.classList.toggle("hidden", !isHidden);
-}
-
 // ── Export / Import ───────────────────────────────────────────────────────────
 function exportJSON() {
   const expenses = getExpenses();
@@ -2810,7 +3626,7 @@ function exportJSON() {
 function exportCSV() {
   const expenses = getExpenses();
   if (!expenses.length) { showToast("No expenses to export", true); return; }
-  const headers = ["date", "merchant", "amount", "currency", "category", "payment_method", "notes", "location", "source", "created_at"];
+  const headers = ["date", "merchant", "amount", "currency", "category", "payment_method", "notes", "location", "source", "type", "created_at"];
   const escape  = v => {
     const s = String(v ?? "").replace(/"/g, '""');
     return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s}"` : s;
@@ -2841,9 +3657,48 @@ function onImportFile(event) {
       const existing    = getExpenses();
       const existingIds = new Set(existing.map(e => e.id));
       const newOnes     = imported.filter(e => e.id && e.merchant && !existingIds.has(e.id));
+
+      // Auto-add expense categories missing from settings
+      const knownExpCats = new Set(getAllCategories());
+      const newExpCats   = [...new Set(
+        newOnes.filter(e => !isIncomeEntry(e) && e.category && !knownExpCats.has(e.category))
+               .map(e => e.category)
+      )];
+      if (newExpCats.length) {
+        const data = getCentroids() || { categories: {}, custom_categories: [], overrides: {} };
+        data.custom_categories = data.custom_categories || [];
+        for (const cat of newExpCats) {
+          if (!data.custom_categories.includes(cat) && !Object.keys(data.categories || {}).includes(cat)) {
+            data.custom_categories.push(cat);
+          }
+        }
+        saveCentroids(data);
+        loadCategoriesIntoButtons();
+      }
+
+      // Auto-add income categories missing from settings
+      const knownIncCats = new Set(getAllIncomeCategories().map(c => c.toLowerCase()));
+      const newIncCats   = [...new Set(
+        newOnes.filter(e => isIncomeEntry(e) && e.category && !knownIncCats.has(e.category.toLowerCase()))
+               .map(e => e.category)
+      )];
+      if (newIncCats.length) {
+        const list = getCustomIncomeCategories();
+        for (const cat of newIncCats) {
+          if (!list.map(c => c.toLowerCase()).includes(cat.toLowerCase())) list.push(cat);
+        }
+        saveCustomIncomeCategories(list);
+      }
+
       saveExpenses([...existing, ...newOnes]);
       document.getElementById("import-file").value = "";
-      showToast(`Imported ${newOnes.length} expense${newOnes.length !== 1 ? "s" : ""}`);
+
+      const addedParts = [];
+      if (newExpCats.length) addedParts.push(`${newExpCats.length} expense categor${newExpCats.length !== 1 ? "ies" : "y"}`);
+      if (newIncCats.length) addedParts.push(`${newIncCats.length} income categor${newIncCats.length !== 1 ? "ies" : "y"}`);
+      let msg = `Imported ${newOnes.length} expense${newOnes.length !== 1 ? "s" : ""}`;
+      if (addedParts.length) msg += `. Added ${addedParts.join(" and ")}`;
+      showToast(msg);
       loadHome();
     } catch (err) {
       showToast("Import failed: " + err.message, true);
@@ -2869,6 +3724,15 @@ function init() {
   document.getElementById("f-date").value = now.toISOString().split("T")[0];
   syncDarkToggle();
   hydrateCentroids();
+
+  // Mark interrupted in-flight scans as errors (page was refreshed mid-scan)
+  const _staleScans = getPendingScans();
+  let _staleChanged = false;
+  for (const s of _staleScans) {
+    if (s.status === 'processing') { s.status = 'error'; s.errorMessage = 'Interrupted — tap Retry'; _staleChanged = true; }
+  }
+  if (_staleChanged) savePendingScans(_staleScans);
+
   loadHome();
 
   // Close nearby-results dropdowns when clicking outside their wrapper

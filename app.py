@@ -11,8 +11,10 @@ import queue
 import re
 import threading
 import urllib.request
+import urllib.parse
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+
 from flask_sock import Sock
 
 import services.summary as summary
@@ -20,10 +22,66 @@ import services.classifier as classifier
 import services.receipt as receipt
 import services.voice as voice
 from services.gemini_utils import ModelOverloadedError
-from config import ASK_BELOW, CENTROIDS_FILE, GEMINI_LIVE_MODEL, MONTHLY_SPENDING_DATASET, SERVER_API_KEY, SERVER_PLACES_API_KEY
+from config import (
+    ASK_BELOW, CENTROIDS_FILE, GEMINI_LIVE_MODEL, MONTHLY_SPENDING_DATASET,
+    SERVER_PLACES_API_KEY, GOOGLE_CLOUD_PROJECT,
+    REQUIRE_PASSWORD, APP_PASSWORD, SECRET_KEY,
+    get_genai_client,
+)
 
 app  = Flask(__name__)
+app.secret_key = SECRET_KEY
 sock = Sock(app)
+
+
+# ── Access control ────────────────────────────────────────────────────────────
+
+# Endpoints reachable without being logged in.
+PUBLIC_ENDPOINTS = {"login", "static"}
+
+
+@app.before_request
+def require_login():
+    """Gate every request behind the login page when REQUIRE_PASSWORD is on."""
+    if not REQUIRE_PASSWORD:
+        return None
+    if request.endpoint in PUBLIC_ENDPOINTS:
+        return None
+    if session.get("authenticated"):
+        return None
+    # Unauthenticated: send pages to the login screen, reject API/WS calls.
+    if request.path.startswith("/api/") or request.path.startswith("/ws/"):
+        return jsonify({"error": "Authentication required"}), 401
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    # If the gate is off, there's nothing to log into.
+    if not REQUIRE_PASSWORD:
+        return redirect(url_for("index"))
+    if session.get("authenticated"):
+        return redirect(url_for("index"))
+
+    error = None
+    if request.method == "POST":
+        password = (request.form.get("password") or "").strip()
+        # No password configured at all → deny everyone for security.
+        if not APP_PASSWORD:
+            error = "No password is configured on the server. Access is denied."
+        elif password and password == APP_PASSWORD:
+            session["authenticated"] = True
+            session.permanent = True
+            return redirect(url_for("index"))
+        else:
+            error = "Incorrect password. Please try again."
+    return render_template("login.html", error=error), (401 if error else 200)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
@@ -109,12 +167,8 @@ def api_learn():
 
 @app.route("/api/scan_receipt", methods=["POST"])
 def api_scan_receipt():
-    api_key = (
-        request.form.get("api_key", "").strip()
-        or SERVER_API_KEY
-    )
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
 
     file = request.files.get("file") or request.files.get("image")
     if file is None:
@@ -132,7 +186,7 @@ def api_scan_receipt():
     try:
         pm_raw = request.form.get("payment_methods", "")
         payment_methods = [m.strip() for m in pm_raw.split(",") if m.strip()] if pm_raw else []
-        data = receipt.scan_receipt(file_data, mime_type, api_key, payment_methods or None)
+        data = receipt.scan_receipt(file_data, mime_type, payment_methods or None)
         return jsonify({"success": True, "data": data})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
@@ -144,12 +198,8 @@ def api_scan_receipt():
 
 @app.route("/api/voice_input", methods=["POST"])
 def api_voice_input():
-    api_key = (
-        request.form.get("api_key", "").strip()
-        or SERVER_API_KEY
-    )
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
 
     if "audio" not in request.files:
         return jsonify({"error": "No audio file uploaded"}), 400
@@ -160,7 +210,7 @@ def api_voice_input():
         return jsonify({"error": "Empty audio file"}), 400
 
     try:
-        data = voice.process_voice_input(audio_data, file.content_type or "audio/webm", api_key)
+        data = voice.process_voice_input(audio_data, file.content_type or "audio/webm")
         return jsonify({"success": True, "data": data})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
@@ -171,16 +221,15 @@ def api_voice_input():
 @app.route("/api/voice_summary", methods=["POST"])
 def api_voice_summary():
     """Summarise a raw live transcript into a clean purchase note before extraction."""
-    api_key = (request.form.get("api_key", "").strip() or SERVER_API_KEY)
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
 
     transcript = (request.form.get("transcript", "") or "").strip()
     if not transcript:
         return jsonify({"error": "Empty transcript"}), 400
 
     try:
-        summary = voice.summarize_transcript(transcript, api_key)
+        summary = voice.summarize_transcript(transcript)
         return jsonify({"success": True, "original": transcript, "summary": summary})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
@@ -191,16 +240,15 @@ def api_voice_summary():
 @app.route("/api/voice_extract", methods=["POST"])
 def api_voice_extract():
     """Extract expense details from a user-confirmed transcript (text only)."""
-    api_key = (request.form.get("api_key", "").strip() or SERVER_API_KEY)
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
 
     transcript = (request.form.get("transcript", "") or "").strip()
     if not transcript:
         return jsonify({"error": "Empty transcript"}), 400
 
     try:
-        data = voice.process_voice_text(transcript, api_key)
+        data = voice.process_voice_text(transcript)
         return jsonify({"success": True, "data": data})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
@@ -213,22 +261,19 @@ def api_voice_extract():
 @sock.route('/ws/voice_live')
 def voice_live_ws(ws):
     """WebSocket relay: browser audio → Gemini Live → browser transcription."""
-    from google import genai
     from google.genai import types as genai_types
 
     try:
         init     = json.loads(ws.receive())
-        api_key  = (init.get('api_key', '').strip()
-                    or os.environ.get('GOOGLE_API_KEY', ''))
         pcm_rate = int(init.get('sample_rate', 16000))
-        print(f"[Live] WebSocket connection initiated. api_key: {'***' if api_key else 'None'}, sample_rate: {pcm_rate}")
+        print(f"[Live] WebSocket connection initiated. sample_rate: {pcm_rate}")
     except Exception as e:
         print(f"[Live] Init error: {e}")
         return
 
-    if not api_key:
+    if not GOOGLE_CLOUD_PROJECT:
         try:
-            ws.send(json.dumps({'error': 'No API key configured'}))
+            ws.send(json.dumps({'error': 'GOOGLE_CLOUD_PROJECT is not configured on the server.'}))
         except Exception:
             pass
         return
@@ -245,7 +290,7 @@ def voice_live_ws(ws):
 
     async def _gemini_session():
         print("[Live] Starting Gemini Session thread...")
-        client = genai.Client(api_key=api_key)
+        client = get_genai_client()
         config = genai_types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             input_audio_transcription=genai_types.AudioTranscriptionConfig(),
@@ -400,9 +445,86 @@ def api_exchange_rates():
 @app.route("/api/settings")
 def api_get_settings():
     return jsonify({
-        "env_key_set":        bool(SERVER_API_KEY),
-        "places_server_key":  SERVER_PLACES_API_KEY,
+        "vertex_ai_configured": bool(GOOGLE_CLOUD_PROJECT),
+        "env_key_set":          bool(GOOGLE_CLOUD_PROJECT),
+        "places_key_set":       bool(SERVER_PLACES_API_KEY),
     })
+
+
+# ── Google Places proxy ───────────────────────────────────────────────────────
+# The browser never receives the Places key; it calls these endpoints and the
+# server talks to Google on its behalf.
+
+def _places_request(path, params):
+    """Call a Google Places web-service endpoint and return parsed JSON."""
+    qs  = urllib.parse.urlencode(params)
+    req = urllib.request.Request(
+        f"https://maps.googleapis.com/maps/api/place/{path}?{qs}",
+        headers={"User-Agent": "Flo-Finance/1.0"},
+    )
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        return json.loads(resp.read())
+
+
+def _normalize_places(results):
+    """Reduce Google's payload to just what the UI renders."""
+    out = []
+    for r in (results or [])[:12]:
+        out.append({
+            "name":              r.get("name", ""),
+            "formatted_address": r.get("formatted_address", ""),
+            "vicinity":          r.get("vicinity", ""),
+        })
+    return out
+
+
+@app.route("/api/places/text_search", methods=["POST"])
+def api_places_text_search():
+    body = request.get_json(silent=True) or {}
+    # A user-supplied key (from their own browser settings) overrides the server key.
+    api_key = (body.get("api_key") or "").strip() or SERVER_PLACES_API_KEY
+    if not api_key:
+        return jsonify({"error": "No Places API key configured"}), 400
+
+    query = (body.get("query") or "").strip()
+    if not query:
+        return jsonify({"results": []})
+
+    params = {"query": query, "key": api_key}
+    lat, lng = body.get("lat"), body.get("lng")
+    if lat is not None and lng is not None:
+        params["location"] = f"{lat},{lng}"
+        params["radius"]   = 10000
+
+    try:
+        data = _places_request("textsearch/json", params)
+    except Exception as exc:
+        return jsonify({"error": f"Places request failed: {exc}"}), 502
+    return jsonify({"results": _normalize_places(data.get("results"))})
+
+
+@app.route("/api/places/nearby", methods=["POST"])
+def api_places_nearby():
+    body = request.get_json(silent=True) or {}
+    api_key = (body.get("api_key") or "").strip() or SERVER_PLACES_API_KEY
+    if not api_key:
+        return jsonify({"error": "No Places API key configured"}), 400
+
+    lat, lng = body.get("lat"), body.get("lng")
+    if lat is None or lng is None:
+        return jsonify({"error": "lat and lng are required"}), 400
+
+    params = {
+        "location": f"{lat},{lng}",
+        "radius":   500,
+        "type":     "establishment",
+        "key":      api_key,
+    }
+    try:
+        data = _places_request("nearbysearch/json", params)
+    except Exception as exc:
+        return jsonify({"error": f"Places request failed: {exc}"}), 502
+    return jsonify({"results": _normalize_places(data.get("results"))})
 
 # ── Summary API ──────────────────────────────────────────────────────────────
 
@@ -411,7 +533,6 @@ def api_get_overview():
     import json as _json
     from calendar import monthrange
     from datetime import date
-
     api_key = (
         request.args.get("api_key", "").strip()
         or SERVER_API_KEY
@@ -463,6 +584,7 @@ def api_get_overview():
     # ── generate ──────────────────────────────────────────────────────────────
     try:
         overview = summary.generate_overview(current_text, retrieved, api_key)
+
     except Exception as exc:
         return jsonify({"error": f"Failed to generate overview: {exc}"}), 500
 
@@ -474,11 +596,14 @@ def api_get_overview():
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    print("=" * 55)
-    print("  Flo — AI-Powered Personal Finance Assistant")
-    print("=" * 55)
-    print(f"\n  Model : {classifier.MODEL_NAME}")
+def initialize():
+    """Load the model and classifier state.
+
+    Runs both for local `python app.py` and under a production WSGI server
+    (e.g. gunicorn on Cloud Run), which imports `app:app` and never executes
+    the `__main__` block below — so this must NOT live inside it.
+    """
+    print(f"  Model : {classifier.MODEL_NAME}")
     print("  Loading sentence transformer ...")
     classifier.get_model()
     print("  Model ready.")
@@ -492,7 +617,16 @@ if __name__ == "__main__":
     else:
         print("[data] No data source found — starting with empty centroids.")
 
-    print(f"\n  Categories ({len(classifier.centroids)}): {list(classifier.centroids.keys())}")
-    print(f"\n  Open http://localhost:5000 in your browser")
-    print("=" * 55 + "\n")
-    app.run(debug=False, port=5000)
+    print(f"  Categories ({len(classifier.centroids)}): {list(classifier.centroids.keys())}")
+
+
+# Run at import time so gunicorn workers come up warm and ready.
+initialize()
+
+
+if __name__ == "__main__":
+    # Local development server. Cloud Run / gunicorn use the module-level
+    # `app` object and the initialize() call above instead.
+    port = int(os.environ.get("PORT", 5000))
+    print(f"\n  Open http://localhost:{port} in your browser\n")
+    app.run(debug=False, host="0.0.0.0", port=port)

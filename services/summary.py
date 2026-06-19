@@ -14,8 +14,7 @@ from typing import Optional
 import numpy as np
 from sklearn.preprocessing import normalize
 
-from google import genai
-from config import GEMINI_MODELS
+from config import GEMINI_MODELS, get_genai_client
 
  
 import services.classifier as classifier   # for dynamic category list
@@ -40,8 +39,7 @@ def project_to_full_month(spending: dict[str, float], days_elapsed: int, days_in
     return {cat: round(amount * scale, 2) for cat, amount in spending.items()}
  
 
- # ── Public API ────────────────────────────────────────────────────────────────
-  
+ # ── Public API ────────────────────────────────────────────────────────────────  
 def generate_overview(current_text: str, retrieved_summaries: list[dict[str, str]], api_key: str) -> str: 
     historical_context = "\n".join(
         f"- {s['period']}: {s['text']}" for s in retrieved_summaries
@@ -58,6 +56,6 @@ def generate_overview(current_text: str, retrieved_summaries: list[dict[str, str
         "Keep it to 2-3 sentences."
     )
  
-    client   = genai.Client(api_key=api_key)
+    client   = get_genai_client()
     response = client.models.generate_content(model=GEMINI_MODELS[1], contents=prompt)
     return response.text

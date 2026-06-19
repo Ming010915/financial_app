@@ -5,7 +5,19 @@
             class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
     </button>
-    <h2 class="text-xl font-bold text-[#191c1d]">Add Expense</h2>
+    <h2 id="add-form-title" class="text-xl font-bold text-[#191c1d]">Add Expense</h2>
+  </div>
+
+  <!-- Expense / Income toggle -->
+  <div class="flex bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded-2xl p-1 gap-1">
+    <button id="toggle-expense" type="button" onclick="setFormType('expense')"
+            class="flex-1 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#1e1e1e] text-[#191c1d] dark:text-white shadow-sm transition-all">
+      Expense
+    </button>
+    <button id="toggle-income" type="button" onclick="setFormType('income')"
+            class="flex-1 py-2 rounded-xl text-sm font-bold text-[#44474a] dark:text-[#aaa] transition-all">
+      Income
+    </button>
   </div>
 
   <!-- Receipt reference strip (shown only after scan) -->
@@ -34,7 +46,7 @@
   <form onsubmit="event.preventDefault(); saveExpense();" class="space-y-4">
 
     <div>
-      <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Merchant *</label>
+      <label id="f-merchant-label" class="block text-sm font-semibold text-[#191c1d] mb-1.5">Merchant *</label>
       <input id="f-merchant" type="text" placeholder="e.g. Lidl, McDonald's" autocomplete="off"
              class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] focus:border-transparent bg-white"
              onblur="autoClassify()" />
@@ -45,7 +57,7 @@
         <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Amount *</label>
         <div class="relative">
           <span id="f-cur-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
-          <input id="f-amount" type="number" min="0" step="0.01" placeholder="0.00"
+          <input id="f-amount" type="number" step="0.01" placeholder="0.00"
                  class="w-full pl-7 pr-3 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
         </div>
       </div>

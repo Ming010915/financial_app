@@ -17,6 +17,12 @@ body { font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: n
 
 .bar-fill { transition: height 0.7s cubic-bezier(0.4,0,0.2,1), width 0.7s cubic-bezier(0.4,0,0.2,1); }
 
+/* ── Home widget layout ─────────────────────────────────────────────────── */
+[data-widget-hidden] { display: none !important; }
+[data-drag-handle] { touch-action: none; cursor: grab; }
+[data-drag-handle]:active { cursor: grabbing; }
+.customize-row.dragging { background: rgba(0,107,85,0.07); border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+
 .cat-chip { transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease; }
 .cat-chip:active { transform: scale(0.95); }
 .cat-chip.selected { outline: 3px solid white; outline-offset: 2px; opacity: 1 !important; transform: scale(1.04); box-shadow: 0 4px 12px -2px rgba(0,0,0,0.3); }
@@ -149,6 +155,15 @@ body { font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: n
 .dark .bg-blue-100   { background-color: #1e3a5f !important; }
 .dark .text-blue-500 { color: #93c5fd !important; }
 
+/* ─ Green (income) ─ */
+.dark .text-\[\#16a34a\] { color: #4ade80 !important; }
+.dark .bg-green-100      { background-color: #14532d !important; }
+.dark .text-green-700    { color: #86efac !important; }
+
+/* ─ Rose (voice badge) ─ */
+.dark .bg-rose-100  { background-color: #4c0519 !important; }
+.dark .text-rose-500 { color: #fb7185 !important; }
+
 /* ─ Form inputs ─ */
 .dark input[type=text],
 .dark input[type=number],
@@ -174,6 +189,11 @@ body { font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: n
 /* ─ Detail sheet ─ */
 .dark #detail-sheet        { background-color: #141414 !important; }
 .dark #detail-sheet .sticky { background-color: #141414 !important; }
+
+/* ─ Home customize sheet ─ */
+.dark #home-customize-overlay > div:last-child { background-color: #141414 !important; }
+.dark #home-customize-overlay .sticky { background-color: #141414 !important; }
+.dark .customize-row.dragging { background: rgba(109,250,210,0.08) !important; }
 
 /* ─ Toggle ─ */
 .dark .toggle-track { background: #333333; }

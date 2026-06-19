@@ -94,21 +94,24 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
 def build_summary_prompt(transcript: str) -> str:
     """
     Build the prompt that turns a raw speech-to-text transcript into a short,
-    clean summary of the purchase the user described — fixing mis-hearings,
+    clean summary of the transaction the user described — fixing mis-hearings,
     resolving self-corrections, and dropping filler — WITHOUT inventing any
     content the user did not say. Shown to the user for confirmation/editing
-    and then used for expense extraction.
+    and then used for expense/income extraction.
     """
     return (
         "You are summarising a short spoken note for a personal finance / "
-        "expense-logging app. The user described a purchase out loud and an "
+        "expense-logging app. The user described a financial transaction out "
+        "loud (either a purchase/expense OR received money/income) and an "
         "automatic transcriber produced the raw text below, which may contain "
         "mis-hearings, filler words, false starts, and self-corrections.\n"
         "\n"
-        "Write a short, clean summary of the purchase the user described — the "
-        "kind of note they would want saved with the expense. Specifically:\n"
-        "- Capture the merchant/store (if mentioned), the items bought, and "
+        "Write a short, clean summary of the transaction the user described — "
+        "the kind of note they would want saved. Specifically:\n"
+        "- For expenses: capture the merchant/store, the items bought, and "
         "their prices or amounts.\n"
+        "- For income: capture the source (employer, client, etc.), the type "
+        "(salary, freelance payment, refund, etc.), and the amount.\n"
         "- Fix likely transcription mis-hearings using context (e.g. a money "
         "amount misheard as 'rolls' is probably 'euros'; restore garbled "
         "merchant/brand names).\n"
@@ -132,11 +135,18 @@ def build_summary_prompt(transcript: str) -> str:
 
 
 VOICE_PROMPT = (
-    "The user recorded a short voice note describing a purchase. "
+    "The user recorded a short voice note describing a financial transaction — "
+    "either a purchase/expense OR received money (income). "
     "Call the add_expense function with the details you hear. "
     "Rules:\n"
-    "- Use the STORE or MERCHANT name as 'merchant' (e.g. Lidl, Starbucks). "
+    "- Set 'transaction_type' to 'income' if the user is describing money they "
+    "RECEIVED (e.g. salary, paycheck, freelance payment, client payment, refund, "
+    "gift received, rental income, dividend, interest). "
+    "Set it to 'expense' for any purchase, bill, or money spent.\n"
+    "- For expenses: use the STORE or MERCHANT name as 'merchant' (e.g. Lidl, Starbucks). "
     "If no store is mentioned, use the item name.\n"
+    "- For income: use the SOURCE as 'merchant' (e.g. employer name, client name, "
+    "'Salary', 'Freelance payment'). If no source is mentioned, use the income type.\n"
     "- If multiple items are mentioned, list each one in the 'items' array with its name and price.\n"
     "- Set 'total' to the sum of all item prices, or the total explicitly stated.\n"
     "- Default currency is EUR unless another is explicitly mentioned.\n"
@@ -148,17 +158,31 @@ VOICE_PROMPT = (
 
 ADD_EXPENSE_FUNC = {
     "name": "add_expense",
-    "description": "Record a purchase as a single expense with optional line items",
+    "description": "Record a financial transaction — either a purchase/expense or received income",
     "parameters": {
         "type": "object",
         "properties": {
+            "transaction_type": {
+                "type": "string",
+                "enum": ["expense", "income"],
+                "description": (
+                    "Whether money was spent ('expense') or received ('income'). "
+                    "Use 'income' for salary, freelance payment, client payment, refund, "
+                    "gift received, rental income, dividend, interest, or any other money received. "
+                    "Use 'expense' for any purchase, bill, or money spent. Default: 'expense'."
+                ),
+            },
             "merchant": {
                 "type": "string",
-                "description": "The store or merchant name (e.g. Lidl, Starbucks). If no store is mentioned, use the item name.",
+                "description": (
+                    "For expenses: the store or merchant name (e.g. Lidl, Starbucks). "
+                    "For income: the source of the money (e.g. employer name, client name, 'Salary'). "
+                    "If no name is mentioned, use the item or income type."
+                ),
             },
             "total": {
                 "type": "number",
-                "description": "Total amount paid. Sum all item prices if not explicitly stated.",
+                "description": "Total amount paid or received. Sum all item prices if not explicitly stated.",
             },
             "currency": {
                 "type": "string",
@@ -166,7 +190,7 @@ ADD_EXPENSE_FUNC = {
             },
             "date": {
                 "type": "string",
-                "description": "Date of purchase in YYYY-MM-DD format",
+                "description": "Date of transaction in YYYY-MM-DD format",
             },
             "payment_method": {
                 "type": "string",
@@ -178,7 +202,7 @@ ADD_EXPENSE_FUNC = {
             },
             "items": {
                 "type": "array",
-                "description": "Individual items purchased. One entry per distinct item.",
+                "description": "Individual items purchased (for expenses). One entry per distinct item.",
                 "items": {
                     "type": "object",
                     "properties": {
