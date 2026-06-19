@@ -540,6 +540,9 @@ def api_get_overview():
     if not api_key:
         return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
  
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
+    
     spending_raw = request.args.get("spending_json", "").strip()
     if not spending_raw:
         return jsonify({"error": "spending_json is required"}), 400
