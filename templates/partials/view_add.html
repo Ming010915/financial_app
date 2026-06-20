@@ -8,18 +8,6 @@
     <h2 id="add-form-title" class="text-xl font-bold text-[#191c1d]">Add Expense</h2>
   </div>
 
-  <!-- Expense / Income toggle -->
-  <div class="flex bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded-2xl p-1 gap-1">
-    <button id="toggle-expense" type="button" onclick="setFormType('expense')"
-            class="flex-1 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#1e1e1e] text-[#191c1d] dark:text-white shadow-sm transition-all">
-      Expense
-    </button>
-    <button id="toggle-income" type="button" onclick="setFormType('income')"
-            class="flex-1 py-2 rounded-xl text-sm font-bold text-[#44474a] dark:text-[#aaa] transition-all">
-      Income
-    </button>
-  </div>
-
   <!-- Receipt reference strip (shown only after scan) -->
   <div id="receipt-ref-strip" class="hidden">
     <button type="button" onclick="toggleReceiptRef()"

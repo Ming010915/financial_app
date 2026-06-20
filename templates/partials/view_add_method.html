@@ -1,10 +1,12 @@
 <!-- ── ADD METHOD VIEW ─────────────────────────────────────────────── -->
 <div id="view-add-method" class="view p-5 fade-in">
   <div class="pt-2 pb-5">
-    <h2 class="text-2xl font-bold text-[#191c1d]">Add Expense</h2>
+    <h2 class="text-2xl font-bold text-[#191c1d]">Add Transaction</h2>
     <p class="text-sm text-[#44474a] mt-1">How would you like to record your transaction today?</p>
   </div>
 
+  <!-- Expense section -->
+  <p class="text-xs font-bold text-[#44474a] uppercase tracking-wider mb-2 px-1">Record an Expense</p>
   <div class="space-y-3">
 
     <!-- Scan Receipt -->
@@ -58,6 +60,32 @@
           <span class="text-base font-bold text-[#191c1d]">Manual Entry</span>
         </div>
         <span class="text-sm text-[#44474a]">Quickly enter details yourself</span>
+      </div>
+      <svg class="w-4 h-4 text-[#c5c6ca] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </button>
+
+  </div>
+
+  <!-- Income section -->
+  <div class="flex items-center gap-3 my-4">
+    <div class="flex-1 h-px bg-[#e8e9ea]"></div>
+  </div>
+  <p class="text-xs font-bold text-[#44474a] uppercase tracking-wider mb-2 px-1">Log Income</p>
+  <div>
+
+    <!-- Add Income -->
+    <button onclick="addByIncome()"
+            class="w-full bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm flex items-center gap-4 hover:bg-[#f8f9fa] active:scale-[0.99] transition-all text-left">
+      <div class="w-12 h-12 bg-[#f0fdf9] rounded-2xl flex items-center justify-center flex-shrink-0">
+        <svg class="w-6 h-6 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="mb-0.5">
+          <span class="text-base font-bold text-[#191c1d]">Add Income</span>
+        </div>
+        <span class="text-sm text-[#44474a]">Log a salary, payment, or deposit</span>
       </div>
       <svg class="w-4 h-4 text-[#c5c6ca] flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
     </button>

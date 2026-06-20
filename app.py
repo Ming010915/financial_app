@@ -533,13 +533,6 @@ def api_get_overview():
     import json as _json
     from calendar import monthrange
     from datetime import date
-    api_key = (
-        request.args.get("api_key", "").strip()
-        or SERVER_API_KEY
-    )
-    if not api_key:
-        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
- 
     if not GOOGLE_CLOUD_PROJECT:
         return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
     
@@ -586,7 +579,7 @@ def api_get_overview():
 
     # ── generate ──────────────────────────────────────────────────────────────
     try:
-        overview = summary.generate_overview(current_text, retrieved, api_key)
+        overview = summary.generate_overview(current_text, retrieved, "")
 
     except Exception as exc:
         return jsonify({"error": f"Failed to generate overview: {exc}"}), 500

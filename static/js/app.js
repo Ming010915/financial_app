@@ -763,6 +763,18 @@ function addByManual() {
   }, 200);
 }
 
+function addByIncome() {
+  showView("add");
+  setFormType("income");
+  setTimeout(() => {
+    const merchant = document.getElementById("f-merchant");
+    if (merchant) {
+      merchant.scrollIntoView({ behavior: "smooth", block: "center" });
+      merchant.focus();
+    }
+  }, 200);
+}
+
 // ── Home ──────────────────────────────────────────────────────────────────────
 async function loadHome() {
   applyHomeLayout();
@@ -3009,7 +3021,6 @@ async function loadAiOverview(breakdown, defCur) {
     const retrieved = retrieveSimilarSummaries(breakdown, daysElapsed, daysInMonth);
 
     const params = new URLSearchParams({
-      api_key:        apiKey,
       spending_json:  spendingJson,
       days_elapsed:   daysElapsed,
       days_in_month:  daysInMonth,
