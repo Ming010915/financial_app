@@ -29,8 +29,13 @@
     </div>
     <div class="px-5 pt-2 pb-8">
       <div class="flex items-center justify-between mb-4">
-        <span class="text-base font-bold text-[#191c1d]">Filters</span>
+        <span class="text-base font-bold text-[#191c1d]">Filter &amp; Sort</span>
         <button onclick="clearHistoryFilters()" class="text-xs font-semibold text-[#006b55]">Clear all</button>
+      </div>
+      <!-- Sort -->
+      <div class="mb-4">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-2">Sort by</div>
+        <div id="hf-sort" class="flex flex-wrap gap-1.5"></div>
       </div>
       <!-- Type -->
       <div class="mb-4">
@@ -51,6 +56,19 @@
       <div class="mb-2">
         <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-2">Time period</div>
         <div id="hf-time" class="flex flex-wrap gap-1.5"></div>
+        <!-- Custom date range (shown when "Custom range" is selected) -->
+        <div id="hf-custom-range" class="hidden mt-3 grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-[#44474a] mb-1 block">From</label>
+            <input type="date" id="hf-custom-from" onchange="onCustomDateChange()"
+                   class="w-full px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+          </div>
+          <div>
+            <label class="text-xs text-[#44474a] mb-1 block">To</label>
+            <input type="date" id="hf-custom-to" onchange="onCustomDateChange()"
+                   class="w-full px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -730,6 +730,9 @@ function showView(name) {
     _historySelPayments.clear();
     _historySelTime = null;
     _historySelType = null;
+    _historySort = 'date_desc';
+    _historyCustomFrom = '';
+    _historyCustomTo = '';
     if (_histViewMode === 'calendar') _resetHistToListMode();
     loadHistory();
   }
@@ -2243,6 +2246,9 @@ let _historySelCats     = new Set();
 let _historySelPayments = new Set();
 let _historySelTime     = null;
 let _historySelType     = null;
+let _historySort        = 'date_desc';
+let _historyCustomFrom  = '';
+let _historyCustomTo    = '';
 let _histViewMode       = 'list';
 let _calYear            = new Date().getFullYear();
 let _calMonth           = new Date().getMonth();
@@ -2254,6 +2260,15 @@ const HISTORY_TIME_OPTS = [
   { key: 'last_month', label: 'Last month' },
   { key: '3months',    label: 'Last 3 months' },
   { key: 'year',       label: 'This year' },
+  { key: 'custom',     label: 'Custom range' },
+];
+
+const HISTORY_SORT_OPTS = [
+  { key: 'date_desc',    label: 'Newest first' },
+  { key: 'date_asc',     label: 'Oldest first' },
+  { key: 'amount_desc',  label: 'Highest amount' },
+  { key: 'amount_asc',   label: 'Lowest amount' },
+  { key: 'merchant_asc', label: 'Name (A–Z)' },
 ];
 
 async function loadHistory() {
@@ -2283,12 +2298,23 @@ function clearHistoryFilters() {
   _historySelPayments.clear();
   _historySelTime = null;
   _historySelType = null;
+  _historySort = 'date_desc';
+  _historyCustomFrom = '';
+  _historyCustomTo = '';
   renderHistoryFilterSheet();
   updateHistoryFilterBadge();
   filterHistory();
 }
 
 function renderHistoryFilterSheet() {
+  _renderHFChips('hf-sort',
+    HISTORY_SORT_OPTS.map(o => o.key),
+    k => _historySort === k,
+    () => '#006b55',
+    k => `selectHistorySort('${k}')`,
+    k => HISTORY_SORT_OPTS.find(o => o.key === k)?.label || k
+  );
+
   _renderHFChips('hf-cat',
     ['All', ...[...new Set(_historySorted.map(e => e.category).filter(Boolean))].sort()],
     cat => cat === 'All' ? _historySelCats.size === 0 : _historySelCats.has(cat),
@@ -2315,6 +2341,15 @@ function renderHistoryFilterSheet() {
     k => `selectHistoryTime('${k}')`,
     k => k === 'All' ? 'All' : HISTORY_TIME_OPTS.find(o => o.key === k)?.label || k
   );
+
+  const customRange = document.getElementById('hf-custom-range');
+  if (customRange) {
+    customRange.classList.toggle('hidden', _historySelTime !== 'custom');
+    const fromEl = document.getElementById('hf-custom-from');
+    const toEl   = document.getElementById('hf-custom-to');
+    if (fromEl) fromEl.value = _historyCustomFrom;
+    if (toEl)   toEl.value   = _historyCustomTo;
+  }
 
   _renderHFChips('hf-type',
     ['All', 'expense', 'income'],
@@ -2343,7 +2378,7 @@ function _renderHFChips(elId, items, isActiveFn, colorFn, onclickFn, labelFn) {
 }
 
 function updateHistoryFilterBadge() {
-  const count = _historySelCats.size + _historySelPayments.size + (_historySelTime ? 1 : 0) + (_historySelType ? 1 : 0);
+  const count = _historySelCats.size + _historySelPayments.size + (_historySelTime ? 1 : 0) + (_historySelType ? 1 : 0) + (_historySort !== 'date_desc' ? 1 : 0);
   const badge = document.getElementById('history-filter-badge');
   const btn   = document.getElementById('history-filter-btn');
   if (!badge || !btn) return;
@@ -2397,6 +2432,20 @@ function selectHistoryType(key) {
   filterHistory();
 }
 
+function selectHistorySort(key) {
+  _historySort = key;
+  renderHistoryFilterSheet();
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
+function onCustomDateChange() {
+  _historyCustomFrom = document.getElementById('hf-custom-from')?.value || '';
+  _historyCustomTo   = document.getElementById('hf-custom-to')?.value   || '';
+  updateHistoryFilterBadge();
+  filterHistory();
+}
+
 function renderHistoryCatFilters() {}   // kept so any stale references don't throw
 function renderHistoryPaymentFilters() {}
 
@@ -2411,29 +2460,40 @@ function filterHistory() {
     filtered = filtered.filter(e => _historySelPayments.has(e.payment_method));
   }
   if (_historySelTime) {
-    const today      = new Date().toISOString().split('T')[0];
-    const todayDate  = new Date(today);
-    const dow        = todayDate.getDay();
-    const monOffset  = dow === 0 ? 6 : dow - 1;
-    const weekStart  = new Date(todayDate - monOffset * 86400000).toISOString().split('T')[0];
-    const monthStart = today.slice(0, 7) + '-01';
-    const lmDate     = new Date(todayDate); lmDate.setDate(1); lmDate.setMonth(lmDate.getMonth() - 1);
-    const lmStart    = lmDate.toISOString().slice(0, 7) + '-01';
-    const lmEnd      = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0).toISOString().split('T')[0];
-    const m3Date     = new Date(todayDate); m3Date.setMonth(m3Date.getMonth() - 3);
-    const m3Start    = m3Date.toISOString().split('T')[0];
-    const yearStart  = today.slice(0, 4) + '-01-01';
+    if (_historySelTime === 'custom') {
+      if (_historyCustomFrom || _historyCustomTo) {
+        filtered = filtered.filter(e => {
+          const d = e.date || '';
+          if (_historyCustomFrom && d < _historyCustomFrom) return false;
+          if (_historyCustomTo   && d > _historyCustomTo)   return false;
+          return true;
+        });
+      }
+    } else {
+      const today      = new Date().toISOString().split('T')[0];
+      const todayDate  = new Date(today);
+      const dow        = todayDate.getDay();
+      const monOffset  = dow === 0 ? 6 : dow - 1;
+      const weekStart  = new Date(todayDate - monOffset * 86400000).toISOString().split('T')[0];
+      const monthStart = today.slice(0, 7) + '-01';
+      const lmDate     = new Date(todayDate); lmDate.setDate(1); lmDate.setMonth(lmDate.getMonth() - 1);
+      const lmStart    = lmDate.toISOString().slice(0, 7) + '-01';
+      const lmEnd      = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0).toISOString().split('T')[0];
+      const m3Date     = new Date(todayDate); m3Date.setMonth(m3Date.getMonth() - 3);
+      const m3Start    = m3Date.toISOString().split('T')[0];
+      const yearStart  = today.slice(0, 4) + '-01-01';
 
-    filtered = filtered.filter(e => {
-      const d = e.date || '';
-      if (_historySelTime === 'today')      return d === today;
-      if (_historySelTime === 'week')       return d >= weekStart && d <= today;
-      if (_historySelTime === 'month')      return d >= monthStart && d <= today;
-      if (_historySelTime === 'last_month') return d >= lmStart && d <= lmEnd;
-      if (_historySelTime === '3months')    return d >= m3Start && d <= today;
-      if (_historySelTime === 'year')       return d >= yearStart && d <= today;
-      return true;
-    });
+      filtered = filtered.filter(e => {
+        const d = e.date || '';
+        if (_historySelTime === 'today')      return d === today;
+        if (_historySelTime === 'week')       return d >= weekStart && d <= today;
+        if (_historySelTime === 'month')      return d >= monthStart && d <= today;
+        if (_historySelTime === 'last_month') return d >= lmStart && d <= lmEnd;
+        if (_historySelTime === '3months')    return d >= m3Start && d <= today;
+        if (_historySelTime === 'year')       return d >= yearStart && d <= today;
+        return true;
+      });
+    }
   }
   if (_historySelType) {
     if (_historySelType === 'income') {
@@ -2467,7 +2527,18 @@ function renderHistory(exps) {
     if (!grouped[d]) grouped[d] = [];
     grouped[d].push(exp);
   }
-  const dates = Object.keys(grouped).sort().reverse();
+  const dates = Object.keys(grouped).sort();
+  if (_historySort !== 'date_asc') dates.reverse();
+
+  for (const d of dates) {
+    if (_historySort === 'amount_desc') {
+      grouped[d].sort((a, b) => convertToDefault(b.amount, b.currency, b.rate) - convertToDefault(a.amount, a.currency, a.rate));
+    } else if (_historySort === 'amount_asc') {
+      grouped[d].sort((a, b) => convertToDefault(a.amount, a.currency, a.rate) - convertToDefault(b.amount, b.currency, b.rate));
+    } else if (_historySort === 'merchant_asc') {
+      grouped[d].sort((a, b) => (a.merchant || '').localeCompare(b.merchant || ''));
+    }
+  }
 
   listEl.innerHTML = dates.map(d => {
     const dayExpenses = grouped[d].filter(isExpenseEntry).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
