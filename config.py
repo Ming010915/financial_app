@@ -29,9 +29,8 @@ APP_PASSWORD     = os.environ.get("APP_PASSWORD", "")
 # Secret key used to sign the session cookie. Override in .env for stable sessions.
 SECRET_KEY       = os.environ.get("SECRET_KEY", os.urandom(32).hex())
 # Tried in order — the first model that responds wins.
-GEMINI_MODELS         = ["gemini-3.5-flash", "gemini-2.5-flash"]
-GEMINI_LIVE_MODEL     = "gemini-3.1-flash-live-preview"
-THRESHOLD      = 0.3
+GEMINI_MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"]
+THRESHOLD     = 0.3
 ASK_BELOW      = 0.6
 CENTROIDS_FILE = "dataset/centroids.json"
 MONTHLY_SPENDING_DATASET = "dataset/monthly_spending_2024.csv"

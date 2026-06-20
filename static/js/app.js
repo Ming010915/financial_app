@@ -1757,18 +1757,18 @@ function populateFormFromReceipt(data) {
 }
 
 // ── Voice input ───────────────────────────────────────────────────────────────
-let _voiceStream       = null;    // mic MediaStream (held so we can stop its tracks)
+let _voiceStream       = null;
 let _isRecording       = false;
 let _liveWS            = null;
 let _audioCtx          = null;
 let _audioProcessor    = null;
 let _liveTranscript    = '';
 let _interimTranscript = '';
-let _voiceFinalized    = false;   // guards finalizeVoiceTranscript() against double-run
-let _voiceOriginal     = '';      // raw transcript from Gemini Live
-let _voiceSummary      = '';      // clean summary of the spoken note
-let _voiceCancelled    = false;   // set true by cancelVoiceView() to abort server call
-let _voiceAbort        = null;    // AbortController for the in-flight extraction request
+let _voiceFinalized    = false;
+let _voiceOriginal     = '';
+let _voiceSummary      = '';
+let _voiceCancelled    = false;
+let _voiceAbort        = null;
 
 // ── Voice view UI helpers ─────────────────────────────────────────────────────
 function _vvSetState(state) {
@@ -1823,7 +1823,7 @@ function _vvSetState(state) {
   }
 }
 
-// ── Tear down mic + live-transcription capture ────────────────────────────────
+// ── Tear down mic + STT stream ────────────────────────────────────────────────
 function teardownVoiceCapture() {
   if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
   if (_audioCtx)       { try { _audioCtx.close(); } catch {} _audioCtx = null; }
@@ -1859,8 +1859,7 @@ async function toggleVoiceRecording() {
 
 async function startVoiceRecording() {
   try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     _voiceStream       = stream;
     _voiceCancelled    = false;
     _voiceFinalized    = false;
@@ -1868,7 +1867,6 @@ async function startVoiceRecording() {
     _liveTranscript    = '';
     _interimTranscript = '';
 
-    // AudioContext for Gemini Live PCM stream (live subtitles).
     _audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
     if (_audioCtx.state === 'suspended') await _audioCtx.resume();
     const actualRate = _audioCtx.sampleRate;
@@ -1899,24 +1897,30 @@ async function startVoiceRecording() {
       try {
         const msg = JSON.parse(ev.data);
         if (msg.transcript !== undefined) {
-          _liveTranscript = msg.transcript;
           const sub = document.getElementById('voice-subtitle');
           const fin = document.getElementById('voice-subtitle-final');
           const itr = document.getElementById('voice-subtitle-interim');
-          if (fin) fin.textContent = _liveTranscript;
-          if (itr) itr.textContent = '';
+          if (msg.is_final) {
+            _liveTranscript    += (_liveTranscript ? ' ' : '') + msg.transcript;
+            _interimTranscript  = '';
+            if (fin) fin.textContent = _liveTranscript;
+            if (itr) itr.textContent = '';
+          } else {
+            _interimTranscript = msg.transcript;
+            if (fin) fin.textContent = _liveTranscript;
+            if (itr) itr.textContent = (_liveTranscript ? ' ' : '') + _interimTranscript;
+          }
           if (sub) { sub.classList.remove('hidden'); sub.scrollTop = sub.scrollHeight; }
         } else if (msg.error) {
-          console.warn('[Live] Gemini error:', msg.error);
-          showToast('Live transcription error: ' + msg.error, true);
+          console.warn('[STT] error:', msg.error);
+          showToast('Transcription error: ' + msg.error, true);
         }
       } catch {}
     };
 
-    _liveWS.onerror = ev => console.warn('[Live] WS error:', ev);
+    _liveWS.onerror = ev => console.warn('[STT] WS error:', ev);
     _liveWS.onclose = () => {
       if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
-      // Socket closed after the user tapped stop → the transcript is final.
       if (!_isRecording) finalizeVoiceTranscript();
     };
 
@@ -1930,17 +1934,21 @@ function stopVoiceRecording() {
   if (!_isRecording) return;
   _isRecording = false;
 
-  // Stop capturing, but keep the live socket open briefly so Gemini can flush
-  // any trailing transcription before we read the final transcript.
   if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
   if (_audioCtx)       { try { _audioCtx.close(); } catch {} _audioCtx = null; }
   if (_voiceStream)    { _voiceStream.getTracks().forEach(t => t.stop()); _voiceStream = null; }
+
+  // Fold any in-flight interim result into the final transcript before closing.
+  if (_interimTranscript) {
+    _liveTranscript   += (_liveTranscript ? ' ' : '') + _interimTranscript;
+    _interimTranscript = '';
+  }
+
   _vvSetState('processing');
 
   if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
     try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
-    // onclose finalizes when the flush completes; this is a fallback in case
-    // the socket lingers.
+    // Give STT stream a moment to flush any remaining final results.
     setTimeout(() => finalizeVoiceTranscript(), 1500);
   } else {
     finalizeVoiceTranscript();
@@ -2148,6 +2156,25 @@ function clearVoice() {
 }
 
 // ── Save expense ──────────────────────────────────────────────────────────────
+async function speakText(text) {
+  try {
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const audio = new Audio(URL.createObjectURL(blob));
+    audio.play();
+  } catch (_) {}
+}
+
+function speakAiOverview() {
+  const text = document.getElementById('ai-overview-text')?.textContent?.trim();
+  if (text) speakText(text);
+}
+
 async function saveExpense() {
   const merchant       = document.getElementById("f-merchant").value.trim();
   const amount         = document.getElementById("f-amount").value;
@@ -2221,6 +2248,10 @@ async function saveExpense() {
     state.expenseMap[expense.id] = expense;
 
     showToast(state.isIncome ? "Income saved!" : "Expense saved!");
+    speakText(state.isIncome
+      ? `Income saved. ${parseFloat(amount).toFixed(2)} ${currency} from ${merchant}.`
+      : `Expense saved. ${parseFloat(amount).toFixed(2)} ${currency} at ${merchant}.`
+    );
     btn.disabled = false;
     spinner.classList.add("hidden");
     if (state.currentPendingScanId) {
@@ -3103,6 +3134,7 @@ async function loadAiOverview(breakdown, defCur) {
     if (!r.ok || data.error) throw new Error(data.error || "Unknown error");
 
     el.textContent = data.overview;
+    document.getElementById('ai-overview-speak-btn')?.classList.remove('hidden');
 
     // Show which months it compared against, if any
     const basedOnEl = document.getElementById("ai-overview-based-on");

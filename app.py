@@ -3,18 +3,15 @@ Flo — Personal Finance Tracker
 Flask entry point: app creation, routes, and startup.
 """
 
-import asyncio
 import base64
 import json
 import os
 import queue
-import re
 import threading
 import urllib.request
 import urllib.parse
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-
 from flask_sock import Sock
 
 import services.summary as summary
@@ -23,13 +20,13 @@ import services.receipt as receipt
 import services.voice as voice
 from services.gemini_utils import ModelOverloadedError
 from config import (
-    ASK_BELOW, CENTROIDS_FILE, GEMINI_LIVE_MODEL, MONTHLY_SPENDING_DATASET,
+    ASK_BELOW, CENTROIDS_FILE, MONTHLY_SPENDING_DATASET,
     SERVER_PLACES_API_KEY, GOOGLE_CLOUD_PROJECT,
     REQUIRE_PASSWORD, APP_PASSWORD, SECRET_KEY,
     get_genai_client,
 )
 
-app  = Flask(__name__)
+app = Flask(__name__)
 app.secret_key = SECRET_KEY
 sock = Sock(app)
 
@@ -256,171 +253,182 @@ def api_voice_extract():
         return jsonify({"error": f"Voice processing failed: {str(e)}"}), 500
 
 
-# ── Gemini Live WebSocket ─────────────────────────────────────────────────────
+# ── Speech-to-Text API ───────────────────────────────────────────────────────
+
+@app.route("/api/stt", methods=["POST"])
+def api_stt():
+    """Transcribe uploaded audio using Google Cloud Speech-to-Text."""
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
+
+    file = request.files.get("audio")
+    if not file:
+        return jsonify({"error": "No audio file uploaded"}), 400
+
+    audio_data = file.read()
+    if not audio_data:
+        return jsonify({"error": "Empty audio file"}), 400
+
+    try:
+        from google.cloud import speech
+        client = speech.SpeechClient()
+
+        mime = (file.content_type or "audio/webm").lower()
+        if "ogg" in mime:
+            encoding = speech.RecognitionConfig.AudioEncoding.OGG_OPUS
+        else:
+            encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS
+
+        config = speech.RecognitionConfig(
+            encoding=encoding,
+            sample_rate_hertz=48000,
+            language_code="en-US",
+            enable_automatic_punctuation=True,
+        )
+        print(f"[STT] Sending {len(audio_data)} bytes ({mime}) to Google Cloud STT...")
+        response = client.recognize(
+            config=config,
+            audio=speech.RecognitionAudio(content=audio_data),
+        )
+        transcript = " ".join(
+            result.alternatives[0].transcript
+            for result in response.results
+            if result.alternatives
+        )
+        print(f"[STT] Transcript: {transcript!r}")
+        return jsonify({"transcript": transcript})
+    except Exception as e:
+        print(f"[STT] Error: {e}")
+        return jsonify({"error": f"STT failed: {str(e)}"}), 500
+
+
+# ── Text-to-Speech API ────────────────────────────────────────────────────────
+
+@app.route("/api/tts", methods=["POST"])
+def api_tts():
+    """Synthesize text to speech using Google Cloud TTS and return MP3 audio."""
+    if not GOOGLE_CLOUD_PROJECT:
+        return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
+
+    body = request.get_json(silent=True) or {}
+    text = (body.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+
+    language_code = body.get("language_code", "en-US")
+    voice_name    = body.get("voice_name", "en-US-Chirp3-HD-Aoede")
+
+    try:
+        from google.cloud import texttospeech
+        client = texttospeech.TextToSpeechClient()
+        response = client.synthesize_speech(
+            input=texttospeech.SynthesisInput(text=text),
+            voice=texttospeech.VoiceSelectionParams(
+                language_code=language_code,
+                name=voice_name,
+            ),
+            audio_config=texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+            ),
+        )
+        return response.audio_content, 200, {
+            "Content-Type": "audio/mpeg",
+            "Cache-Control": "no-store",
+        }
+    except Exception as e:
+        return jsonify({"error": f"TTS failed: {str(e)}"}), 500
+
+
+# ── Streaming STT WebSocket ───────────────────────────────────────────────────
 
 @sock.route('/ws/voice_live')
 def voice_live_ws(ws):
-    """WebSocket relay: browser audio → Gemini Live → browser transcription."""
-    from google.genai import types as genai_types
+    """WebSocket: browser PCM audio → Google Cloud STT streaming → live transcript."""
+    from google.cloud import speech
 
     try:
         init     = json.loads(ws.receive())
         pcm_rate = int(init.get('sample_rate', 16000))
-        print(f"[Live] WebSocket connection initiated. sample_rate: {pcm_rate}")
+        print(f"[STT] WebSocket connected. sample_rate={pcm_rate}")
     except Exception as e:
-        print(f"[Live] Init error: {e}")
+        print(f"[STT] Init error: {e}")
         return
 
     if not GOOGLE_CLOUD_PROJECT:
         try:
-            ws.send(json.dumps({'error': 'GOOGLE_CLOUD_PROJECT is not configured on the server.'}))
+            ws.send(json.dumps({'error': 'GOOGLE_CLOUD_PROJECT is not configured.'}))
         except Exception:
             pass
         return
 
-    mime_type  = f'audio/pcm;rate={pcm_rate}'
     audio_q    = queue.Queue()
     stop_event = threading.Event()
 
-    def _queue_get(q):
-        try:
-            return q.get(timeout=0.1)
-        except queue.Empty:
-            return ...
+    def audio_generator():
+        while not stop_event.is_set():
+            chunk = audio_q.get()
+            if chunk is None:
+                return
+            yield speech.StreamingRecognizeRequest(audio_content=chunk)
 
-    async def _gemini_session():
-        print("[Live] Starting Gemini Session thread...")
-        client = get_genai_client()
-        config = genai_types.LiveConnectConfig(
-            response_modalities=["AUDIO"],
-            input_audio_transcription=genai_types.AudioTranscriptionConfig(),
-        )
+    def stt_thread():
         try:
-            print(f"[Live] Connecting to Gemini Live with model {GEMINI_LIVE_MODEL}...")
-            async with client.aio.live.connect(
-                model=GEMINI_LIVE_MODEL,
+            client = speech.SpeechClient()
+            config = speech.RecognitionConfig(
+                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                sample_rate_hertz=pcm_rate,
+                language_code="en-US",
+                enable_automatic_punctuation=True,
+            )
+            streaming_config = speech.StreamingRecognitionConfig(
                 config=config,
-            ) as session:
-                print("[Live] Connected to Gemini Live API session successfully!")
-
-                async def _send():
-                    loop = asyncio.get_running_loop()
-                    while not stop_event.is_set():
-                        item = await loop.run_in_executor(None, _queue_get, audio_q)
-                        if item is None:
-                            print("[Live] Send task: poison pill received, stopping.")
-                            break
-                        if item is ...:
-                            continue
-                        try:
-                            await session.send_realtime_input(
-                                audio=genai_types.Blob(
-                                    mime_type=mime_type,
-                                    data=item,
-                                )
-                            )
-                        except Exception as e:
-                            print(f"[Live] Error sending audio chunk: {e}")
-                            break
-
-                async def _recv():
-                    loop = asyncio.get_running_loop()
-                    transcript = ''
+                interim_results=True,
+            )
+            responses = client.streaming_recognize(streaming_config, audio_generator())
+            for response in responses:
+                if stop_event.is_set():
+                    break
+                for result in response.results:
+                    if not result.alternatives:
+                        continue
+                    transcript = result.alternatives[0].transcript
+                    is_final   = result.is_final
+                    print(f"[STT] {'Final' if is_final else 'Interim'}: {transcript!r}")
                     try:
-                        print("[Live] Receive task started, listening for responses...")
-                        while not stop_event.is_set():
-                            async for response in session.receive():
-                                if stop_event.is_set():
-                                    break
-                                sc = response.server_content
-                                if sc is None:
-                                    continue
-                                tc = getattr(sc, 'input_transcription', None)
-                                if tc and tc.text:
-                                    finished = bool(tc.finished)
-                                    print(f"[Live] Received input transcription: {tc.text} (finished={finished})")
-                                    # Gemini streams incremental fragments (not cumulative)
-                                    # and rarely sets finished, so accumulate every chunk.
-                                    chunk = re.sub(r'<[^>]*>', '', tc.text)
-                                    transcript += chunk
-                                    display = re.sub(r'\s+', ' ', transcript).strip()
-                                    try:
-                                        await loop.run_in_executor(
-                                            None,
-                                            ws.send,
-                                            json.dumps({
-                                                'transcript': display,
-                                                'finished': finished,
-                                            })
-                                        )
-                                    except Exception as e:
-                                        print(f"[Live] Error sending to websocket: {e}")
-                                        stop_event.set()
-                                        break
-                    except Exception as e:
-                        print(f"[Live] Error in receive loop: {e}")
-                        import traceback
-                        traceback.print_exc()
-
-                send_task = asyncio.create_task(_send())
-                recv_task = asyncio.create_task(_recv())
-                done, pending = await asyncio.wait(
-                    [send_task, recv_task],
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                for t in pending:
-                    t.cancel()
-                    try:
-                        await t
-                    except (asyncio.CancelledError, Exception):
-                        pass
-
-        except Exception as exc:
-            print(f"[Live] Connection exception: {exc}")
-            import traceback
-            traceback.print_exc()
+                        ws.send(json.dumps({'transcript': transcript, 'is_final': is_final}))
+                    except Exception:
+                        stop_event.set()
+                        return
+        except Exception as e:
+            print(f"[STT] Stream error: {e}")
             try:
-                ws.send(json.dumps({'error': str(exc)}))
+                ws.send(json.dumps({'error': str(e)}))
             except Exception:
                 pass
+            stop_event.set()
 
-    def _run_gemini():
-        asyncio.run(_gemini_session())
-
-    worker = threading.Thread(target=_run_gemini, daemon=True)
+    worker = threading.Thread(target=stt_thread, daemon=True)
     worker.start()
 
-    chunk_counter = [0]
     try:
         while True:
-            try:
-                raw = ws.receive()
-            except Exception as e:
-                print(f"[Live] ws.receive() exception: {e}")
-                break
+            raw = ws.receive()
             if raw is None:
                 break
             try:
                 msg = json.loads(raw)
-                msg_type = msg.get('type')
-                if msg_type == 'audio':
-                    data_len = len(msg.get('data', ''))
-                    chunk_counter[0] += 1
-                    if chunk_counter[0] % 10 == 1:
-                        print(f"[Live] Received audio chunk #{chunk_counter[0]}, length: {data_len}")
+                if msg.get('type') == 'audio':
                     audio_q.put(base64.b64decode(msg['data']))
-                elif msg_type == 'stop':
-                    print("[Live] Received stop command from client.")
+                elif msg.get('type') == 'stop':
+                    print("[STT] Stop received from client.")
                     break
-                else:
-                    print(f"[Live] Received unknown message type: {msg_type}")
             except Exception as e:
-                print(f"[Live] Error parsing websocket message: {e}")
-                continue
+                print(f"[STT] Error parsing message: {e}")
     finally:
         stop_event.set()
         audio_q.put(None)
         worker.join(timeout=5)
+        print("[STT] Session ended.")
 
 
 # ── Exchange Rates API ────────────────────────────────────────────────────────
