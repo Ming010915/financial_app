@@ -528,45 +528,21 @@ def api_places_nearby():
 
 # ── Summary API ──────────────────────────────────────────────────────────────
 
-@app.route("/api/summary/store", methods=["POST"])
-def api_store_summary():
-    body = request.get_json(silent=True) or {}
- 
-    period   = body.get("period",   "").strip()
-    text     = body.get("text",     "").strip()
-    spending = body.get("spending", {})
- 
-    if not period:
-        return jsonify({"error": "period is required"}), 400
-    if not text:
-        return jsonify({"error": "text is required"}), 400
-    if not isinstance(spending, dict) or not spending:
-        return jsonify({"error": "spending must be a non-empty object"}), 400
- 
-    # Coerce all values to float — the frontend may send strings
-    try:
-        spending = {k: float(v) for k, v in spending.items()}
-    except (TypeError, ValueError):
-        return jsonify({"error": "spending values must be numeric"}), 400
- 
-    try:
-        summary.store_summary(period, text, spending)
-    except Exception as exc:
-        return jsonify({"error": f"Failed to store summary: {exc}"}), 500
- 
-    return jsonify({"success": True, "period": period})
-
-
 @app.route("/api/summary/overview", methods=["GET"])
 def api_get_overview():
     import json as _json
     from calendar import monthrange
     from datetime import date
+    api_key = (
+        request.args.get("api_key", "").strip()
+        or SERVER_API_KEY
+    )
+    if not api_key:
+        return jsonify({"error": "No Google API key configured. Please add your key in Settings."}), 500
  
     if not GOOGLE_CLOUD_PROJECT:
         return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
-
-    # ── spending ──────────────────────────────────────────────────────────────
+    
     spending_raw = request.args.get("spending_json", "").strip()
     if not spending_raw:
         return jsonify({"error": "spending_json is required"}), 400
@@ -576,7 +552,6 @@ def api_get_overview():
     except (ValueError, TypeError, _json.JSONDecodeError):
         return jsonify({"error": "spending_json must be a valid JSON object with numeric values"}), 400
  
-    # ── time parameters ───────────────────────────────────────────────────────
     today = date.today()
     _, default_days_in_month = monthrange(today.year, today.month)
  
@@ -599,21 +574,25 @@ def api_get_overview():
             f"{month_label} (so far, day {days_elapsed}): {items}. "
             f"Total €{total:.0f}."
         )
- 
-    # ── retrieve + generate ───────────────────────────────────────────────────
+
+    # ── retrieved summaries (looked up client-side) ───────────────────────────
+    retrieved_raw = request.args.get("retrieved_json", "[]").strip()
     try:
-        retrieved = summary.retrieve_similar_summaries(
-            spending      = spending,
-            days_elapsed  = days_elapsed,
-            days_in_month = days_in_month,
-        )
-        overview = summary.generate_overview(current_text, retrieved)
+        retrieved = _json.loads(retrieved_raw)
+        if not isinstance(retrieved, list):
+            raise ValueError
+    except (ValueError, _json.JSONDecodeError):
+        return jsonify({"error": "retrieved_json must be a JSON array"}), 400
+
+    # ── generate ──────────────────────────────────────────────────────────────
+    try:
+        overview = summary.generate_overview(current_text, retrieved, api_key)
+
     except Exception as exc:
         return jsonify({"error": f"Failed to generate overview: {exc}"}), 500
- 
+
     return jsonify({
-        "overview":   overview,
-        "based_on":   [s["period"] for s in retrieved],
+        "overview":     overview,
         "current_text": current_text,
     })
  

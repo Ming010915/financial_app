@@ -190,6 +190,17 @@ function toggleHomeWidget(id, toggleEl) {
   applyHomeLayout();
 }
 
+function getSummaries() {
+  const s = localStorage.getItem('flo_summaries');
+  return s ? JSON.parse(s) : [];
+}
+function saveSummaries(summaries) { localStorage.setItem('flo_summaries', JSON.stringify(summaries)); }
+function upsertSummary(period, text, spending) {
+  const summaries = getSummaries().filter(s => s.period !== period);
+  summaries.push({ period, text, spending });
+  saveSummaries(summaries);
+}
+
 function generateId() {
   return crypto.randomUUID
     ? crypto.randomUUID()
@@ -2917,6 +2928,43 @@ async function saveEdit() {
   }
 }
 
+// ── Summary vector helpers ────────────────────────────────────────────────────
+function _categoryList() {
+  const centroids = getCentroids();
+  return centroids ? Object.keys(centroids) : [];
+}
+
+function _makeNumericalVector(spending) {
+  const cats   = _categoryList();
+  const vec    = cats.map(cat => spending[cat] || 0);
+  const norm   = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
+  return norm === 0 ? vec : vec.map(v => v / norm);
+}
+
+function _projectToFullMonth(spending, daysElapsed, daysInMonth) {
+  const scale = daysInMonth / daysElapsed;
+  return Object.fromEntries(Object.entries(spending).map(([cat, amt]) => [cat, amt * scale]));
+}
+
+function retrieveSimilarSummaries(spending, daysElapsed, daysInMonth, nResults = 2) {
+  const summaries = getSummaries();
+  if (!summaries.length) return [];
+
+  const projected  = _projectToFullMonth(spending, daysElapsed, daysInMonth);
+  const queryVec   = _makeNumericalVector(projected);
+
+  const scored = summaries.map(s => {
+    const storedVec = _makeNumericalVector(s.spending);
+    const dot       = queryVec.reduce((sum, v, i) => sum + v * storedVec[i], 0);
+    return { ...s, score: dot };
+  });
+
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, nResults)
+    .map(({ period, text }) => ({ period, text }));
+}
+
 // ── Summary (charts) ──────────────────────────────────────────────────────────
 async function loadSummary() {
   await loadRates();
@@ -2958,15 +3006,17 @@ async function loadAiOverview(breakdown, defCur) {
   const spendingJson  = JSON.stringify(breakdown);
 
   try {
+    const retrieved = retrieveSimilarSummaries(breakdown, daysElapsed, daysInMonth);
+
     const params = new URLSearchParams({
+      api_key:        apiKey,
       spending_json:  spendingJson,
       days_elapsed:   daysElapsed,
       days_in_month:  daysInMonth,
+      retrieved_json: JSON.stringify(retrieved),
     });
 
-    const r    = await fetch(`/api/summary/overview?${params}`, {
-      headers: {},
-    });
+    const r = await fetch(`/api/summary/overview?${params}`);
     const data = await r.json();
     if (!r.ok || data.error) throw new Error(data.error || "Unknown error");
 
@@ -2975,8 +3025,8 @@ async function loadAiOverview(breakdown, defCur) {
     // Show which months it compared against, if any
     const basedOnEl = document.getElementById("ai-overview-based-on");
     if (basedOnEl) {
-      basedOnEl.textContent = data.based_on?.length
-        ? `Compared to: ${data.based_on.join(", ")}`
+      basedOnEl.textContent = retrieved.length
+        ? `Compared to: ${retrieved.map(s => s.period).join(", ")}`
         : "No historical data yet — keep tracking to unlock comparisons!";
     }
   } catch (e) {
@@ -3005,19 +3055,9 @@ async function archiveCurrentMonth() {
     message: `This saves your spending summary so future months can be compared against it.\n\n"${summaryText}"`,
     okLabel: "Archive",
     okColor: "bg-indigo-600 hover:bg-indigo-700",
-    onOk: async () => {
+    onOk: () => {
       try {
-        const r = await fetch("/api/summary/store", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            period,
-            text:     summaryText,
-            spending: data.category_breakdown,
-          }),
-        });
-        const resp = await r.json();
-        if (!r.ok || resp.error) throw new Error(resp.error || "Unknown error");
+        upsertSummary(period, summaryText, data.category_breakdown);
         showToast(`${period} archived!`);
       } catch (e) {
         showToast("Archive failed: " + e.message, true);
