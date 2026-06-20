@@ -1,6 +1,6 @@
 # Flo — AI-Powered Personal Finance Tracker
 
-A mobile-style expense and income tracker with on-device merchant categorisation, receipt scanning, voice input, AI spending insights, and location autocomplete — all powered by Google Gemini via Vertex AI.
+A mobile-style expense and income tracker with on-device merchant categorisation, receipt scanning, voice input, AI spending insights, location autocomplete, and text-to-speech readback — powered by Google Gemini via Vertex AI and Google Cloud Speech APIs.
 
 ---
 
@@ -17,12 +17,14 @@ Flask backend  (app.py)
     │     • SentenceTransformer (paraphrase-multilingual-mpnet-base-v2)
     │     • Nearest-centroid + cosine similarity
     │     • Online (incremental) centroid updates
-    ├── services/receipt.py   ── Gemini 2.5 Flash       (receipt OCR → JSON)
-    ├── services/voice.py     ── Gemini 2.5 Flash       (voice → transcript summary → function call)
-    ├── services/summary.py   ── ChromaDB + Gemini      (monthly spending RAG overview)
+    ├── services/receipt.py   ── Gemini 2.5 Flash            (receipt OCR → JSON)
+    ├── services/voice.py     ── Gemini 2.5 Flash            (transcript summary + function call → expense fields)
+    ├── services/summary.py   ── ChromaDB + Gemini           (monthly spending RAG overview)
     ├── services/gemini_utils.py  (retry / model-fallback helpers)
     ├── services/prompts.py       (centralised Gemini prompts & function schemas)
-    └── /ws/voice_live        ── Gemini Live API        (streaming transcription)
+    ├── /ws/voice_live        ── Google Cloud STT (streaming) (live transcript via WebSocket)
+    ├── /api/stt              ── Google Cloud STT (batch)     (single-shot audio → transcript)
+    └── /api/tts              ── Google Cloud Text-to-Speech  (text → MP3 audio)
     +   Frankfurter API (FX rates)  ·  Google Places API proxy (location autocomplete)
 ```
 
@@ -37,7 +39,7 @@ The server is **mostly stateless with respect to user data**. Expenses, personal
 | **Home** | Today's total, this-month total, 7-day bar chart, monthly income/balance card, budget progress, category breakdown, 5 most recent transactions; widgets are reorderable and hideable |
 | **Add** | Receipt scan • Voice input • Manual form with auto-classification, income/expense toggle, currency conversion, and Google Places location autocomplete |
 | **History** | Full chronological transaction list grouped by date; tap to open / edit detail sheet; toggle to a monthly **calendar view** |
-| **Summary** | Spending by category (doughnut chart), last-7-days line chart, and an **AI spending overview** generated from historical context |
+| **Summary** | Spending by category (doughnut chart), last-7-days line chart, and an **AI spending overview** generated from historical context; a 🔊 button reads the overview aloud via Text-to-Speech |
 | **Settings** | Dark mode · Default & custom currencies · JSON/CSV export & import · Reset model |
 | **Categories** | Add / remove expense categories (drive classification) and **income categories** |
 | **Category Overrides** | Manage exact-match `merchant → category` rules |
@@ -73,17 +75,23 @@ The server is **mostly stateless with respect to user data**. Expenses, personal
 
 ### 4. Voice Input
 
-There are two voice flows; the client picks one based on browser capability:
+Voice recording uses the browser's **AudioContext** to capture 16 kHz PCM audio, streamed over a WebSocket to the server.
 
-- **Streaming live transcription** (`/ws/voice_live`) — the browser streams 16 kHz PCM audio over a WebSocket. The server opens a Gemini Live session and relays incremental input transcripts back to the browser for a live subtitle.
-- **Batch processing** (`POST /api/voice_input`) — after recording, the audio blob is uploaded; Gemini 2.5 Flash is called with an `add_expense` **function declaration** and extracts all fields via function calling.
+**Streaming transcription** (`/ws/voice_live`):
+1. The browser opens a WebSocket and sends raw PCM chunks as base64-encoded JSON messages.
+2. The server feeds the chunks into a **Google Cloud Speech-to-Text** `streaming_recognize` session with `interim_results=True`.
+3. Interim results (partial phrases) and final results are sent back over the WebSocket in real-time, displayed as live subtitles in the UI.
 
-After live transcription, the raw transcript goes through a **summary step**:
-1. `POST /api/voice_summary` sends the raw transcript to Gemini, which produces a clean, corrected note (fixes mis-hearings, resolves self-corrections, drops filler).
-2. The clean summary is displayed for the user to confirm or edit.
-3. `POST /api/voice_extract` sends the confirmed text back to Gemini for structured expense/income extraction.
+After the user stops recording, the transcript goes through a three-step pipeline:
+1. `POST /api/voice_summary` — Gemini cleans the raw transcript (fixes mis-hearings, drops filler, resolves self-corrections) and returns a concise purchase note.
+2. The clean summary is shown for the user to confirm or edit.
+3. `POST /api/voice_extract` — Gemini extracts structured expense/income fields from the confirmed text via function calling.
 
 The extracted merchant runs through the classifier identically to a receipt scan.
+
+**Text-to-Speech feedback:**
+- After an expense or income is saved, a short confirmation is read aloud (e.g. "Expense saved. 12.50 EUR at Rewe.") via `POST /api/tts`.
+- The AI spending overview on the Summary screen has a 🔊 button that reads it aloud on demand.
 
 ### 5. Online ML Learning (client-personalised)
 
@@ -207,7 +215,9 @@ A JSON array of transaction objects. Each object has:
 | `POST` | `/api/voice_input` | Processes a recorded audio blob via Gemini function calling; multipart with `audio` |
 | `POST` | `/api/voice_summary` | Summarises a raw live transcript into a clean purchase note; form field `transcript` |
 | `POST` | `/api/voice_extract` | Extracts expense fields from a confirmed transcript (text only); form field `transcript` |
-| `WS`   | `/ws/voice_live` | Streaming voice transcription via the Gemini Live API |
+| `POST` | `/api/stt` | Single-shot speech-to-text via Google Cloud STT; multipart with `audio` |
+| `POST` | `/api/tts` | Synthesises text to MP3 audio via Google Cloud TTS; JSON body `{text, language_code?, voice_name?}` |
+| `WS`   | `/ws/voice_live` | Streaming speech-to-text via Google Cloud STT; sends PCM chunks, receives `{transcript, is_final}` |
 | `GET`  | `/api/exchange_rates?base=EUR` | Proxies the Frankfurter FX-rates API |
 | `GET`  | `/api/settings` | Returns `{vertex_ai_configured, env_key_set, places_key_set}` |
 | `POST` | `/api/places/text_search` | Server-side proxy for Google Places text search |
@@ -219,11 +229,10 @@ A JSON array of transaction objects. Each object has:
 
 ## Setup & Running
 
-Dependencies are declared in [`environment.yml`](environment.yml) (conda + pip) and [`requirements.txt`](requirements.txt) (pip only, used by Docker).
+Dependencies are declared in [`requirements.txt`](requirements.txt).
 
 ```bash
-conda env create -f environment.yml
-conda activate gen_ai_test
+pip install -r requirements.txt
 python app.py
 # Open http://localhost:5000
 ```
@@ -269,11 +278,16 @@ gcloud auth application-default login
 
 This saves credentials to `~/.config/gcloud/application_default_credentials.json`. The SDK picks them up automatically on every subsequent run.
 
-**GCP deployment (Cloud Run, GKE, Compute Engine, etc.)** — credentials are provided automatically by the compute metadata server. No extra setup needed beyond ensuring the service account has the **Vertex AI User** role (`roles/aiplatform.user`) and the Vertex AI API is enabled:
+**GCP deployment (Cloud Run, GKE, Compute Engine, etc.)** — credentials are provided automatically by the compute metadata server. No extra setup needed beyond ensuring the service account has the required roles and the APIs are enabled:
 
 ```bash
-gcloud services enable aiplatform.googleapis.com
+gcloud services enable aiplatform.googleapis.com speech.googleapis.com texttospeech.googleapis.com
 ```
+
+Required IAM roles:
+- `roles/aiplatform.user` — Gemini / Vertex AI (receipt OCR, voice extraction, AI overview)
+- `roles/speech.client` (or `roles/editor`) — Google Cloud Speech-to-Text
+- `roles/cloudtexttospeech.client` (or `roles/editor`) — Google Cloud Text-to-Speech
 
 ### Docker / Cloud Run
 
@@ -288,17 +302,17 @@ For Cloud Run, set `GOOGLE_CLOUD_PROJECT` as an environment variable and grant t
 
 ### Share over a tunnel
 
-[`run_and_share.sh`](run_and_share.sh) starts the app, exposes it through a public tunnel, and prints a QR code for quick mobile access:
+[`scripts/run_and_share.sh`](scripts/run_and_share.sh) starts the app, exposes it through a public tunnel, and prints a QR code for quick mobile access:
 
 ```bash
-./run_and_share.sh
+./scripts/run_and_share.sh
 ```
 
 By default it uses [`lt`](https://github.com/localtunnel/localtunnel) with a fixed subdomain, giving a **stable URL** (`https://myfloapp-tum.loca.lt`) across runs. Override the subdomain with `LT_SUBDOMAIN`, or switch to a [`cloudflared`](https://developers.cloudflare.com/cloudflare-tunnel/) quick tunnel (no reminder page, but a **random URL** each run) with `TUNNEL=cloudflared`:
 
 ```bash
-LT_SUBDOMAIN=my-custom-name ./run_and_share.sh   # fixed lt URL
-TUNNEL=cloudflared ./run_and_share.sh            # random, no reminder page
+LT_SUBDOMAIN=my-custom-name ./scripts/run_and_share.sh   # fixed lt URL
+TUNNEL=cloudflared ./scripts/run_and_share.sh            # random, no reminder page
 ```
 
 Requires one of those tunnel tools plus one of `qrencode` / Python `qrcode` on `PATH`.
@@ -322,10 +336,10 @@ From the **Settings** view:
 financial_app/
 ├── app.py                    Flask app + routes + WebSocket relay
 ├── config.py                 Env vars, model names, thresholds, file paths
-├── environment.yml           Conda + pip dependencies
-├── requirements.txt          Pip-only dependencies (used by Docker)
+├── requirements.txt          Pip dependencies (used locally and by Docker)
 ├── Dockerfile                Container build for Cloud Run / Docker
-├── run_and_share.sh          Local + localtunnel + QR sharing helper
+├── scripts/
+│   └── run_and_share.sh      Local + localtunnel + QR sharing helper
 ├── services/
 │   ├── classifier.py         SentenceTransformer + nearest-centroid + online learning
 │   ├── receipt.py            Gemini receipt OCR → structured JSON
@@ -356,7 +370,9 @@ financial_app/
 | `sentence-transformers` | Multilingual text embeddings for classification |
 | `numpy`, `scikit-learn` | Vector arithmetic + cosine similarity |
 | `pandas` | CSV loading for initial centroid computation |
-| `google-genai` | Gemini SDK (receipt OCR, voice function-calling, Live API, overview generation) |
+| `google-genai` | Gemini SDK (receipt OCR, voice function-calling, AI overview generation) |
+| `google-cloud-speech` | Google Cloud Speech-to-Text (streaming + batch voice transcription) |
+| `google-cloud-texttospeech` | Google Cloud Text-to-Speech (expense confirmation + overview readback) |
 | `chromadb` | Persistent vector store for monthly spending summaries (AI overview RAG) |
 | `python-dotenv` | `.env` loading for environment variables |
 | `qrcode` | Terminal QR for the localtunnel sharing script |
