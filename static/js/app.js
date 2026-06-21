@@ -201,6 +201,36 @@ function upsertSummary(period, text, spending) {
   saveSummaries(summaries);
 }
 
+function rebuildSummariesFromExpenses(expenses) {
+  const defCur   = localStorage.getItem("defaultCurrency") || "EUR";
+  const thisMonth = new Date().toISOString().slice(0, 7);
+
+  // Group past-month expenses by YYYY-MM
+  const byMonth = {};
+  for (const e of expenses) {
+    if (!e.date || isIncomeEntry(e)) continue;
+    const ym = e.date.slice(0, 7);
+    if (ym >= thisMonth) continue; // skip current month
+    if (!byMonth[ym]) byMonth[ym] = [];
+    byMonth[ym].push(e);
+  }
+
+  for (const [ym, entries] of Object.entries(byMonth)) {
+    const catBreakdown = {};
+    for (const e of entries) {
+      const cat = e.category || "Others";
+      catBreakdown[cat] = (catBreakdown[cat] || 0) + convertToDefault(e.amount, e.currency, e.rate);
+    }
+    const [year, month] = ym.split("-").map(Number);
+    const period = new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const total  = Object.values(catBreakdown).reduce((s, v) => s + v, 0);
+    const items  = Object.entries(catBreakdown)
+      .map(([cat, amt]) => `${cat} ${fmtAmount(amt, defCur)}`).join(", ");
+    const text = `${period}: ${items}. Total ${fmtAmount(total, defCur)}.`;
+    upsertSummary(period, text, catBreakdown);
+  }
+}
+
 function generateId() {
   return crypto.randomUUID
     ? crypto.randomUUID()
@@ -235,7 +265,7 @@ function computeSummary() {
   const thisMonth = today.slice(0, 7);
 
   const todayTotal = expenses.filter(e => isExpenseEntry(e) && e.date === today).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
-  const monthTotal = expenses.filter(e => isExpenseEntry(e) && (e.date || '').startsWith(thisMonth)).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
+  const monthTotal = expenses.filter(e => isExpenseEntry(e) && (e.date || '').startsWith(thisMonth) && (e.date || '') <= today).reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   // This week (Mon → today)
   const dow       = new Date().getDay(); // 0=Sun
@@ -255,7 +285,7 @@ function computeSummary() {
     .reduce((s, e) => s + convertToDefault(e.amount, e.currency, e.rate), 0);
 
   const catBreakdown = {};
-  expenses.filter(e => isExpenseEntry(e) && (e.date || '').startsWith(thisMonth)).forEach(e => {
+  expenses.filter(e => isExpenseEntry(e) && (e.date || '').startsWith(thisMonth) && (e.date || '') <= today).forEach(e => {
     const cat = e.category || 'Others';
     catBreakdown[cat] = (catBreakdown[cat] || 0) + convertToDefault(e.amount, e.currency, e.rate);
   });
@@ -301,6 +331,17 @@ function computeSummary() {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+const _PALETTE = [
+  "#f43f5e","#f97316","#eab308","#84cc16","#22c55e","#10b981",
+  "#06b6d4","#3b82f6","#6366f1","#8b5cf6","#ec4899","#14b8a6",
+  "#f59e0b","#ef4444","#a855f7","#0ea5e9","#d946ef","#78716c",
+];
+function _hashColor(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+  return _PALETTE[Math.abs(h) % _PALETTE.length];
+}
+
 const CAT_COLOR = {
   "Banking & Fees":                "#3b82f6",
   "Entertainment & Subscriptions": "#8b5cf6",
@@ -505,7 +546,7 @@ function selectNearbyPlace(inputId, resultsId, el) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function catColor(cat)      { return CAT_COLOR[cat]  || "#64748b"; }
+function catColor(cat)      { return CAT_COLOR[cat]  || _hashColor(cat || ""); }
 function catEmoji(cat) {
   // User overrides always win over built-in defaults
   const data   = getCentroids();
@@ -519,7 +560,7 @@ function getAllIncomeCategories() {
   const custom = getCustomIncomeCategories();
   return [...new Set([...INCOME_CATEGORIES, ...custom])];
 }
-function incomeCatColor(cat){ return INCOME_CAT_COLOR[cat] || "#16a34a"; }
+function incomeCatColor(cat){ return INCOME_CAT_COLOR[cat] || _hashColor(cat || ""); }
 function incomeCatEmoji(cat){
   const custom = getIncomeEmojis()[cat];
   if (custom) return custom;
@@ -2170,10 +2211,6 @@ async function speakText(text) {
   } catch (_) {}
 }
 
-function speakAiOverview() {
-  const text = document.getElementById('ai-overview-text')?.textContent?.trim();
-  if (text) speakText(text);
-}
 
 async function saveExpense() {
   const merchant       = document.getElementById("f-merchant").value.trim();
@@ -3134,7 +3171,6 @@ async function loadAiOverview(breakdown, defCur) {
     if (!r.ok || data.error) throw new Error(data.error || "Unknown error");
 
     el.textContent = data.overview;
-    document.getElementById('ai-overview-speak-btn')?.classList.remove('hidden');
 
     // Show which months it compared against, if any
     const basedOnEl = document.getElementById("ai-overview-based-on");
@@ -3804,7 +3840,9 @@ function onImportFile(event) {
         saveCustomIncomeCategories(list);
       }
 
-      saveExpenses([...existing, ...newOnes]);
+      const allExpenses = [...existing, ...newOnes];
+      saveExpenses(allExpenses);
+      rebuildSummariesFromExpenses(allExpenses);
       document.getElementById("import-file").value = "";
 
       const addedParts = [];
