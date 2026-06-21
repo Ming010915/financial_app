@@ -283,6 +283,7 @@ def api_stt():
             encoding=encoding,
             sample_rate_hertz=48000,
             language_code="en-US",
+            alternative_language_codes=["de-DE"],
             enable_automatic_punctuation=True,
         )
         print(f"[STT] Sending {len(audio_data)} bytes ({mime}) to Google Cloud STT...")
@@ -378,6 +379,7 @@ def voice_live_ws(ws):
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
                 sample_rate_hertz=pcm_rate,
                 language_code="en-US",
+                alternative_language_codes=["de-DE"],
                 enable_automatic_punctuation=True,
             )
             streaming_config = speech.StreamingRecognitionConfig(

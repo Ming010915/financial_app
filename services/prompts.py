@@ -16,24 +16,15 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
     methods_str = ", ".join(payment_methods) if payment_methods else ", ".join(DEFAULT_PAYMENT_METHODS)
     return (
         "You are an expert receipt-parsing assistant. Analyze this receipt (image or PDF "
-        "document) carefully and extract the structured information described below.\n"
+        "document) carefully and extract the structured information.\n"
         "The receipt may be in any language, may be rotated, blurry, crumpled, or a photo "
         "taken at an angle. It may be a store receipt, restaurant bill, invoice, or online "
         "order confirmation. Read every part — header, body, and footer — before answering.\n"
         "\n"
-        "Return ONLY a valid JSON object (no markdown fences, no explanation, no extra text) "
-        "with EXACTLY these fields:\n"
-        '{\n'
-        '  "merchant": "the name of the business/store/restaurant that issued the receipt",\n'
-        '  "date": "YYYY-MM-DD of the purchase if visible, else null",\n'
-        '  "total": numeric final amount paid or null,\n'
-        '  "currency": "ISO currency code, e.g. EUR USD GBP",\n'
-        f'  "payment_method": "one of: {methods_str} — or null if not visible",\n'
-        '  "items": [{"name": "item name", "price": numeric line-item total price or null, "quantity": integer quantity (default 1)}],\n'
-        '  "location": "the street address of the MERCHANT/STORE where the purchase happened, or null"\n'
-        '}\n'
-        "\n"
         "RULES:\n"
+        "PAYMENT METHOD:\n"
+        f"- Use one of: {methods_str} — or null if not visible.\n"
+        "\n"
         "MERCHANT:\n"
         "- This is the seller's brand/trading name, usually printed largest at the TOP of the "
         "receipt or in the logo/header. It is NOT the cashier's name, NOT a slogan, and NOT a "
@@ -156,64 +147,94 @@ VOICE_PROMPT = (
     "- Use today's date if no date is mentioned."
 )
 
+# ---------------------------------------------------------------------------
+# Monthly overview (services/summary.py)
+# ---------------------------------------------------------------------------
+
+def build_overview_prompt(current_text: str, historical_context: str) -> str:
+    return (
+        "You are a friendly personal finance assistant helping a university student "
+        "understand their spending habits.\n\n"
+        f"Here is the user's spending so far this month:\n{current_text}\n\n"
+        "Here is relevant historical context from similar past months:\n"
+        f"{historical_context}\n\n"
+        "Write a concise, friendly overview of the user's spending this month compared "
+        "to their history. Highlight anything notable — both positive and negative. "
+        "Keep it to 2-3 sentences."
+    )
+
+
+TRANSACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "transaction_type": {
+            "type": "string",
+            "enum": ["expense", "income"],
+            "nullable": True,
+            "description": (
+                "Whether money was spent ('expense') or received ('income'). "
+                "Use 'income' for salary, freelance payment, client payment, refund, "
+                "gift received, rental income, dividend, interest, or any other money received. "
+                "Use 'expense' for any purchase, bill, or money spent. Default: 'expense'."
+            ),
+        },
+        "merchant": {
+            "type": "string",
+            "description": (
+                "For expenses: the store or merchant name (e.g. Lidl, Starbucks). "
+                "For income: the source of the money (e.g. employer name, client name, 'Salary'). "
+                "If not available, use the item or income type."
+            ),
+        },
+        "date": {
+            "type": "string",
+            "nullable": True,
+            "description": "Date of transaction in YYYY-MM-DD format, or null if not available",
+        },
+        "total": {
+            "type": "number",
+            "nullable": True,
+            "description": "Total amount paid or received; null if not determinable",
+        },
+        "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code (e.g. EUR, USD, GBP)",
+        },
+        "payment_method": {
+            "type": "string",
+            "nullable": True,
+            "description": "One of: Cash, Debit Card, Credit Card, Mobile Pay, Bank Transfer; or null",
+        },
+        "items": {
+            "type": "array",
+            "description": "Individual purchased items. One entry per distinct item.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name":     {"type": "string",  "description": "Item name"},
+                    "price":    {"type": "number",  "nullable": True,
+                                 "description": "Total line price (quantity × unit price)"},
+                    "quantity": {"type": "integer", "description": "Number of units (default 1)"},
+                },
+                "required": ["name"],
+            },
+        },
+        "location": {
+            "type": "string",
+            "nullable": True,
+            "description": "Street address of the merchant/store branch, or null",
+        },
+        "notes": {
+            "type": "string",
+            "nullable": True,
+            "description": "Any extra context or notes",
+        },
+    },
+    "required": ["merchant"],
+}
+
 ADD_EXPENSE_FUNC = {
     "name": "add_expense",
     "description": "Record a financial transaction — either a purchase/expense or received income",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "transaction_type": {
-                "type": "string",
-                "enum": ["expense", "income"],
-                "description": (
-                    "Whether money was spent ('expense') or received ('income'). "
-                    "Use 'income' for salary, freelance payment, client payment, refund, "
-                    "gift received, rental income, dividend, interest, or any other money received. "
-                    "Use 'expense' for any purchase, bill, or money spent. Default: 'expense'."
-                ),
-            },
-            "merchant": {
-                "type": "string",
-                "description": (
-                    "For expenses: the store or merchant name (e.g. Lidl, Starbucks). "
-                    "For income: the source of the money (e.g. employer name, client name, 'Salary'). "
-                    "If no name is mentioned, use the item or income type."
-                ),
-            },
-            "total": {
-                "type": "number",
-                "description": "Total amount paid or received. Sum all item prices if not explicitly stated.",
-            },
-            "currency": {
-                "type": "string",
-                "description": "Three-letter ISO currency code (e.g. EUR, USD, GBP)",
-            },
-            "date": {
-                "type": "string",
-                "description": "Date of transaction in YYYY-MM-DD format",
-            },
-            "payment_method": {
-                "type": "string",
-                "description": "One of: Cash, Debit Card, Credit Card, Mobile Pay, Bank Transfer",
-            },
-            "notes": {
-                "type": "string",
-                "description": "Any extra context",
-            },
-            "items": {
-                "type": "array",
-                "description": "Individual items purchased (for expenses). One entry per distinct item.",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name":     {"type": "string",  "description": "Item name"},
-                        "price":    {"type": "number",  "description": "Total line price for this item (quantity × unit price)"},
-                        "quantity": {"type": "integer", "description": "Number of units (default 1)"},
-                    },
-                    "required": ["name"],
-                },
-            },
-        },
-        "required": ["merchant"],
-    },
+    "parameters": TRANSACTION_SCHEMA,
 }
