@@ -45,9 +45,7 @@
         <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Amount *</label>
         <div class="relative">
           <span id="f-cur-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
-          <input id="f-amount" type="number" step="0.01" min="0" placeholder="0.00"
-                 inputmode="decimal"
-                 onkeydown="if(['e','E','+','-'].includes(event.key)) event.preventDefault()"
+          <input id="f-amount" type="text" inputmode="decimal" placeholder="0.00"
                  oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1')"
                  class="w-full pl-7 pr-3 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
         </div>
@@ -74,6 +72,23 @@
       <span id="f-rate-note" class="text-[10px] text-emerald-500 flex-shrink-0"></span>
     </div>
 
+    <div id="items-wrapper" class="hidden">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-sm font-semibold text-[#191c1d]">Items</label>
+        <button type="button" onclick="addFormItem()"
+                class="text-xs font-bold text-[#006b55] hover:text-[#004d3f] py-1 px-2 rounded-xl hover:bg-[#f0fdf9] transition-colors">+ Add item</button>
+      </div>
+      <div id="items-section" class="hidden">
+        <div class="flex items-center gap-2 mb-1 px-1">
+          <span class="flex-1 text-[10px] text-[#44474a]">Name</span>
+          <span class="w-12 text-[10px] text-[#44474a] text-center">Qty</span>
+          <span class="w-20 text-[10px] text-[#44474a] text-right pr-1">Price</span>
+          <span class="w-7"></span>
+        </div>
+        <div id="items-list" class="space-y-2"></div>
+      </div>
+    </div>
+
     <div>
       <div class="flex items-center justify-between mb-2">
         <label class="text-sm font-semibold text-[#191c1d]">Category</label>
@@ -82,21 +97,6 @@
       <div id="cat-buttons" class="flex flex-wrap gap-1.5">
         <div class="text-sm text-[#c5c6ca]">Loading…</div>
       </div>
-    </div>
-
-    <div id="items-section" class="hidden">
-      <div class="flex items-center justify-between mb-2">
-        <label class="text-sm font-semibold text-[#191c1d]">Items on Receipt</label>
-        <button type="button" onclick="addFormItem()"
-                class="text-xs font-bold text-[#006b55] hover:text-[#004d3f] py-1 px-2 rounded-xl hover:bg-[#f0fdf9] transition-colors">+ Add item</button>
-      </div>
-      <div class="flex items-center gap-2 mb-1 px-1">
-        <span class="flex-1 text-[10px] text-[#44474a]">Name</span>
-        <span class="w-12 text-[10px] text-[#44474a] text-center">Qty</span>
-        <span class="w-20 text-[10px] text-[#44474a] text-right pr-1">Price</span>
-        <span class="w-7"></span>
-      </div>
-      <div id="items-list" class="space-y-2"></div>
     </div>
 
     <div>

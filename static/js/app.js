@@ -430,7 +430,7 @@ async function _placesProxy(endpoint, payload) {
   const r = await fetch(endpoint, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
+    body:    JSON.stringify(payload),
   });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.error || 'Places request failed');
@@ -534,9 +534,9 @@ async function findNearbyPlaces(inputId, resultsId, btnEl) {
       return;
     }
     _renderPlaceResults(inputId, resultsId, results, 'name', 'vicinity');
-  } catch {
+  } catch (err) {
     setBtn(origLabel, false);
-    resultsEl.innerHTML = '<div class="px-3 py-3 text-xs text-red-500 text-center">Nearby search failed</div>';
+    resultsEl.innerHTML = `<div class="px-3 py-3 text-xs text-red-500 text-center">Nearby search failed: ${err.message}</div>`;
   }
 }
 
@@ -598,10 +598,18 @@ function esc(s) {
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+function setAmountSymbol(sym) {
+  const span = document.getElementById("f-cur-sym");
+  const input = document.getElementById("f-amount");
+  if (!span) return;
+  span.textContent = sym;
+  if (input) input.style.paddingLeft = (span.offsetWidth + 10) + "px";
+}
+
 function updateCurrencySymbol() {
   const code   = document.getElementById("f-currency").value || "EUR";
   const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
-  document.getElementById("f-cur-sym").textContent = curSym(code);
+  setAmountSymbol(curSym(code));
   updateRateRow("f", code, defCur, null);
 }
 
@@ -1043,13 +1051,8 @@ function miniExpenseCard(exp) {
 
 // ── Add form ──────────────────────────────────────────────────────────────────
 function prepareAddForm() {
-  state.isIncome = false;
+  resetForm();
   setFormType('expense');
-  document.getElementById("f-date").value = new Date().toISOString().split("T")[0];
-  const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
-  populateCurrencySelect("f-currency", defaultCurrency);
-  document.getElementById("f-cur-sym").textContent = curSym(defaultCurrency);
-  renderPaymentButtons(state.selectedPayment, "payment-buttons");
 }
 
 function setFormType(type) {
@@ -1069,14 +1072,14 @@ function setFormType(type) {
   const labelEl   = document.getElementById('f-merchant-label');
   const inputEl   = document.getElementById('f-merchant');
   const saveLabel = document.getElementById('save-label');
-  const locWrap   = document.getElementById('f-location-wrap');
-  const itemsSec  = document.getElementById('items-section');
+  const locWrap    = document.getElementById('f-location-wrap');
+  const itemsWrap  = document.getElementById('items-wrapper');
   if (titleEl)   titleEl.textContent   = state.isIncome ? 'Add Income'              : 'Add Expense';
   if (saveLabel) saveLabel.textContent  = state.isIncome ? 'Add Income'              : 'Add Expense';
   if (labelEl)   labelEl.textContent   = state.isIncome ? 'Source *'                : 'Merchant *';
   if (inputEl)   inputEl.placeholder   = state.isIncome ? 'e.g. Employer, Client'   : "e.g. Lidl, McDonald's";
   if (locWrap)   locWrap.classList.toggle('hidden', state.isIncome);
-  if (itemsSec && state.isIncome) itemsSec.classList.add('hidden');
+  if (itemsWrap) itemsWrap.classList.toggle('hidden', !!state.isIncome);
   const confEl = document.getElementById('cat-confidence');
   if (confEl) confEl.classList.add('hidden');
   if (state.isIncome) {
@@ -1600,7 +1603,7 @@ function resetForm() {
   document.getElementById("f-merchant").value      = "";
   document.getElementById("f-amount").value        = "";
   populateCurrencySelect("f-currency", defaultCurrency);
-  document.getElementById("f-cur-sym").textContent = curSym(defaultCurrency);
+  setAmountSymbol(curSym(defaultCurrency));
   document.getElementById("f-date").value          = new Date().toISOString().split("T")[0];
   document.getElementById("f-notes").value         = "";
   document.getElementById("f-location").value      = "";
@@ -1703,6 +1706,16 @@ function removeVerifyItem(idx) {
   renderVerifyItems();
 }
 
+function syncItemsTotal() {
+  const total = (state.receiptItems || []).reduce((sum, it) => {
+    const price = parseFloat(it.price);
+    const qty   = parseInt(it.quantity) || 1;
+    return sum + (isNaN(price) ? 0 : price * qty);
+  }, 0);
+  const amountEl = document.getElementById("f-amount");
+  if (amountEl) amountEl.value = total > 0 ? (Math.round(total * 100) / 100).toFixed(2) : "";
+}
+
 function renderAddFormItems() {
   const el = document.getElementById("items-list");
   if (!el) return;
@@ -1715,11 +1728,11 @@ function renderAddFormItems() {
       <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
              oninput="state.receiptItems[${i}].name = this.value"
              class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
-             oninput="state.receiptItems[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
+      <input type="text" inputmode="numeric" value="${item.quantity != null ? item.quantity : 1}" placeholder="1"
+             oninput="this.value=this.value.replace(/[^0-9]/g,''); state.receiptItems[${i}].quantity = this.value === '' ? 1 : parseInt(this.value); syncItemsTotal()"
              class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01"
-             oninput="state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value)"
+      <input type="text" inputmode="decimal" value="${item.price != null ? item.price : ""}" placeholder="0.00"
+             oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1'); state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value); syncItemsTotal()"
              class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
       <button type="button" onclick="removeFormItem(${i})"
               class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
@@ -1731,6 +1744,7 @@ function renderAddFormItems() {
 function addFormItem() {
   state.receiptItems = state.receiptItems || [];
   state.receiptItems.push({ name: "", price: null, quantity: 1 });
+  document.getElementById("items-section")?.classList.remove("hidden");
   renderAddFormItems();
   const rows = document.querySelectorAll("#items-list > div");
   if (rows.length) rows[rows.length - 1].querySelector("input[type=text]")?.focus();
@@ -1739,6 +1753,7 @@ function addFormItem() {
 function removeFormItem(idx) {
   state.receiptItems.splice(idx, 1);
   renderAddFormItems();
+  syncItemsTotal();
 }
 
 function toggleVerifyZoom() {
@@ -1828,7 +1843,7 @@ function populateFormFromReceipt(data) {
     const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
     const sel    = document.getElementById("f-currency");
     if ([...sel.options].some(o => o.value === code)) sel.value = code;
-    document.getElementById("f-cur-sym").textContent = curSym(code);
+    setAmountSymbol(curSym(code));
     updateRateRow("f", code, defCur, null);
   }
   if (data.date)     document.getElementById("f-date").value     = data.date;
@@ -2212,7 +2227,7 @@ function populateFormFromVoice(data) {
     const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
     const sel    = document.getElementById("f-currency");
     if ([...sel.options].some(o => o.value === code)) sel.value = code;
-    document.getElementById("f-cur-sym").textContent = curSym(code);
+    setAmountSymbol(curSym(code));
     updateRateRow("f", code, defCur, null);
   }
   if (data.date)     document.getElementById("f-date").value     = data.date;
@@ -2270,6 +2285,9 @@ async function saveExpense() {
 
   if (!merchant) { showToast(state.isIncome ? "Please enter a source" : "Please enter a merchant name", true); return; }
   if (!amount || isNaN(parseFloat(amount))) { showToast("Please enter a valid amount", true); return; }
+  if ((state.receiptItems || []).some(it => it.price === null || it.price === undefined || it.price === "")) {
+    showToast("Please enter a price for every item", true); return;
+  }
 
   const btn     = document.getElementById("save-btn");
   const label   = document.getElementById("save-label");
@@ -2316,7 +2334,7 @@ async function saveExpense() {
       payment_method,
       notes,
       location,
-      items:          (state.isReceipt || state.isVoice) ? state.receiptItems : [],
+      items:          state.receiptItems?.length ? state.receiptItems : [],
       source:         state.isReceipt ? "receipt" : state.isVoice ? "voice" : "manual",
       type:           state.isIncome ? "income" : "expense",
       created_at:     new Date().toISOString(),
@@ -3943,7 +3961,7 @@ function init() {
   loadCategoriesIntoButtons();
   const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("f-currency", defaultCurrency);
-  document.getElementById("f-cur-sym").textContent = curSym(defaultCurrency);
+  setAmountSymbol(curSym(defaultCurrency));
   renderPaymentButtons(null, "payment-buttons");
 }
 

@@ -473,7 +473,12 @@ def _places_request(path, params):
         headers={"User-Agent": "Flo-Finance/1.0"},
     )
     with urllib.request.urlopen(req, timeout=8) as resp:
-        return json.loads(resp.read())
+        data = json.loads(resp.read())
+    status = data.get("status", "")
+    if status not in ("OK", "ZERO_RESULTS"):
+        msg = data.get("error_message", status)
+        raise ValueError(f"Google Places API error: {status} — {msg}")
+    return data
 
 
 def _normalize_places(results):
@@ -500,11 +505,11 @@ def api_places_text_search():
     if not query:
         return jsonify({"results": []})
 
-    params = {"query": query, "key": api_key}
+    params = {"query": query, "key": api_key, "type": "establishment"}
     lat, lng = body.get("lat"), body.get("lng")
     if lat is not None and lng is not None:
         params["location"] = f"{lat},{lng}"
-        params["radius"]   = 10000
+        params["radius"]   = 5000
 
     try:
         data = _places_request("textsearch/json", params)
@@ -526,7 +531,7 @@ def api_places_nearby():
 
     params = {
         "location": f"{lat},{lng}",
-        "radius":   500,
+        "rankby":   "distance",
         "type":     "establishment",
         "key":      api_key,
     }
