@@ -51,7 +51,10 @@
         </div>
       </div>
       <div class="col-span-1">
-        <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">CCY</label>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-sm font-semibold text-[#191c1d]">CCY</label>
+          <button type="button" onclick="toggleInlineAddCurrency()" class="text-[10px] text-[#006b55] font-bold leading-none">+</button>
+        </div>
         <select id="f-currency" onchange="updateCurrencySymbol()"
                 class="w-full px-1 py-3 border border-[#c5c6ca] rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white text-center"></select>
       </div>
@@ -59,6 +62,17 @@
         <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Date</label>
         <input id="f-date" type="date"
                class="w-full px-3 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      </div>
+    </div>
+
+    <!-- Inline add currency -->
+    <div id="inline-add-currency-wrap" class="hidden -mt-2">
+      <div id="inline-add-currency-form" class="flex gap-2 items-center">
+        <input id="icu-code" type="text" placeholder="e.g. THB" maxlength="5"
+               class="w-24 px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white"
+               oninput="this.value=this.value.toUpperCase()" />
+        <button type="button" onclick="saveInlineCurrency()" class="px-3 py-2 bg-[#006b55] text-white rounded-xl text-sm font-bold">Add</button>
+        <button type="button" onclick="toggleInlineAddCurrency()" class="px-2 py-2 border border-[#c5c6ca] text-[#44474a] rounded-xl text-sm">✕</button>
       </div>
     </div>
 
@@ -92,10 +106,21 @@
     <div>
       <div class="flex items-center justify-between mb-2">
         <label class="text-sm font-semibold text-[#191c1d]">Category</label>
-        <span id="cat-confidence" class="text-xs text-[#44474a] hidden"></span>
+        <div class="flex items-center gap-2">
+          <span id="cat-confidence" class="text-xs text-[#44474a] hidden"></span>
+          <button type="button" onclick="toggleInlineAddCategory()" class="text-xs text-[#006b55] font-bold">+ Add</button>
+        </div>
       </div>
       <div id="cat-buttons" class="flex flex-wrap gap-1.5">
         <div class="text-sm text-[#c5c6ca]">Loading…</div>
+      </div>
+      <div id="inline-add-category-form" class="hidden mt-2 flex gap-2 items-center">
+        <input id="iac-emoji" type="text" placeholder="📦" maxlength="2"
+               class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <input id="iac-name" type="text" placeholder="Category name"
+               class="flex-1 px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <button type="button" onclick="saveInlineCategory()" class="px-3 py-2 bg-[#006b55] text-white rounded-xl text-sm font-bold">Add</button>
+        <button type="button" onclick="toggleInlineAddCategory()" class="px-2 py-2 border border-[#c5c6ca] text-[#44474a] rounded-xl text-sm">✕</button>
       </div>
     </div>
 
@@ -105,12 +130,33 @@
              class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
     </div>
 
-    <div id="f-budget-wrap" class="hidden">
-      <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Event Budget <span class="text-xs text-[#44474a] font-normal">(optional)</span></label>
+    <div id="f-budget-wrap">
+      <div class="flex items-center justify-between mb-1.5">
+        <label class="text-sm font-semibold text-[#191c1d]">Event Budget <span class="text-xs text-[#44474a] font-normal">(optional)</span></label>
+        <button type="button" onclick="toggleInlineEventBudget()" class="text-xs text-[#006b55] font-bold">+ New event</button>
+      </div>
       <select id="f-budget-tag"
               class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white">
         <option value="">— No event budget —</option>
       </select>
+      <div id="inline-event-budget-form" class="hidden mt-2 p-3 bg-[#f8f9fa] rounded-2xl border border-[#e8e9ea] space-y-2">
+        <input id="ief-name" type="text" placeholder="Event name (e.g. Trip to Thailand)"
+               class="w-full px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <div class="relative">
+          <span id="ief-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
+          <input id="ief-amount" type="text" inputmode="decimal" placeholder="Budget limit"
+                 oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1')"
+                 class="w-full pl-7 pr-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <input id="ief-start" type="date" placeholder="Start (opt.)" class="w-full px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+          <input id="ief-end" type="date" placeholder="End (opt.)" class="w-full px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        </div>
+        <div class="flex gap-2">
+          <button type="button" onclick="saveInlineEventBudget()" class="flex-1 py-2 bg-[#006b55] text-white rounded-xl text-sm font-bold">Create & Select</button>
+          <button type="button" onclick="toggleInlineEventBudget()" class="px-3 py-2 border border-[#c5c6ca] text-[#44474a] rounded-xl text-sm font-semibold">Cancel</button>
+        </div>
+      </div>
     </div>
 
     <div id="f-location-wrap">
@@ -130,8 +176,19 @@
     </div>
 
     <div>
-      <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Payment Method</label>
+      <div class="flex items-center justify-between mb-1.5">
+        <label class="text-sm font-semibold text-[#191c1d]">Payment Method</label>
+        <button type="button" onclick="toggleInlineAddPayment()" class="text-xs text-[#006b55] font-bold">+ Add</button>
+      </div>
       <div id="payment-buttons" class="flex flex-wrap gap-1.5"></div>
+      <div id="inline-add-payment-form" class="hidden mt-2 flex gap-2 items-center">
+        <input id="iap-emoji" type="text" placeholder="💳" maxlength="2"
+               class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <input id="iap-name" type="text" placeholder="e.g. Revolut"
+               class="flex-1 px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <button type="button" onclick="saveInlinePayment()" class="px-3 py-2 bg-[#006b55] text-white rounded-xl text-sm font-bold">Add</button>
+        <button type="button" onclick="toggleInlineAddPayment()" class="px-2 py-2 border border-[#c5c6ca] text-[#44474a] rounded-xl text-sm">✕</button>
+      </div>
     </div>
 
     <button type="submit" id="save-btn"

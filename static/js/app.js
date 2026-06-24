@@ -911,8 +911,11 @@ function renderCustomBudgetsHome() {
   const card     = document.getElementById('home-custom-budgets-card');
   const list     = document.getElementById('home-custom-budgets-list');
   if (!card || !list) return;
-  if (budgets.length === 0) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
+  if (budgets.length === 0) {
+    list.innerHTML = `<button onclick="showView('budgets')" class="w-full py-2.5 border-2 border-dashed border-[#c5c6ca] rounded-2xl text-sm text-[#006b55] font-bold hover:border-[#006b55] hover:bg-[#f0fdf9] transition-colors">+ Set a custom budget</button>`;
+    return;
+  }
 
   const active   = budgets.filter(b => !isBudgetArchived(b));
   const archived = budgets.filter(b =>  isBudgetArchived(b));
@@ -943,12 +946,138 @@ function loadCustomBudgetSelect(selectId, currentBudgetId) {
   const budgets = getCustomBudgets().filter(b => b.type === 'event' && !isBudgetArchived(b));
   if (!sel) return;
   if (budgets.length === 0) {
-    if (wrap) wrap.classList.add('hidden');
+    if (selectId === 'f-budget-tag') {
+      if (wrap) wrap.classList.remove('hidden');
+      sel.innerHTML = '<option value="">— No event budget —</option>';
+    } else {
+      if (wrap) wrap.classList.add('hidden');
+    }
     return;
   }
   if (wrap) wrap.classList.remove('hidden');
   sel.innerHTML = '<option value="">— No event budget —</option>'
     + budgets.map(b => `<option value="${b.id}"${b.id === currentBudgetId ? ' selected' : ''}>${esc(b.name)}</option>`).join('');
+}
+
+function toggleInlineEventBudget() {
+  const form = document.getElementById('inline-event-budget-form');
+  if (!form) return;
+  form.classList.toggle('hidden');
+  if (!form.classList.contains('hidden')) {
+    const defCur = localStorage.getItem('defaultCurrency') || 'EUR';
+    const sym = document.getElementById('ief-sym');
+    if (sym) sym.textContent = curSym(defCur);
+    document.getElementById('ief-name')?.focus();
+  }
+}
+
+function saveInlineEventBudget() {
+  const name   = document.getElementById('ief-name')?.value.trim();
+  const amount = parseFloat(document.getElementById('ief-amount')?.value);
+  if (!name)                { showToast('Enter a budget name', true); return; }
+  if (!amount || amount <= 0) { showToast('Enter a valid amount', true); return; }
+
+  const budget = {
+    id:        generateId(),
+    name,
+    type:      'event',
+    category:  null,
+    amount,
+    startDate: document.getElementById('ief-start')?.value || null,
+    endDate:   document.getElementById('ief-end')?.value   || null,
+    color:     '#006b55',
+    createdAt: new Date().toISOString(),
+  };
+
+  const budgets = getCustomBudgets();
+  budgets.push(budget);
+  saveCustomBudgets(budgets);
+
+  loadCustomBudgetSelect('f-budget-tag', budget.id);
+  renderCustomBudgetsHome();
+
+  document.getElementById('ief-name').value   = '';
+  document.getElementById('ief-amount').value = '';
+  if (document.getElementById('ief-start')) document.getElementById('ief-start').value = '';
+  if (document.getElementById('ief-end'))   document.getElementById('ief-end').value   = '';
+  document.getElementById('inline-event-budget-form')?.classList.add('hidden');
+
+  showToast('Event budget created!');
+}
+
+function toggleInlineAddCategory() {
+  const form = document.getElementById('inline-add-category-form');
+  if (!form) return;
+  form.classList.toggle('hidden');
+  if (!form.classList.contains('hidden')) document.getElementById('iac-name')?.focus();
+}
+
+function saveInlineCategory() {
+  const name  = document.getElementById('iac-name')?.value.trim();
+  const emoji = (document.getElementById('iac-emoji')?.value || '').trim() || '📦';
+  if (!name) { showToast('Enter a category name', true); return; }
+  const data = getCentroids();
+  if (!data) { showToast('No model loaded yet.', true); return; }
+  if (getAllCategories().includes(name)) { showToast('Category already exists.', true); return; }
+  data.custom_categories = data.custom_categories || [];
+  data.custom_categories.push(name);
+  data.custom_category_emojis = data.custom_category_emojis || {};
+  data.custom_category_emojis[name] = emoji;
+  saveCentroids(data);
+  document.getElementById('iac-name').value  = '';
+  document.getElementById('iac-emoji').value = '';
+  document.getElementById('inline-add-category-form')?.classList.add('hidden');
+  state.categories = getAllCategories();
+  renderCatButtons(name);
+  showToast(`"${emoji} ${name}" added.`);
+}
+
+function toggleInlineAddPayment() {
+  const form = document.getElementById('inline-add-payment-form');
+  if (!form) return;
+  form.classList.toggle('hidden');
+  if (!form.classList.contains('hidden')) document.getElementById('iap-name')?.focus();
+}
+
+function saveInlinePayment() {
+  const name  = (document.getElementById('iap-name')?.value || '').trim();
+  const emoji = (document.getElementById('iap-emoji')?.value || '').trim() || '💳';
+  if (!name) { showToast('Enter a payment method name', true); return; }
+  const methods = getPaymentMethods();
+  if (methods.includes(name)) { showToast('Method already exists.', true); return; }
+  methods.push(name);
+  savePaymentMethods(methods);
+  const emojis = getPaymentEmojis();
+  emojis[name] = emoji;
+  savePaymentEmojis(emojis);
+  document.getElementById('iap-name').value  = '';
+  document.getElementById('iap-emoji').value = '';
+  document.getElementById('inline-add-payment-form')?.classList.add('hidden');
+  selectPayment(name, 'payment-buttons');
+  showToast(`"${emoji} ${name}" added.`);
+}
+
+function toggleInlineAddCurrency() {
+  const wrap = document.getElementById('inline-add-currency-wrap');
+  if (!wrap) return;
+  wrap.classList.toggle('hidden');
+  if (!wrap.classList.contains('hidden')) document.getElementById('icu-code')?.focus();
+}
+
+function saveInlineCurrency() {
+  const code = (document.getElementById('icu-code')?.value || '').trim().toUpperCase();
+  if (!code) { showToast('Enter a currency code', true); return; }
+  const builtinCodes = BUILTIN_CURRENCIES.map(c => c.code);
+  const customs = getCustomCurrencies();
+  if (builtinCodes.includes(code) || customs.includes(code)) { showToast('Currency already exists.', true); return; }
+  customs.push(code);
+  saveCustomCurrencies(customs);
+  document.getElementById('icu-code').value = '';
+  document.getElementById('inline-add-currency-wrap')?.classList.add('hidden');
+  refreshAllCurrencySelects();
+  const sel = document.getElementById('f-currency');
+  if (sel) { sel.value = code; updateCurrencySymbol(); }
+  showToast(`${code} added.`);
 }
 
 async function loadHome() {
