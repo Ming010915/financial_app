@@ -1,6 +1,6 @@
 # Flo — AI-Powered Personal Finance Tracker
 
-A mobile-style expense and income tracker with on-device merchant categorisation, receipt scanning, voice input, AI spending insights, location autocomplete, and text-to-speech readback — powered by Google Gemini via Vertex AI and Google Cloud Speech APIs.
+A mobile-style expense and income tracker with on-device merchant categorisation, receipt scanning, voice input, AI spending insights, location autocomplete, custom budgets, and advanced history filtering — powered by Google Gemini via Vertex AI and Google Cloud Speech APIs.
 
 ---
 
@@ -8,7 +8,8 @@ A mobile-style expense and income tracker with on-device merchant categorisation
 
 ```
 Browser (SPA)  ── localStorage ──────────────────────────────────────────────
-    │   expenses · centroids · overrides · settings · budget · home layout
+    │   expenses · centroids · overrides · settings · budgets · summaries
+    │   home layout · payment methods · currencies
     │
     │  HTTP/JSON  +  WebSocket (audio)
     ▼
@@ -19,7 +20,7 @@ Flask backend  (app.py)
     │     • Online (incremental) centroid updates
     ├── services/receipt.py   ── Gemini 2.5 Flash            (receipt OCR → JSON)
     ├── services/voice.py     ── Gemini 2.5 Flash            (transcript summary + function call → expense fields)
-    ├── services/summary.py   ── ChromaDB + Gemini           (monthly spending RAG overview)
+    ├── services/summary.py   ── Gemini                      (AI overview generation from client-retrieved context)
     ├── services/gemini_utils.py  (retry / model-fallback helpers)
     ├── services/prompts.py       (centralised Gemini prompts & function schemas)
     ├── /ws/voice_live        ── Google Cloud STT (streaming) (live transcript via WebSocket)
@@ -28,7 +29,9 @@ Flask backend  (app.py)
     +   Frankfurter API (FX rates)  ·  Google Places API proxy (location autocomplete)
 ```
 
-The server is **mostly stateless with respect to user data**. Expenses, personalised centroids, overrides, budget, and home layout all live in the browser's `localStorage`. The server ships a read-only *base model* (`dataset/centroids.json`) that new clients download on first run. The one server-side store is `flo_db/` — a ChromaDB database that persists the AI spending overview's monthly-summary vectors.
+The server is **mostly stateless with respect to user data**. Expenses, personalised centroids, overrides, budgets, spending summaries, and home layout all live in the browser's `localStorage`. The server ships a read-only *base model* (`dataset/centroids.json`) that new clients download on first run.
+
+The AI spending overview uses a **client-side RAG pipeline**: monthly summaries are computed and stored in `localStorage`, similarity search runs in the browser, and only the Gemini generation call goes to the server.
 
 ---
 
@@ -36,13 +39,18 @@ The server is **mostly stateless with respect to user data**. Expenses, personal
 
 | View | Purpose |
 |------|---------|
-| **Home** | Today's total, this-month total, 7-day bar chart, monthly income/balance card, budget progress, category breakdown, 5 most recent transactions; widgets are reorderable and hideable |
-| **Add** | Receipt scan • Voice input • Manual form with auto-classification, income/expense toggle, currency conversion, and Google Places location autocomplete |
-| **History** | Full chronological transaction list grouped by date; tap to open / edit detail sheet; toggle to a monthly **calendar view** |
-| **Summary** | Spending by category (doughnut chart), last-7-days line chart, and an **AI spending overview** generated from historical context; a 🔊 button reads the overview aloud via Text-to-Speech |
-| **Settings** | Dark mode · Default & custom currencies · JSON/CSV export & import · Reset model |
-| **Categories** | Add / remove expense categories (drive classification) and **income categories** |
-| **Category Overrides** | Manage exact-match `merchant → category` rules |
+| **Home** | Monthly total with trend badge, budget progress, today/week/remaining stats, custom budget cards, 7-day bar chart, income/balance card, category breakdown, 5 most recent transactions; widgets are reorderable and hideable |
+| **Add Method** | Entry-point picker — choose Scan Receipt, Voice Log, Manual Entry, or Add Income |
+| **Add** | Manual form with auto-classification, income/expense toggle, currency conversion, optional budget tag, and Google Places location autocomplete |
+| **Scan** | Receipt scan via camera or file; zoomable receipt preview; background queueing of pending scans |
+| **Voice** | Real-time voice recording with live transcript, AI transcript cleanup, and structured field extraction |
+| **Verify** | Pre-fill confirmation screen after a receipt scan or voice entry; editable line items |
+| **History** | Full chronological transaction list grouped by date; text search; filter sheet (category, payment method, time range, type, sort, custom budget); tap to open / edit / delete detail sheet; toggle to a monthly **calendar view** |
+| **Summary** | Spending by category (doughnut chart), last-7-days line chart, and an **AI spending insight** generated with local historical context |
+| **Settings** | Hub for app configuration — links to Preferences, Budgets, Categories, and Payment Methods; dark mode toggle; JSON/CSV export & import |
+| **Preferences** | Default currency · custom currency codes |
+| **Budgets** | Monthly budget limit · custom **Event** budgets (name, amount, optional date range, color) · custom **Category** budgets (per-category limit, color) |
+| **Categories** | Add / remove expense categories · add / remove income categories · manage exact-match merchant override rules · reset AI model |
 | **Payment Methods** | Add / remove payment methods and their display emojis |
 
 ---
@@ -58,20 +66,21 @@ The server is **mostly stateless with respect to user data**. Expenses, personal
 
 ### 2. Manual Expense / Income Entry
 
-1. User selects **expense** or **income**, types a **merchant / source name**, and leaves the field — for expenses, the client posts its own centroids to `POST /api/classify`.
-2. The server embeds the name, computes cosine similarity against the **client-supplied** centroids, and returns a prediction, confidence (0–1), top-3 candidates, and `needs_review` flag.
-3. If confidence is below `ASK_BELOW = 0.6`, the frontend highlights the category selector for manual confirmation.
-4. User fills in amount, currency (with live FX conversion if not the default), date, category, payment method, optional notes, and optional location.
-5. On submit, `POST /api/learn` updates the user's local centroid (returned in the response and re-saved to `localStorage`), then the transaction is persisted to `localStorage`.
+1. User opens the **Add Method** picker and selects **Manual Entry** or **Add Income**.
+2. User types a **merchant / source name** and leaves the field — for expenses, the client posts its own centroids to `POST /api/classify`.
+3. The server embeds the name, computes cosine similarity against the **client-supplied** centroids, and returns a prediction, confidence (0–1), top-3 candidates, and `needs_review` flag.
+4. If confidence is below `ASK_BELOW = 0.6`, the frontend highlights the category selector for manual confirmation.
+5. User fills in amount, currency (with live FX conversion if not the default), date, category, payment method, optional notes, location, and optionally tags the transaction to a **custom budget**.
+6. On submit, `POST /api/learn` updates the user's local centroid (returned in the response and re-saved to `localStorage`), then the transaction is persisted to `localStorage`.
 
 ### 3. Receipt Scanning
 
-1. User takes a photo or drops an image/PDF into the **Add** view (receipts can also be queued as **pending scans** from the Home screen).
+1. User selects **Scan Receipt** from the Add Method picker, then takes a photo or picks an image/PDF from the gallery. Receipts can also be queued as **pending scans** from the Home screen.
 2. `POST /api/scan_receipt` sends the file (multipart/form-data) to the server, which calls Gemini via Vertex AI.
 3. The server forwards the file to **Gemini 2.5 Flash** with a structured prompt that requests a strict JSON receipt schema.
 4. Gemini returns extracted fields (merchant, date, total, currency, payment method, items, location). Missing date defaults to today.
 5. The extracted merchant is classified by the same ML pipeline.
-6. Pre-filled form fields are shown for user confirmation before saving.
+6. The **Verify** screen shows pre-filled fields and editable line items for user confirmation before saving.
 
 ### 4. Voice Input
 
@@ -87,11 +96,7 @@ After the user stops recording, the transcript goes through a three-step pipelin
 2. The clean summary is shown for the user to confirm or edit.
 3. `POST /api/voice_extract` — Gemini extracts structured expense/income fields from the confirmed text via function calling.
 
-The extracted merchant runs through the classifier identically to a receipt scan.
-
-**Text-to-Speech feedback:**
-- After an expense or income is saved, a short confirmation is read aloud (e.g. "Expense saved. 12.50 EUR at Rewe.") via `POST /api/tts`.
-- The AI spending overview on the Summary screen has a 🔊 button that reads it aloud on demand.
+The extracted merchant runs through the classifier identically to a receipt scan, and the pre-filled fields land on the **Verify** screen.
 
 ### 5. Online ML Learning (client-personalised)
 
@@ -106,27 +111,37 @@ Each `POST /api/learn` carries the client's current centroids/overrides:
 3. If the user **corrected** the predicted category, the lowercased merchant name is added to `overrides` — future classifications of that exact name return the corrected category with confidence 1.0. (Centroid updates are skipped when an override already covers the merchant.)
 4. The updated `{categories, overrides}` payload is returned and written back to `localStorage` under `flo_centroids`.
 
-### 6. Location Autocomplete
+### 6. Custom Budgets
+
+Custom budgets are defined in the **Budgets** settings view and stored in `flo_custom_budgets` (`localStorage`).
+
+- **Event budgets** — a name, a spend limit, an optional date range (start / end), and a color. Spending is summed from all expense transactions tagged with the budget's ID in the chosen date window.
+- **Category budgets** — a name, a spend limit, a target category, and a color. Spending is summed from all expense transactions in that category for the current month.
+- Transactions can be tagged to a budget at the time of entry via the optional **budget tag** drop-down in the Add / Edit form (stored as `budgetId` on the transaction).
+- The Home screen shows a **Custom Budgets widget** with a progress bar per budget; the History filter sheet lets the user filter by budget.
+
+### 7. Location Autocomplete
 
 When `GOOGLE_PLACES_API_KEY` is set, the server proxies all Google Places calls — the API key never reaches the browser. The Add / Edit forms offer:
 
 - **Near me** — uses `navigator.geolocation`, posts to `/api/places/nearby`, and lists nearby establishments.
 - **Type-ahead** — debounced text search posted to `/api/places/text_search`, biased to the cached position.
 
-### 7. Currency Conversion
+### 8. Currency Conversion
 
-The home/summary views aggregate across multi-currency transactions. The frontend fetches rates via `GET /api/exchange_rates?base=<DEFAULT>`, which proxies the [Frankfurter](https://www.frankfurter.app) API. Rates are cached in `localStorage` per base currency.
+The home/summary views aggregate across multi-currency transactions. The frontend fetches rates via `GET /api/exchange_rates?base=<DEFAULT>`, which proxies the [Frankfurter](https://www.frankfurter.app) API. Rates are cached in `localStorage` per base currency. The `rate` field on each transaction stores the exchange rate at the time of entry so historical totals remain accurate if the default currency changes later.
 
-### 8. AI Spending Overview (RAG)
+### 9. AI Spending Overview (Client-side RAG)
 
-The **Summary** view generates a personalised 2–3 sentence overview by comparing the current month's spending to similar past months:
+The **Summary** view generates a personalised insight by comparing the current month's spending to similar past months. The pipeline runs entirely in the browser until the final generation call:
 
-1. When a month ends (or manually), the frontend posts `POST /api/summary/store` with the period label, a text description, and category totals.
-2. The server projects the spending vector (normalised per-category amounts) and stores it in a **ChromaDB** collection (`flo_db/`).
-3. On the Summary view, `GET /api/summary/overview` retrieves the most similar stored months (nearest-neighbour on spending vectors), builds a context prompt, and asks Gemini to write the overview.
-4. The overview and the periods it was based on are displayed in the AI card.
+1. **Auto-archiving** — on load, `rebuildSummariesFromExpenses()` computes per-category totals for every completed past month from the expense history and upserts them into `flo_summaries` (`localStorage`). No manual archiving step is required.
+2. **Manual archive** — the Summary view also exposes an **Archive current month** action that immediately snapshots the current month's breakdown into `flo_summaries`, useful for mid-month comparisons.
+3. **Similarity retrieval** — `retrieveSimilarSummaries()` projects the current spending onto a normalised category vector and computes cosine similarity against stored month vectors entirely in JavaScript. The top-2 nearest neighbours are passed as `retrieved_json` to the server.
+4. `GET /api/summary/overview` receives the current spending breakdown, days elapsed, and pre-retrieved context, then asks Gemini to write a 2–3 sentence insight comparing this month to the retrieved months.
+5. The insight and the periods it was based on are displayed in the AI card.
 
-### 9. Gemini Retry & Model Fallback
+### 10. Gemini Retry & Model Fallback
 
 All Gemini calls go through `services/gemini_utils.py`:
 
@@ -152,10 +167,6 @@ The shared base model used to bootstrap new clients. After bootstrap, each brows
 
 **Built-in expense categories:** Banking & Fees, Entertainment & Subscriptions, Food & Beverage, Groceries, Health & Wellness, Home & Living, Personal Care, Pet Supplies, Shopping, Transport, Others.
 
-### Server — `flo_db/` (ChromaDB)
-
-Persistent vector database for the AI spending overview. Stores one document per completed month: a text description and a normalised per-category spending vector. Used for nearest-neighbour retrieval in `GET /api/summary/overview`.
-
 ---
 
 ### Browser — `localStorage`
@@ -172,6 +183,7 @@ A JSON array of transaction objects. Each object has:
 | `merchant` | string | Merchant / store name (expenses) or income source |
 | `amount` | number | Total amount (2 d.p.) |
 | `currency` | string | 3-letter ISO code (e.g. `EUR`) |
+| `rate` | number \| null | FX rate from `currency` to default currency at time of entry (null if same currency) |
 | `category` | string | Assigned category |
 | `confidence` | number | ML confidence at time of classification (0–1) |
 | `payment_method` | string \| null | Cash, Debit Card, Credit Card, Mobile Pay, Bank Transfer, … |
@@ -179,6 +191,7 @@ A JSON array of transaction objects. Each object has:
 | `location` | string | Optional address/place label from Places autocomplete |
 | `items` | array | Line items: `[{name, price, quantity}]` (from receipt or voice; empty for manual) |
 | `source` | string | `"manual"`, `"receipt"`, or `"voice"` |
+| `budgetId` | string \| null | ID of the custom budget this expense is tagged to (expenses only) |
 | `created_at` | string (ISO 8601) | Timestamp when the record was saved |
 
 #### Other localStorage keys
@@ -191,7 +204,9 @@ A JSON array of transaction objects. Each object has:
 | `flo_custom_currencies` | JSON array | Extra ISO currency codes added by the user |
 | `flo_rates_<BASE>` | JSON | Cached FX-rate snapshot keyed by base currency |
 | `flo_budget` | string | Monthly budget limit (numeric, in default currency) |
+| `flo_custom_budgets` | JSON array | Custom event/category budget definitions `[{id, name, type, amount, start?, end?, category?, color}]` |
 | `flo_pending_scans` | JSON array | Receipts queued for background scanning from the Home screen |
+| `flo_summaries` | JSON array | Monthly spending summaries for AI overview RAG `[{period, text, spending}]` |
 | `flo_income_categories` | JSON array | User-added custom income category names |
 | `flo_income_emojis` | JSON object | Map of income category name → emoji |
 | `flo_home_layout` | JSON | Widget visibility and order for the Home screen |
@@ -222,8 +237,7 @@ A JSON array of transaction objects. Each object has:
 | `GET`  | `/api/settings` | Returns `{vertex_ai_configured, env_key_set, places_key_set}` |
 | `POST` | `/api/places/text_search` | Server-side proxy for Google Places text search |
 | `POST` | `/api/places/nearby` | Server-side proxy for Google Places nearby search |
-| `POST` | `/api/summary/store` | Stores a monthly spending summary vector in ChromaDB |
-| `GET`  | `/api/summary/overview` | Retrieves similar past months and generates an AI overview via Gemini |
+| `GET`  | `/api/summary/overview` | Generates an AI spending insight via Gemini; receives current spending + pre-retrieved historical context as query params |
 
 ---
 
@@ -326,7 +340,6 @@ From the **Settings** view:
 - **Export JSON** — downloads `flo-expenses-YYYY-MM-DD.json` (full transaction array).
 - **Export CSV** — downloads `flo-expenses-YYYY-MM-DD.csv`.
 - **Import JSON** — merges a previously exported JSON backup into `localStorage`, skipping duplicate IDs.
-- **Reset to Base Model** — discards the browser's personalised centroids and re-downloads the server's base model.
 
 ---
 
@@ -344,19 +357,34 @@ financial_app/
 │   ├── classifier.py         SentenceTransformer + nearest-centroid + online learning
 │   ├── receipt.py            Gemini receipt OCR → structured JSON
 │   ├── voice.py              Gemini voice → transcript summary → function-call → expense fields
-│   ├── summary.py            ChromaDB monthly-summary store + RAG overview generation
+│   ├── summary.py            Gemini overview generation (context supplied by client)
 │   ├── gemini_utils.py       Retry + model-fallback helpers for Gemini calls
 │   └── prompts.py            Centralised Gemini prompts and function-call schemas
 ├── dataset/
 │   ├── centroids.json        Shared base model (generated)
 │   └── monthly_spending_2024.csv   Seed dataset for initial centroids
-├── flo_db/                   ChromaDB data directory (AI overview vectors; auto-created)
 ├── templates/
 │   ├── index.html            Single-page app shell
-│   └── login.html            Password-gate login page
+│   ├── login.html            Password-gate login page
+│   └── partials/
+│       ├── nav.html              Bottom navigation bar
+│       ├── overlays.html         Toast, confirm dialog, home customise sheet
+│       ├── view_home.html        Home screen widgets
+│       ├── view_add_method.html  Transaction type picker
+│       ├── view_add.html         Manual entry form
+│       ├── view_scan.html        Receipt scan / camera / gallery
+│       ├── view_voice.html       Voice recording + transcript UI
+│       ├── view_verify.html      Pre-save confirmation + line-item editor
+│       ├── view_history.html     Transaction list + calendar + filter sheet
+│       ├── view_summary.html     Charts + AI insight card
+│       ├── view_settings.html    Settings hub
+│       ├── view_preferences.html Currency preferences
+│       ├── view_budgets.html     Monthly + custom budget management
+│       ├── view_categories.html  Expense/income categories + overrides + AI model
+│       └── view_payment_methods.html  Payment method management
 └── static/
     ├── css/styles.css
-    └── js/app.js             SPA logic, localStorage, FX, Places, voice, charts
+    └── js/app.js             SPA logic, localStorage, FX, Places, voice, charts, budgets
 ```
 
 ---
@@ -372,7 +400,6 @@ financial_app/
 | `pandas` | CSV loading for initial centroid computation |
 | `google-genai` | Gemini SDK (receipt OCR, voice function-calling, AI overview generation) |
 | `google-cloud-speech` | Google Cloud Speech-to-Text (streaming + batch voice transcription) |
-| `google-cloud-texttospeech` | Google Cloud Text-to-Speech (expense confirmation + overview readback) |
-| `chromadb` | Persistent vector store for monthly spending summaries (AI overview RAG) |
+| `google-cloud-texttospeech` | Google Cloud Text-to-Speech (available via API) |
 | `python-dotenv` | `.env` loading for environment variables |
 | `qrcode` | Terminal QR for the localtunnel sharing script |
