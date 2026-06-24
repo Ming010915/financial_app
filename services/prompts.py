@@ -125,27 +125,32 @@ def build_summary_prompt(transcript: str) -> str:
     )
 
 
-VOICE_PROMPT = (
-    "The user recorded a short voice note describing a financial transaction — "
-    "either a purchase/expense OR received money (income). "
-    "Call the add_expense function with the details you hear. "
-    "Rules:\n"
-    "- Set 'transaction_type' to 'income' if the user is describing money they "
-    "RECEIVED (e.g. salary, paycheck, freelance payment, client payment, refund, "
-    "gift received, rental income, dividend, interest). "
-    "Set it to 'expense' for any purchase, bill, or money spent.\n"
-    "- For expenses: use the STORE or MERCHANT name as 'merchant' (e.g. Lidl, Starbucks). "
-    "If no store is mentioned, use the item name.\n"
-    "- For income: use the SOURCE as 'merchant' (e.g. employer name, client name, "
-    "'Salary', 'Freelance payment'). If no source is mentioned, use the income type.\n"
-    "- If multiple items are mentioned, list each one in the 'items' array with its name and price.\n"
-    "- Set 'total' to the sum of all item prices, or the total explicitly stated.\n"
-    "- Default currency is EUR unless another is explicitly mentioned.\n"
-    "- If the speaker corrects themselves (e.g. 'vegetables, I mean fruits', "
-    "'actually fruits'), record ONLY the final corrected version and ignore the "
-    "retracted one.\n"
-    "- Use today's date if no date is mentioned."
-)
+def build_voice_prompt(today: str) -> str:
+    """Build the voice extraction prompt, injecting today's date so the LLM can
+    resolve relative references like 'yesterday' or 'last Monday'."""
+    return (
+        f"Today's date is {today}. "
+        "The user recorded a short voice note describing a financial transaction — "
+        "either a purchase/expense OR received money (income). "
+        "Call the add_expense function with the details you hear. "
+        "Rules:\n"
+        "- Set 'transaction_type' to 'income' if the user is describing money they "
+        "RECEIVED (e.g. salary, paycheck, freelance payment, client payment, refund, "
+        "gift received, rental income, dividend, interest). "
+        "Set it to 'expense' for any purchase, bill, or money spent.\n"
+        "- For expenses: use the STORE or MERCHANT name as 'merchant' (e.g. Lidl, Starbucks). "
+        "If no store is mentioned, use the item name.\n"
+        "- For income: use the SOURCE as 'merchant' (e.g. employer name, client name, "
+        "'Salary', 'Freelance payment'). If no source is mentioned, use the income type.\n"
+        "- If multiple items are mentioned, list each one in the 'items' array with its name and price.\n"
+        "- Set 'total' to the sum of all item prices, or the total explicitly stated.\n"
+        "- Default currency is EUR unless another is explicitly mentioned.\n"
+        "- If the speaker corrects themselves (e.g. 'vegetables, I mean fruits', "
+        "'actually fruits'), record ONLY the final corrected version and ignore the "
+        "retracted one.\n"
+        f"- Resolve relative date references ('yesterday', 'last Monday', 'two days ago', etc.) "
+        f"using today's date ({today}). Use today's date if no date is mentioned."
+    )
 
 # ---------------------------------------------------------------------------
 # Monthly overview (services/summary.py)

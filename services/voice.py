@@ -8,7 +8,7 @@ from datetime import date
 
 from services import classifier
 from services.gemini_utils import generate_with_fallback
-from services.prompts import VOICE_PROMPT, ADD_EXPENSE_FUNC, build_summary_prompt
+from services.prompts import build_voice_prompt, ADD_EXPENSE_FUNC, build_summary_prompt
 from config import GEMINI_MODELS, ASK_BELOW
 
 
@@ -43,9 +43,10 @@ def process_voice_text(transcript: str) -> dict:
     client = get_genai_client()
     tool   = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
 
+    today    = date.today().isoformat()
     response = generate_with_fallback(lambda model: client.models.generate_content(
         model    = model,
-        contents = [VOICE_PROMPT, transcript],
+        contents = [build_voice_prompt(today), transcript],
         config   = types.GenerateContentConfig(tools=[tool]),
     ), GEMINI_MODELS)
 
@@ -74,9 +75,10 @@ def process_voice_input(audio_data: bytes, mime_type: str) -> dict:
     audio_part = types.Part.from_bytes(data=audio_data, mime_type=mime_type)
     tool       = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
 
+    today    = date.today().isoformat()
     response = generate_with_fallback(lambda model: client.models.generate_content(
         model    = model,
-        contents = [VOICE_PROMPT, audio_part],
+        contents = [build_voice_prompt(today), audio_part],
         config   = types.GenerateContentConfig(tools=[tool]),
     ), GEMINI_MODELS)
 
