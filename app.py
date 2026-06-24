@@ -244,8 +244,12 @@ def api_voice_extract():
     if not transcript:
         return jsonify({"error": "Empty transcript"}), 400
 
+    import json as _json
+    raw_budgets   = request.form.get("event_budgets", "")
+    event_budgets = _json.loads(raw_budgets) if raw_budgets else []
+
     try:
-        data = voice.process_voice_text(transcript)
+        data = voice.process_voice_text(transcript, event_budgets=event_budgets)
         return jsonify({"success": True, "data": data})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503

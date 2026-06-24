@@ -61,7 +61,7 @@
         <textarea id="vc-summary" rows="3"
                   class="w-full bg-transparent text-sm text-[#191c1d] leading-relaxed resize-none focus:outline-none"></textarea>
       </div>
-      <div id="vc-original-wrap" class="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+      <div id="vc-original-wrap" class="bg-[#f8f9fa] border border-[#e8e9ea] rounded-2xl p-4">
         <div class="flex items-center justify-between mb-1">
           <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider">Heard</div>
           <button type="button" onclick="revertVoiceCorrection()"
@@ -71,9 +71,9 @@
       </div>
       <div class="flex gap-3 pt-1">
         <button type="button" onclick="confirmVoiceTranscript(false)"
-                class="flex-1 py-3 rounded-xl border border-gray-300 text-sm font-bold text-[#44474a] active:scale-95 transition">Use original</button>
+                class="flex-1 py-3 rounded-2xl border border-[#c5c6ca] text-sm font-bold text-[#44474a] active:scale-95 transition">Use original</button>
         <button type="button" onclick="confirmVoiceTranscript(true)"
-                class="flex-1 py-3 rounded-xl text-sm font-bold text-white active:scale-95 transition" style="background:#006b55;">Use summary</button>
+                class="flex-1 py-3 rounded-2xl text-sm font-bold text-white active:scale-95 transition" style="background:#006b55;">Use summary</button>
       </div>
     </div>
 

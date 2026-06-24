@@ -44,9 +44,18 @@
     {% include "partials/view_summary.html" %}
     {% include "partials/view_settings.html" %}
     {% include "partials/view_preferences.html" %}
+    {% include "partials/view_budgets.html" %}
     {% include "partials/view_categories.html" %}
     {% include "partials/view_payment_methods.html" %}
   </main>
+
+  <button id="history-scroll-top"
+          onclick="document.getElementById('main-scroll').scrollTo({top:0,behavior:'smooth'})"
+          class="hidden absolute bottom-20 right-4 z-50 w-10 h-10 rounded-full bg-[#006b55] text-white shadow-lg flex items-center justify-center">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/>
+    </svg>
+  </button>
 
   {% include "partials/nav.html" %}
 

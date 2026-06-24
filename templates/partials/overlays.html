@@ -52,6 +52,11 @@
         <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-2">Payment method</div>
         <div id="hf-payment" class="flex flex-wrap gap-1.5"></div>
       </div>
+      <!-- Budget -->
+      <div class="mb-4">
+        <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-2">Budget</div>
+        <div id="hf-budget" class="flex flex-wrap gap-1.5"></div>
+      </div>
       <!-- Time -->
       <div class="mb-2">
         <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-2">Time period</div>
@@ -225,6 +230,14 @@
           <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Notes</label>
           <input id="edit-notes" type="text" placeholder="Optional note"
                  class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        </div>
+        <!-- Event Budget tag -->
+        <div class="mb-3 hidden" id="edit-budget-wrap">
+          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Event Budget <span class="text-[10px] font-normal">(optional)</span></label>
+          <select id="edit-budget-tag"
+                  class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white">
+            <option value="">— No event budget —</option>
+          </select>
         </div>
         <!-- Location -->
         <div class="mb-3" id="edit-location-wrap">

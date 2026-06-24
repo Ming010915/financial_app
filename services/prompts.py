@@ -125,9 +125,27 @@ def build_summary_prompt(transcript: str) -> str:
     )
 
 
-def build_voice_prompt(today: str) -> str:
+def _build_event_hint_instruction(event_budgets: list[str]) -> str:
+    if event_budgets:
+        names = ", ".join(f'"{n}"' for n in event_budgets)
+        return (
+            f"\n- The user has these event budgets: [{names}]. "
+            "If the transcript refers to any of them — even indirectly or by a related name "
+            "(e.g. 'Bangkok trip' could match 'Thailand 2026', 'Paris holiday' could match "
+            "'Europe trip') — set 'event_hint' to the EXACT budget name from the list. "
+            "If none match, set 'event_hint' to null."
+        )
+    return (
+        "\n- If the user mentions a named trip, holiday, event, or occasion "
+        "(e.g. 'during my Thailand trip', 'birthday dinner'), "
+        "set 'event_hint' to a short label for it. Otherwise null."
+    )
+
+
+def build_voice_prompt(today: str, event_budgets: list[str] | None = None) -> str:
     """Build the voice extraction prompt, injecting today's date so the LLM can
-    resolve relative references like 'yesterday' or 'last Monday'."""
+    resolve relative references like 'yesterday' or 'last Monday'.
+    If event_budgets is provided, Gemini will match the transcript against them."""
     return (
         f"Today's date is {today}. "
         "The user recorded a short voice note describing a financial transaction — "
@@ -149,7 +167,8 @@ def build_voice_prompt(today: str) -> str:
         "'actually fruits'), record ONLY the final corrected version and ignore the "
         "retracted one.\n"
         f"- Resolve relative date references ('yesterday', 'last Monday', 'two days ago', etc.) "
-        f"using today's date ({today}). Use today's date if no date is mentioned."
+        f"using today's date ({today}). Use today's date if no date is mentioned.\n"
+        + _build_event_hint_instruction(event_budgets or [])
     )
 
 # ---------------------------------------------------------------------------
@@ -233,6 +252,16 @@ TRANSACTION_SCHEMA = {
             "type": "string",
             "nullable": True,
             "description": "Any extra context or notes",
+        },
+        "event_hint": {
+            "type": "string",
+            "nullable": True,
+            "description": (
+                "If the user mentions a named trip, event, occasion, or specific context "
+                "(e.g. 'Thailand trip', 'birthday dinner', 'Paris holiday', 'conference in Berlin'), "
+                "extract a short descriptive label for it (e.g. 'Thailand trip', 'birthday dinner'). "
+                "Otherwise null."
+            ),
         },
     },
     "required": ["merchant"],

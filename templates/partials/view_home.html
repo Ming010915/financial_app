@@ -33,7 +33,8 @@
     <!-- Quick budget edit (hidden until triggered) -->
     <div id="home-budget-edit" class="hidden mb-3">
       <div class="flex gap-2 items-center">
-        <input type="number" id="home-budget-input" min="0" step="any" placeholder="New monthly budget"
+        <input type="text" inputmode="decimal" id="home-budget-input" placeholder="New monthly budget"
+               oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1')"
                class="flex-1 border border-[#e8e9ea] rounded-xl px-3 py-2 text-sm bg-[#f8f9fa] focus:outline-none focus:border-[#006b55]" />
         <button onclick="saveHomeBudget()" class="bg-[#006b55] text-white rounded-xl px-4 py-2 text-sm font-bold whitespace-nowrap">Set</button>
         <button onclick="toggleBudgetEdit()" class="border border-[#e8e9ea] text-[#44474a] rounded-xl px-4 py-2 text-sm font-bold whitespace-nowrap">Cancel</button>
@@ -76,6 +77,15 @@
         <div id="home-left" class="text-lg font-bold text-[#006b55]">—</div>
       </div>
     </div>
+  </div>
+
+  <!-- ── Custom Budgets ──────────────────────────────────────────────── -->
+  <div data-widget-id="custom_budgets" id="home-custom-budgets-card" class="hidden bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Custom Budgets</div>
+      <button onclick="showView('budgets')" class="text-xs text-[#006b55] font-bold">Manage →</button>
+    </div>
+    <div id="home-custom-budgets-list" class="space-y-1"></div>
   </div>
 
   <!-- ── Income / Net Balance card (hidden when no income this month) ── -->
