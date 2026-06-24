@@ -42,10 +42,11 @@
     <!-- Preview + confirm / analyzing state -->
     <div id="scan-preview-area" class="hidden w-full flex flex-col items-center gap-4">
       <!-- File preview thumbnail -->
-      <div class="relative w-full rounded-2xl overflow-hidden bg-[#edeeef]">
-        <img id="preview-img" src="" alt="Receipt" class="w-full max-h-56 object-cover" />
+      <div id="receipt-zoom-container" class="relative w-full rounded-2xl overflow-hidden bg-[#edeeef]" style="height:300px; touch-action:none;">
+        <img id="preview-img" src="" alt="Receipt" class="w-full h-full object-contain"
+             style="transform-origin:center center; will-change:transform; user-select:none; -webkit-user-drag:none;" />
         <!-- PDF preview (shown instead of img for PDF uploads) -->
-        <div id="preview-pdf" class="hidden w-full py-10 flex flex-col items-center gap-2">
+        <div id="preview-pdf" class="hidden w-full h-full py-10 flex flex-col items-center justify-center gap-2">
           <svg class="w-14 h-14 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M7 21H5a2 2 0 01-2-2V5a2 2 0 012-2h10l4 4v12a2 2 0 01-2 2h-2"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-5h1.5a1.5 1.5 0 010 3H9m4 2v-5h2m-2 2.5h1.5M17 17v-5"/>
@@ -53,8 +54,9 @@
           <p id="preview-pdf-name" class="text-xs text-[#44474a] font-medium truncate max-w-xs"></p>
         </div>
         <button onclick="clearScanView()"
-                class="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full text-white text-sm flex items-center justify-center leading-none">✕</button>
+                class="absolute top-2 right-2 z-10 w-7 h-7 bg-black/50 rounded-full text-white text-sm flex items-center justify-center leading-none">✕</button>
       </div>
+      <p class="text-[10px] text-[#44474a] -mt-2">Pinch to zoom · Double-tap to reset</p>
 
       <!-- Confirm buttons (shown before analysis) -->
       <div id="scan-confirm-area" class="w-full flex flex-col items-center gap-3">

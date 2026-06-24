@@ -1248,6 +1248,63 @@ function cancelScanView() {
   showView("add-method");
 }
 
+// ── Receipt preview zoom/pan ─────────────────────────────────────────────────
+const _rz = { s: 1, tx: 0, ty: 0, px: 0, py: 0, d0: 0, lastTap: 0 };
+
+function _rzApply() {
+  const img = document.getElementById('preview-img');
+  if (img) img.style.transform = `translate(${_rz.tx}px,${_rz.ty}px) scale(${_rz.s})`;
+}
+
+function _rzReset() {
+  _rz.s = 1; _rz.tx = 0; _rz.ty = 0;
+  _rzApply();
+}
+
+function _initReceiptZoom() {
+  const receipt = document.getElementById('receipt-zoom-container');
+  if (!receipt) return;
+
+  receipt.addEventListener('touchstart', event => {
+    if (event.target.closest('button')) return;
+    if (event.touches.length === 2) {
+      _rz.d0 = Math.hypot(
+        event.touches[0].clientX - event.touches[1].clientX,
+        event.touches[0].clientY - event.touches[1].clientY
+      );
+    } else {
+      _rz.px = event.touches[0].clientX;
+      _rz.py = event.touches[0].clientY;
+      const now = Date.now();
+      if (now - _rz.lastTap < 280) _rzReset();
+      _rz.lastTap = now;
+    }
+  }, { passive: true });
+
+  receipt.addEventListener('touchmove', event => {
+    if (event.target.closest('button')) return;
+    event.preventDefault();
+    if (event.touches.length === 2) {
+      const d = Math.hypot(
+        event.touches[0].clientX - event.touches[1].clientX,
+        event.touches[0].clientY - event.touches[1].clientY
+      );
+      _rz.s = Math.min(5, Math.max(1, _rz.s * d / _rz.d0));
+      _rz.d0 = d;
+    } else if (event.touches.length === 1 && _rz.s > 1) {
+      _rz.tx += event.touches[0].clientX - _rz.px;
+      _rz.ty += event.touches[0].clientY - _rz.py;
+      _rz.px = event.touches[0].clientX;
+      _rz.py = event.touches[0].clientY;
+    }
+    _rzApply();
+  }, { passive: false });
+
+  receipt.addEventListener('touchend', () => {
+    if (_rz.s < 1.05) _rzReset();
+  }, { passive: true });
+}
+
 // Reset scan view UI to initial upload state
 function clearScanView() {
   // Abort any in-flight scan so a late API response is ignored.
@@ -1259,6 +1316,7 @@ function clearScanView() {
   ["receipt-file-camera", "receipt-file-gallery"].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = "";
   });
+  _rzReset();
   const img = document.getElementById("preview-img");
   if (img) { img.src = ""; img.classList.remove("hidden"); }
   const pdfEl = document.getElementById("preview-pdf");
@@ -3900,6 +3958,7 @@ function init() {
       }
     }
   });
+  _initReceiptZoom();
   loadCategoriesIntoButtons();
   const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("f-currency", defaultCurrency);
