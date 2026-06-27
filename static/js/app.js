@@ -841,6 +841,9 @@ function addByIncome() {
 const CB_COLORS = ["#006b55","#3b82f6","#8b5cf6","#f97316","#ec4899","#06b6d4","#eab308","#ef4444"];
 let _cbSelectedColor = CB_COLORS[0];
 let _cbType = 'event';
+let _cbEditId = null;
+let _cbEditType = 'event';
+let _cbEditSelectedColor = CB_COLORS[0];
 
 function computeCustomBudgetSpent(budget) {
   const expenses = getExpenses();
@@ -1670,16 +1673,30 @@ async function _runBackgroundScan(id, file, abort) {
 
     const scans = getPendingScans();
     const scan  = scans.find(s => s.id === id);
-    if (scan) { scan.status = 'error'; scan.errorMessage = e.message || 'Analysis failed'; savePendingScans(scans); }
+    if (scan) {
+      if (e.errorCode === 'not_a_receipt') {
+        scan.status       = 'not_receipt';
+        scan.errorMessage = e.message;
+      } else {
+        scan.status       = 'error';
+        scan.errorMessage = e.message || 'Analysis failed';
+      }
+      savePendingScans(scans);
+    }
     delete _pendingScansAborts[id];
 
     _refreshHomePendingScans();
-    showToast('Scan failed: ' + (e.message || 'unknown error'), true);
+    if (e.errorCode === 'not_a_receipt') {
+      showToast('Not a receipt — tap to view', true);
+    } else {
+      showToast('Scan failed: ' + (e.message || 'unknown error'), true);
+    }
   }
 }
 
 function _refreshHomePendingScans() {
   if (document.getElementById('home-pending-scans')) renderPendingScans();
+  updateNotificationBadge();
 }
 
 function renderPendingScans() {
@@ -1687,9 +1704,10 @@ function renderPendingScans() {
   const list    = document.getElementById('pending-scans-list');
   if (!section || !list) return;
   const scans = getPendingScans();
-  if (scans.length === 0) { section.classList.add('hidden'); return; }
+  if (scans.length === 0) { section.classList.add('hidden'); updateNotificationBadge(); return; }
   section.classList.remove('hidden');
   list.innerHTML = scans.map(pendingScanCard).join('');
+  updateNotificationBadge();
 }
 
 function pendingScanCard(scan) {
@@ -1725,6 +1743,17 @@ function pendingScanCard(scan) {
         <div class="text-xs font-medium text-emerald-600">Tap to review${total}</div>
       </div>${closeBtn}</div>`;
   }
+  if (scan.status === 'not_receipt') {
+    return `<div onclick="resumePendingScan('${scan.id}')"
+      class="flex items-center gap-3 cursor-pointer active:opacity-70 py-0.5 rounded-xl transition-opacity">${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm font-semibold text-[#191c1d] truncate">${esc(scan.fileName || 'Receipt')}</span>
+          <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+        </div>
+        <div class="text-xs font-medium text-amber-600">Not a receipt — tap to view</div>
+      </div>${closeBtn}</div>`;
+  }
   if (scan.status === 'error') {
     return `<div class="flex items-center gap-3 py-0.5">${thumb}
       <div class="flex-1 min-w-0">
@@ -1740,10 +1769,68 @@ function pendingScanCard(scan) {
 
 function resumePendingScan(id) {
   const scan = getPendingScans().find(s => s.id === id);
-  if (!scan || scan.status !== 'ready' || !scan.extractedData) return;
-  state.currentPendingScanId = id;
-  state.receiptFile          = _pendingScansFiles[id] || null;
-  showVerifyView(scan.extractedData);
+  if (!scan) return;
+  if (scan.status === 'ready' && scan.extractedData) {
+    state.currentPendingScanId = id;
+    state.receiptFile          = _pendingScansFiles[id] || null;
+    showVerifyView(scan.extractedData);
+  } else if (scan.status === 'not_receipt') {
+    showVerifyErrorView(scan);
+  }
+}
+
+function showVerifyErrorView(scan) {
+  state.currentPendingScanId = scan.id;
+  state.receiptFile          = _pendingScansFiles[scan.id] || null;
+
+  const imgEl  = document.getElementById("verify-img");
+  const pdfEl  = document.getElementById("verify-pdf");
+  const zoomBtn = document.getElementById("verify-zoom-btn");
+  const panel  = document.getElementById("verify-img-panel");
+
+  if (state.receiptFile) {
+    if (_verifyBlobUrl) { URL.revokeObjectURL(_verifyBlobUrl); }
+    _verifyBlobUrl = URL.createObjectURL(state.receiptFile);
+    if (state.receiptFile.type === "application/pdf") {
+      imgEl.classList.add("hidden");
+      pdfEl.classList.remove("hidden");
+      if (zoomBtn) zoomBtn.classList.add("hidden");
+      panel.style.height = "55%";
+      renderPdfPages(state.receiptFile);
+    } else {
+      imgEl.src = _verifyBlobUrl;
+      imgEl.classList.remove("hidden");
+      pdfEl.classList.add("hidden");
+      if (zoomBtn) zoomBtn.classList.remove("hidden");
+      panel.style.height = "42%";
+    }
+  }
+
+  _verifyZoomed = false;
+  imgEl.style.width = "100%";
+  document.getElementById("verify-zoom-icon-in").classList.remove("hidden");
+  document.getElementById("verify-zoom-icon-out").classList.add("hidden");
+  panel.scrollTop = 0;
+  panel.scrollLeft = 0;
+
+  const msgEl = document.getElementById("verify-error-msg");
+  if (msgEl) msgEl.textContent = scan.errorMessage || "This file doesn't appear to be a receipt.";
+
+  document.getElementById("verify-divider")?.classList.add("hidden");
+  document.getElementById("verify-fields")?.classList.add("hidden");
+  document.getElementById("verify-confirm-row")?.classList.add("hidden");
+  document.getElementById("verify-error-panel")?.classList.remove("hidden");
+  document.getElementById("verify-error-action-row")?.classList.remove("hidden");
+
+  showView("verify");
+}
+
+function dismissAndScanNew() {
+  const id = state.currentPendingScanId;
+  state.currentPendingScanId = null;
+  clearVerifyView();
+  if (id) dismissPendingScan(id);
+  showView('scan');
 }
 
 function dismissPendingScan(id) {
@@ -1766,6 +1853,159 @@ async function retryPendingScan(id) {
   const abort = new AbortController();
   _pendingScansAborts[id] = abort;
   _runBackgroundScan(id, file, abort);
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+function updateNotificationBadge() {
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+  const readyCount = getPendingScans().filter(s => s.status === 'ready').length;
+  if (readyCount > 0) {
+    badge.textContent = readyCount > 9 ? '9+' : String(readyCount);
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function openNotifications() {
+  renderNotifications();
+  document.getElementById('notifications-overlay').classList.remove('hidden');
+}
+
+function closeNotifications() {
+  document.getElementById('notifications-overlay').classList.add('hidden');
+}
+
+function renderNotifications() {
+  const scans = getPendingScans();
+  const content = document.getElementById('notifications-content');
+  const clearBtn = document.getElementById('notif-clear-btn');
+  if (!content) return;
+
+  if (scans.length === 0) {
+    clearBtn.classList.add('hidden');
+    content.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-16 gap-3 text-center">
+        <div class="w-16 h-16 rounded-full bg-[#f0fdf9] flex items-center justify-center text-3xl">🔔</div>
+        <div class="text-sm font-semibold text-[#191c1d]">No notifications</div>
+        <div class="text-xs text-[#44474a]">Completed receipt scans will appear here</div>
+      </div>`;
+    return;
+  }
+
+  clearBtn.classList.remove('hidden');
+
+  const ready      = scans.filter(s => s.status === 'ready');
+  const processing = scans.filter(s => s.status === 'processing');
+  const error      = scans.filter(s => s.status === 'error');
+
+  let html = '';
+
+  if (ready.length) {
+    html += `<div>
+      <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-2">Ready to Review</div>
+      <div class="space-y-2">${ready.map(notifCard).join('')}</div>
+    </div>`;
+  }
+  if (processing.length) {
+    html += `<div>
+      <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-2">Processing</div>
+      <div class="space-y-2">${processing.map(notifCard).join('')}</div>
+    </div>`;
+  }
+  if (error.length) {
+    html += `<div>
+      <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-2">Failed</div>
+      <div class="space-y-2">${error.map(notifCard).join('')}</div>
+    </div>`;
+  }
+
+  content.innerHTML = html;
+}
+
+function notifCard(scan) {
+  const thumb = scan.thumbnailDataUrl
+    ? `<img src="${scan.thumbnailDataUrl}" class="w-11 h-11 object-cover rounded-2xl flex-shrink-0" />`
+    : `<div class="w-11 h-11 rounded-2xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-2xl">${scan.isPdf ? '📄' : '🧾'}</div>`;
+
+  const dismissBtn = `<button onclick="event.stopPropagation();notifDismiss('${scan.id}')"
+    class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+  </button>`;
+
+  if (scan.status === 'ready') {
+    const merchant = scan.extractedData?.merchant || scan.fileName || 'Receipt';
+    const currency = scan.extractedData?.currency || (localStorage.getItem('defaultCurrency') || 'EUR');
+    const total    = scan.extractedData?.total != null ? fmtAmount(scan.extractedData.total, currency) : null;
+    return `<div onclick="notifOpenScan('${scan.id}')"
+      class="flex items-center gap-3 p-3 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl cursor-pointer active:opacity-70 transition-opacity">
+      ${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5 mb-0.5">
+          <span class="text-sm font-bold text-[#191c1d] truncate">${esc(merchant)}</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+        </div>
+        ${total ? `<div class="text-base font-bold text-[#006b55]">${total}</div>` : ''}
+        <div class="text-xs text-emerald-600 font-medium mt-0.5">Tap to review &amp; add</div>
+      </div>${dismissBtn}
+    </div>`;
+  }
+
+  if (scan.status === 'processing') {
+    return `<div class="flex items-center gap-3 p-3 bg-[#f8f9fa] rounded-2xl">
+      ${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-[#191c1d] truncate mb-0.5">${esc(scan.fileName || 'Receipt')}</div>
+        <div class="text-xs text-[#44474a]">Analyzing with AI…</div>
+      </div>
+      <span class="loader flex-shrink-0" style="width:18px;height:18px;border-width:2px;border-color:rgba(0,107,85,0.25);border-top-color:#006b55;"></span>
+      ${dismissBtn}
+    </div>`;
+  }
+
+  if (scan.status === 'error') {
+    return `<div class="flex items-center gap-3 p-3 bg-[#fff5f5] border border-red-100 rounded-2xl">
+      ${thumb}
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-[#191c1d] truncate mb-0.5">${esc(scan.fileName || 'Receipt')}</div>
+        <div class="text-xs text-red-500 truncate">${esc(scan.errorMessage || 'Analysis failed')}</div>
+      </div>
+      <button onclick="event.stopPropagation();notifRetry('${scan.id}')"
+        class="text-xs font-bold text-[#006b55] px-2.5 py-1 rounded-xl border border-[#006b55] flex-shrink-0 whitespace-nowrap mr-1">Retry</button>
+      ${dismissBtn}
+    </div>`;
+  }
+  return '';
+}
+
+function notifOpenScan(id) {
+  closeNotifications();
+  resumePendingScan(id);
+}
+
+function notifDismiss(id) {
+  dismissPendingScan(id);
+  renderNotifications();
+  updateNotificationBadge();
+}
+
+async function notifRetry(id) {
+  await retryPendingScan(id);
+  renderNotifications();
+}
+
+function clearAllNotifications() {
+  getPendingScans().forEach(s => {
+    _pendingScansAborts[s.id]?.abort();
+    delete _pendingScansAborts[s.id];
+    delete _pendingScansFiles[s.id];
+  });
+  savePendingScans([]);
+  renderPendingScans();
+  updateNotificationBadge();
+  renderNotifications();
 }
 
 async function analyzeScanReceipt() {
@@ -1877,6 +2117,7 @@ function resetForm() {
   renderPaymentButtons(null, "payment-buttons");
   loadCustomBudgetSelect('f-budget-tag', null);
   document.querySelector('#f-budget-wrap .voice-budget-hint')?.remove();
+  checkAmountMismatch();
 }
 
 // ── Receipt verify view ───────────────────────────────────────────────────────
@@ -1975,6 +2216,29 @@ function syncItemsTotal() {
   }, 0);
   const amountEl = document.getElementById("f-amount");
   if (amountEl) amountEl.value = total > 0 ? (Math.round(total * 100) / 100).toFixed(2) : "";
+  checkAmountMismatch();
+}
+
+function checkAmountMismatch() {
+  const warn  = document.getElementById("amount-mismatch-warn");
+  const valEl = document.getElementById("amount-mismatch-val");
+  if (!warn) return;
+  const items = state.receiptItems || [];
+  if (items.length === 0) { warn.classList.add("hidden"); return; }
+  const itemsTotal = Math.round(items.reduce((sum, it) => {
+    const price = parseFloat(it.price);
+    const qty   = parseInt(it.quantity) || 1;
+    return sum + (isNaN(price) ? 0 : price * qty);
+  }, 0) * 100) / 100;
+  const amountEl = document.getElementById("f-amount");
+  const entered  = Math.round(parseFloat(amountEl?.value || "0") * 100) / 100;
+  if (isNaN(entered) || Math.abs(itemsTotal - entered) <= 0.01) {
+    warn.classList.add("hidden");
+  } else {
+    const cur = document.getElementById("f-currency")?.value || (localStorage.getItem("defaultCurrency") || "EUR");
+    if (valEl) valEl.textContent = fmtAmount(itemsTotal, cur);
+    warn.classList.remove("hidden");
+  }
 }
 
 function renderAddFormItems() {
@@ -1990,11 +2254,11 @@ function renderAddFormItems() {
              oninput="state.receiptItems[${i}].name = this.value"
              class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
       <input type="text" inputmode="numeric" value="${item.quantity != null ? item.quantity : 1}" placeholder="1"
-             oninput="this.value=this.value.replace(/[^0-9]/g,''); state.receiptItems[${i}].quantity = this.value === '' ? 1 : parseInt(this.value); syncItemsTotal()"
+             oninput="const _q=this.value.replace(/[^0-9]/g,''); if(_q!==this.value)this.value=_q; state.receiptItems[${i}].quantity = _q === '' ? 1 : parseInt(_q); syncItemsTotal()"
              class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="text" inputmode="decimal" value="${item.price != null ? item.price : ""}" placeholder="0.00"
-             oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1'); state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value); syncItemsTotal()"
-             class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <input type="number" step="0.01" min="0" value="${item.price != null ? item.price : ""}" placeholder="0.00"
+             oninput="state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value); syncItemsTotal()"
+             class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
       <button type="button" onclick="removeFormItem(${i})"
               class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -2064,6 +2328,12 @@ function clearVerifyView() {
   const wrap = document.getElementById("verify-pdf-canvas-wrap");
   if (wrap) wrap.innerHTML = "";
   state.pendingReceiptData = null;
+  // Reset error-mode: restore normal panels, hide error panels
+  document.getElementById("verify-divider")?.classList.remove("hidden");
+  document.getElementById("verify-fields")?.classList.remove("hidden");
+  document.getElementById("verify-confirm-row")?.classList.remove("hidden");
+  document.getElementById("verify-error-panel")?.classList.add("hidden");
+  document.getElementById("verify-error-action-row")?.classList.add("hidden");
 }
 
 function cancelVerifyView() {
@@ -2578,6 +2848,18 @@ async function saveExpense() {
   if (!amount || isNaN(parseFloat(amount))) { showToast("Please enter a valid amount", true); return; }
   if ((state.receiptItems || []).some(it => it.price === null || it.price === undefined || it.price === "")) {
     showToast("Please enter a price for every item", true); return;
+  }
+  if ((state.receiptItems || []).length > 0) {
+    const itemsTotal = (state.receiptItems).reduce((sum, it) => {
+      const price = parseFloat(it.price);
+      const qty   = parseInt(it.quantity) || 1;
+      return sum + (isNaN(price) ? 0 : price * qty);
+    }, 0);
+    const enteredAmount = Math.round(parseFloat(amount) * 100) / 100;
+    if (Math.abs(Math.round(itemsTotal * 100) / 100 - enteredAmount) > 0.01) {
+      showToast(`Total amount (${enteredAmount.toFixed(2)}) must match sum of items (${(Math.round(itemsTotal * 100) / 100).toFixed(2)})`, true);
+      return;
+    }
   }
 
   const btn     = document.getElementById("save-btn");
@@ -3785,7 +4067,8 @@ async function postWithOverloadRetry(url, body, { onRetry, maxRetries = 3, signa
       continue;
     }
     const err = new Error(resp.error || "Unknown error");
-    err.retryable = resp.retryable;
+    err.retryable  = resp.retryable;
+    err.errorCode  = resp.error_code || null;
     throw err;
   }
 }
@@ -3963,8 +4246,12 @@ function _renderCbList() {
           <div class="text-sm font-semibold text-[#191c1d] truncate">${esc(b.name)}</div>
           <div class="text-[10px] text-[#44474a]">${typeLabel} · ${fmtAmount(spent, defCur)} / ${fmtAmount(b.amount, defCur)} (${pct}%)</div>
         </div>
-        <button onclick="deleteCustomBudget('${b.id}')"
-                class="text-[#ef4444] text-xs font-bold px-2 py-1 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0">Delete</button>
+        <div class="flex gap-1 flex-shrink-0">
+          <button onclick="editCustomBudget('${b.id}')"
+                  class="text-[#006b55] text-xs font-bold px-2 py-1 rounded-lg hover:bg-[#f0fdf9] transition-colors">Edit</button>
+          <button onclick="deleteCustomBudget('${b.id}')"
+                  class="text-[#ef4444] text-xs font-bold px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">Delete</button>
+        </div>
       </div>`;
   };
 
@@ -4043,6 +4330,84 @@ function deleteCustomBudget(id) {
       showToast('Budget deleted.');
     },
   });
+}
+
+function editCustomBudget(id) {
+  const budget = getCustomBudgets().find(b => b.id === id);
+  if (!budget) return;
+
+  _cbEditId            = id;
+  _cbEditType          = budget.type || 'event';
+  _cbEditSelectedColor = budget.color || CB_COLORS[0];
+
+  const defCur = localStorage.getItem('defaultCurrency') || 'EUR';
+  const symEl  = document.getElementById('ecb-budget-sym');
+  if (symEl) symEl.textContent = curSym(defCur);
+
+  const catSel = document.getElementById('ecb-category');
+  if (catSel) catSel.innerHTML = getAllCategories().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  document.getElementById('ecb-name').value   = budget.name || '';
+  document.getElementById('ecb-amount').value = budget.amount || '';
+  if (document.getElementById('ecb-start')) document.getElementById('ecb-start').value = budget.startDate || '';
+  if (document.getElementById('ecb-end'))   document.getElementById('ecb-end').value   = budget.endDate   || '';
+  if (catSel && budget.category) catSel.value = budget.category;
+
+  const isCategory = _cbEditType === 'category';
+  document.getElementById('ecb-type-label').textContent = isCategory ? 'Category Budget' : 'Event Budget';
+  document.getElementById('ecb-event-fields')?.classList.toggle('hidden', isCategory);
+  document.getElementById('ecb-category-field')?.classList.toggle('hidden', !isCategory);
+  const nameInput = document.getElementById('ecb-name');
+  if (nameInput) nameInput.placeholder = isCategory ? 'Defaults to category name' : 'e.g. Trip to Thailand';
+
+  _renderCbEditSwatches();
+  document.getElementById('edit-custom-budget-overlay').classList.remove('hidden');
+}
+
+function closeEditCustomBudget() {
+  document.getElementById('edit-custom-budget-overlay').classList.add('hidden');
+  _cbEditId = null;
+}
+
+function _renderCbEditSwatches() {
+  const el = document.getElementById('ecb-color-swatches');
+  if (!el) return;
+  el.innerHTML = CB_COLORS.map(c => `
+    <button type="button" onclick="_cbEditSelectedColor='${c}';_renderCbEditSwatches()"
+            class="w-7 h-7 rounded-full border-2 transition-all ${c === _cbEditSelectedColor ? 'border-[#191c1d] scale-110' : 'border-transparent'}"
+            style="background:${c}"></button>`).join('');
+}
+
+function saveCustomBudgetEdit() {
+  if (!_cbEditId) return;
+  const amount = parseFloat(document.getElementById('ecb-amount')?.value);
+  if (!amount || amount <= 0) { showToast('Enter a valid amount', true); return; }
+
+  let name      = document.getElementById('ecb-name')?.value.trim();
+  let category  = null;
+  let startDate = null;
+  let endDate   = null;
+
+  if (_cbEditType === 'category') {
+    category = document.getElementById('ecb-category')?.value;
+    if (!category) { showToast('Select a category', true); return; }
+    if (!name) name = category;
+  } else {
+    if (!name) { showToast('Enter a budget name', true); return; }
+    startDate = document.getElementById('ecb-start')?.value || null;
+    endDate   = document.getElementById('ecb-end')?.value   || null;
+  }
+
+  const budgets = getCustomBudgets().map(b => {
+    if (b.id !== _cbEditId) return b;
+    return { ...b, name, type: _cbEditType, category, amount, startDate, endDate, color: _cbEditSelectedColor };
+  });
+  saveCustomBudgets(budgets);
+
+  closeEditCustomBudget();
+  _renderCbList();
+  renderCustomBudgetsHome();
+  showToast('Budget updated!');
 }
 
 function loadOverrides() {

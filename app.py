@@ -185,6 +185,8 @@ def api_scan_receipt():
         payment_methods = [m.strip() for m in pm_raw.split(",") if m.strip()] if pm_raw else []
         data = receipt.scan_receipt(file_data, mime_type, payment_methods or None)
         return jsonify({"success": True, "data": data})
+    except receipt.NotAReceiptError as e:
+        return jsonify({"error": str(e), "error_code": "not_a_receipt"}), 422
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
     except Exception as e:
@@ -259,6 +261,31 @@ def api_voice_extract():
 
 # ── Speech-to-Text API ───────────────────────────────────────────────────────
 
+# Phrases boosted in Google Cloud STT to improve recognition of financial terms.
+_STT_FINANCIAL_HINTS = [
+    # Currencies
+    "Euro", "Euros", "EUR", "Dollar", "Dollars", "USD",
+    "Pound", "Pounds", "GBP", "Swiss Franc", "CHF", "Yen", "JPY",
+    "cent", "cents", "pence",
+    # Transaction verbs
+    "spent", "paid", "bought", "purchased", "received", "earned", "charged",
+    "transferred", "withdrew", "deposited", "refunded",
+    # Financial nouns
+    "expense", "income", "salary", "receipt", "invoice", "budget",
+    "transaction", "payment", "rent", "bill", "tip", "fee", "tax",
+    "subscription", "insurance", "dividend", "interest", "bonus",
+    # Categories
+    "groceries", "supermarket", "restaurant", "coffee", "takeaway",
+    "transport", "train", "bus", "taxi", "Uber", "fuel", "petrol",
+    "pharmacy", "doctor", "gym", "fitness",
+    "shopping", "clothing", "electronics",
+    "entertainment", "cinema", "Netflix", "Spotify",
+    "utilities", "electricity", "internet", "water",
+    "travel", "hotel", "flight", "Airbnb",
+    # Amounts
+    "fifty", "hundred", "thousand", "point five", "zero point",
+]
+
 @app.route("/api/stt", methods=["POST"])
 def api_stt():
     """Transcribe uploaded audio using Google Cloud Speech-to-Text."""
@@ -289,6 +316,10 @@ def api_stt():
             language_code="en-US",
             alternative_language_codes=["de-DE"],
             enable_automatic_punctuation=True,
+            speech_contexts=[speech.SpeechContext(
+                phrases=_STT_FINANCIAL_HINTS,
+                boost=15.0,
+            )],
         )
         print(f"[STT] Sending {len(audio_data)} bytes ({mime}) to Google Cloud STT...")
         response = client.recognize(
@@ -385,6 +416,10 @@ def voice_live_ws(ws):
                 language_code="en-US",
                 alternative_language_codes=["de-DE"],
                 enable_automatic_punctuation=True,
+                speech_contexts=[speech.SpeechContext(
+                    phrases=_STT_FINANCIAL_HINTS,
+                    boost=15.0,
+                )],
             )
             streaming_config = speech.StreamingRecognitionConfig(
                 config=config,

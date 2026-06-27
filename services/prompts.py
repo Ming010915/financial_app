@@ -15,8 +15,19 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
     """Build the receipt-extraction prompt, injecting the allowed payment methods."""
     methods_str = ", ".join(payment_methods) if payment_methods else ", ".join(DEFAULT_PAYMENT_METHODS)
     return (
-        "You are an expert receipt-parsing assistant. Analyze this receipt (image or PDF "
-        "document) carefully and extract the structured information.\n"
+        "You are an expert receipt-parsing assistant. Analyze this image carefully.\n"
+        "\n"
+        "IS_RECEIPT (check this first):\n"
+        "- Set 'is_receipt' to true ONLY if the file is a receipt, invoice, bill, bank statement, "
+        "or any document showing a financial transaction (purchase, payment, refund, etc.). "
+        "This applies to both images and PDFs.\n"
+        "- Set 'is_receipt' to false if the file is NOT a financial document — for example: a "
+        "selfie, landscape photo, screenshot of a chat, meme, map, product photo, a PDF that is "
+        "not a financial document, or any file that does not record a transaction. "
+        "If 'is_receipt' is false, leave all other fields null or empty and do not attempt to "
+        "extract transaction data.\n"
+        "\n"
+        "If the file IS a receipt or financial document, extract the structured information. "
         "The receipt may be in any language, may be rotated, blurry, crumpled, or a photo "
         "taken at an angle. It may be a store receipt, restaurant bill, invoice, or online "
         "order confirmation. Read every part — header, body, and footer — before answering.\n"
@@ -191,6 +202,15 @@ def build_overview_prompt(current_text: str, historical_context: str) -> str:
 TRANSACTION_SCHEMA = {
     "type": "object",
     "properties": {
+        "is_receipt": {
+            "type": "boolean",
+            "nullable": True,
+            "description": (
+                "True if the file (image or PDF) is a receipt, invoice, bill, or any financial document. "
+                "False if the file is NOT a financial document (photo, selfie, screenshot, non-financial PDF, etc.). "
+                "If false, leave all other fields null/empty."
+            ),
+        },
         "transaction_type": {
             "type": "string",
             "enum": ["expense", "income"],
