@@ -415,6 +415,7 @@ let pieChartInst = null;
 let lineChartInst = null;
 const _pendingScansFiles  = {};  // id → File (in-memory only)
 const _pendingScansAborts = {};  // id → AbortController
+const _pendingVoiceAborts = {};  // id → AbortController (voice background jobs)
 
 // ── Google Places (server-proxied — the server key never reaches the browser) ──
 let _cachedPosition    = null;
@@ -810,6 +811,7 @@ function addByReceipt() {
 }
 
 function addByVoice() {
+  resetVoiceBtn();
   showView("voice");
 }
 
@@ -1711,24 +1713,45 @@ function renderPendingScans() {
 }
 
 function pendingScanCard(scan) {
-  const thumb = scan.thumbnailDataUrl
-    ? `<img src="${scan.thumbnailDataUrl}" class="w-10 h-10 object-cover rounded-xl flex-shrink-0" />`
-    : `<div class="w-10 h-10 rounded-xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-xl">${scan.isPdf ? '📄' : '🧾'}</div>`;
+  const isVoice = scan.type === 'voice';
+  const thumb = isVoice
+    ? `<div class="w-10 h-10 rounded-xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-xl">🎤</div>`
+    : scan.thumbnailDataUrl
+      ? `<img src="${scan.thumbnailDataUrl}" class="w-10 h-10 object-cover rounded-xl flex-shrink-0" />`
+      : `<div class="w-10 h-10 rounded-xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-xl">${scan.isPdf ? '📄' : '🧾'}</div>`;
   const closeBtn = `<button onclick="event.stopPropagation();dismissPendingScan('${scan.id}')"
     class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 flex-shrink-0 transition-colors ml-1">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
   </button>`;
 
   if (scan.status === 'processing') {
+    const title = isVoice
+      ? (scan.transcript ? `"${esc(scan.transcript.slice(0, 40))}${scan.transcript.length > 40 ? '…' : ''}"` : 'Voice input')
+      : esc(scan.fileName || 'Receipt');
     return `<div class="flex items-center gap-3 py-0.5">${thumb}
       <div class="flex-1 min-w-0">
-        <div class="text-sm font-semibold text-[#191c1d] truncate">${esc(scan.fileName || 'Receipt')}</div>
-        <div class="text-xs text-[#44474a]">Analyzing with AI…</div>
+        <div class="text-sm font-semibold text-[#191c1d] truncate">${title}</div>
+        <div class="text-xs text-[#44474a]">${isVoice ? 'Extracting with AI…' : 'Analyzing with AI…'}</div>
       </div>
       <span class="loader flex-shrink-0 ml-1" style="width:18px;height:18px;border-width:2px;border-color:rgba(0,107,85,0.25);border-top-color:#006b55;"></span>
       ${closeBtn}</div>`;
   }
   if (scan.status === 'ready') {
+    if (isVoice) {
+      const merchant = scan.extractedData?.merchant || 'Voice input';
+      const total    = scan.extractedData?.total != null
+        ? ' · ' + fmtAmount(scan.extractedData.total, scan.extractedData.currency || (localStorage.getItem('defaultCurrency') || 'EUR'))
+        : '';
+      return `<div onclick="resumePendingScan('${scan.id}')"
+        class="flex items-center gap-3 cursor-pointer active:opacity-70 py-0.5 rounded-xl transition-opacity">${thumb}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5">
+            <span class="text-sm font-semibold text-[#191c1d] truncate">${esc(merchant)}</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+          </div>
+          <div class="text-xs font-medium text-emerald-600">Tap to add${total}</div>
+        </div>${closeBtn}</div>`;
+    }
     const merchant = scan.extractedData?.merchant || scan.fileName || 'Receipt';
     const total    = scan.extractedData?.total != null
       ? ' · ' + fmtAmount(scan.extractedData.total, scan.extractedData.currency || (localStorage.getItem('defaultCurrency') || 'EUR'))
@@ -1755,10 +1778,13 @@ function pendingScanCard(scan) {
       </div>${closeBtn}</div>`;
   }
   if (scan.status === 'error') {
+    const title = isVoice
+      ? (scan.transcript ? `"${esc(scan.transcript.slice(0, 40))}${scan.transcript.length > 40 ? '…' : ''}"` : 'Voice input')
+      : esc(scan.fileName || 'Receipt');
     return `<div class="flex items-center gap-3 py-0.5">${thumb}
       <div class="flex-1 min-w-0">
-        <div class="text-sm font-semibold text-[#191c1d] truncate">${esc(scan.fileName || 'Receipt')}</div>
-        <div class="text-xs text-red-500 truncate">${esc(scan.errorMessage || 'Analysis failed')}</div>
+        <div class="text-sm font-semibold text-[#191c1d] truncate">${title}</div>
+        <div class="text-xs text-red-500 truncate">${esc(scan.errorMessage || 'Extraction failed')}</div>
       </div>
       <button onclick="retryPendingScan('${scan.id}')"
         class="text-xs font-bold text-[#006b55] px-2 py-1 rounded-xl border border-[#006b55] flex-shrink-0 whitespace-nowrap">Retry</button>
@@ -1770,6 +1796,13 @@ function pendingScanCard(scan) {
 function resumePendingScan(id) {
   const scan = getPendingScans().find(s => s.id === id);
   if (!scan) return;
+  if (scan.type === 'voice') {
+    if (scan.status === 'ready' && scan.extractedData) {
+      dismissPendingScan(id);
+      populateFormFromVoice(scan.extractedData);
+    }
+    return;
+  }
   if (scan.status === 'ready' && scan.extractedData) {
     state.currentPendingScanId = id;
     state.receiptFile          = _pendingScansFiles[id] || null;
@@ -1837,16 +1870,29 @@ function dismissPendingScan(id) {
   _pendingScansAborts[id]?.abort();
   delete _pendingScansAborts[id];
   delete _pendingScansFiles[id];
+  _pendingVoiceAborts[id]?.abort();
+  delete _pendingVoiceAborts[id];
   savePendingScans(getPendingScans().filter(s => s.id !== id));
   renderPendingScans();
 }
 
 async function retryPendingScan(id) {
-  const file = _pendingScansFiles[id];
-  if (!file) { showToast('Original file no longer available — please re-upload', true); dismissPendingScan(id); return; }
   const scans = getPendingScans();
   const scan  = scans.find(s => s.id === id);
   if (!scan) return;
+
+  if (scan.type === 'voice') {
+    scan.status = 'processing'; scan.errorMessage = null;
+    savePendingScans(scans);
+    renderPendingScans();
+    const abort = new AbortController();
+    _pendingVoiceAborts[id] = abort;
+    _runBackgroundVoice(id, scan.transcript, abort);
+    return;
+  }
+
+  const file = _pendingScansFiles[id];
+  if (!file) { showToast('Original file no longer available — please re-upload', true); dismissPendingScan(id); return; }
   scan.status = 'processing'; scan.errorMessage = null;
   savePendingScans(scans);
   renderPendingScans();
@@ -1926,9 +1972,12 @@ function renderNotifications() {
 }
 
 function notifCard(scan) {
-  const thumb = scan.thumbnailDataUrl
-    ? `<img src="${scan.thumbnailDataUrl}" class="w-11 h-11 object-cover rounded-2xl flex-shrink-0" />`
-    : `<div class="w-11 h-11 rounded-2xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-2xl">${scan.isPdf ? '📄' : '🧾'}</div>`;
+  const isVoice = scan.type === 'voice';
+  const thumb = isVoice
+    ? `<div class="w-11 h-11 rounded-2xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-2xl">🎤</div>`
+    : scan.thumbnailDataUrl
+      ? `<img src="${scan.thumbnailDataUrl}" class="w-11 h-11 object-cover rounded-2xl flex-shrink-0" />`
+      : `<div class="w-11 h-11 rounded-2xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-2xl">${scan.isPdf ? '📄' : '🧾'}</div>`;
 
   const dismissBtn = `<button onclick="event.stopPropagation();notifDismiss('${scan.id}')"
     class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
@@ -1936,7 +1985,9 @@ function notifCard(scan) {
   </button>`;
 
   if (scan.status === 'ready') {
-    const merchant = scan.extractedData?.merchant || scan.fileName || 'Receipt';
+    const merchant = isVoice
+      ? (scan.extractedData?.merchant || 'Voice input')
+      : (scan.extractedData?.merchant || scan.fileName || 'Receipt');
     const currency = scan.extractedData?.currency || (localStorage.getItem('defaultCurrency') || 'EUR');
     const total    = scan.extractedData?.total != null ? fmtAmount(scan.extractedData.total, currency) : null;
     return `<div onclick="notifOpenScan('${scan.id}')"
@@ -1948,17 +1999,20 @@ function notifCard(scan) {
           <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
         </div>
         ${total ? `<div class="text-base font-bold text-[#006b55]">${total}</div>` : ''}
-        <div class="text-xs text-emerald-600 font-medium mt-0.5">Tap to review &amp; add</div>
+        <div class="text-xs text-emerald-600 font-medium mt-0.5">${isVoice ? 'Tap to add' : 'Tap to review &amp; add'}</div>
       </div>${dismissBtn}
     </div>`;
   }
 
   if (scan.status === 'processing') {
+    const title = isVoice
+      ? (scan.transcript ? `"${esc(scan.transcript.slice(0, 40))}${scan.transcript.length > 40 ? '…' : ''}"` : 'Voice input')
+      : esc(scan.fileName || 'Receipt');
     return `<div class="flex items-center gap-3 p-3 bg-[#f8f9fa] rounded-2xl">
       ${thumb}
       <div class="flex-1 min-w-0">
-        <div class="text-sm font-semibold text-[#191c1d] truncate mb-0.5">${esc(scan.fileName || 'Receipt')}</div>
-        <div class="text-xs text-[#44474a]">Analyzing with AI…</div>
+        <div class="text-sm font-semibold text-[#191c1d] truncate mb-0.5">${title}</div>
+        <div class="text-xs text-[#44474a]">${isVoice ? 'Extracting with AI…' : 'Analyzing with AI…'}</div>
       </div>
       <span class="loader flex-shrink-0" style="width:18px;height:18px;border-width:2px;border-color:rgba(0,107,85,0.25);border-top-color:#006b55;"></span>
       ${dismissBtn}
@@ -1966,11 +2020,14 @@ function notifCard(scan) {
   }
 
   if (scan.status === 'error') {
+    const title = isVoice
+      ? (scan.transcript ? `"${esc(scan.transcript.slice(0, 40))}${scan.transcript.length > 40 ? '…' : ''}"` : 'Voice input')
+      : esc(scan.fileName || 'Receipt');
     return `<div class="flex items-center gap-3 p-3 bg-[#fff5f5] border border-red-100 rounded-2xl">
       ${thumb}
       <div class="flex-1 min-w-0">
-        <div class="text-sm font-semibold text-[#191c1d] truncate mb-0.5">${esc(scan.fileName || 'Receipt')}</div>
-        <div class="text-xs text-red-500 truncate">${esc(scan.errorMessage || 'Analysis failed')}</div>
+        <div class="text-sm font-semibold text-[#191c1d] truncate mb-0.5">${title}</div>
+        <div class="text-xs text-red-500 truncate">${esc(scan.errorMessage || 'Extraction failed')}</div>
       </div>
       <button onclick="event.stopPropagation();notifRetry('${scan.id}')"
         class="text-xs font-bold text-[#006b55] px-2.5 py-1 rounded-xl border border-[#006b55] flex-shrink-0 whitespace-nowrap mr-1">Retry</button>
@@ -2001,6 +2058,8 @@ function clearAllNotifications() {
     _pendingScansAborts[s.id]?.abort();
     delete _pendingScansAborts[s.id];
     delete _pendingScansFiles[s.id];
+    _pendingVoiceAborts[s.id]?.abort();
+    delete _pendingVoiceAborts[s.id];
   });
   savePendingScans([]);
   renderPendingScans();
@@ -2411,7 +2470,6 @@ let _liveTranscript    = '';
 let _interimTranscript = '';
 let _voiceFinalized    = false;
 let _voiceOriginal     = '';
-let _voiceSummary      = '';
 let _voiceCancelled    = false;
 let _voiceAbort        = null;
 
@@ -2450,6 +2508,12 @@ function _vvSetState(state) {
     ringIn?.classList.add('hidden');
     if (label)  label.textContent  = 'Processing…';
     if (status) status.textContent = 'Analyzing with AI…';
+  } else if (state === 'paused') {
+    document.getElementById('vv-mic-wrap')?.classList.add('hidden');
+    if (label) label.classList.add('hidden');
+    document.getElementById('voice-subtitle')?.classList.add('hidden');
+    document.getElementById('voice-confirm')?.classList.remove('hidden');
+    if (status) status.textContent = 'Edit if needed, then continue or log.';
   } else { // idle
     btn?.classList.remove('voice-recording');
     btn?.classList.add('voice-idle');
@@ -2509,8 +2573,6 @@ async function startVoiceRecording() {
     _voiceCancelled    = false;
     _voiceFinalized    = false;
     _isRecording       = true;
-    _liveTranscript    = '';
-    _interimTranscript = '';
 
     _audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
     if (_audioCtx.state === 'suspended') await _audioCtx.resume();
@@ -2600,10 +2662,9 @@ function stopVoiceRecording() {
   }
 }
 
-// Read the final live transcript and show the confirmation step. Guarded so it
-// runs at most once per recording. The summary is fetched asynchronously and
-// fills the box when ready (loadVoiceSummary).
-async function finalizeVoiceTranscript() {
+// Read the final live transcript and show the editable confirmation panel.
+// Guarded so it runs at most once per recording.
+function finalizeVoiceTranscript() {
   if (_voiceFinalized) return;
   _voiceFinalized = true;
   teardownVoiceCapture();
@@ -2618,116 +2679,92 @@ async function finalizeVoiceTranscript() {
   }
 
   _voiceOriginal = original;
-  _voiceSummary  = original;
 
-  // Hide mic UI and show a loading state while waiting for the summary API call.
-  document.getElementById('voice-subtitle')?.classList.add('hidden');
-  document.getElementById('vv-mic-wrap')?.classList.add('hidden');
-  document.getElementById('voice-label')?.classList.add('hidden');
-  const status = document.getElementById('voice-status');
-  if (status) status.textContent = 'Summarizing what you said…';
+  const box = document.getElementById('vc-transcript');
+  if (box) box.value = original;
 
-  await loadVoiceSummary();
+  _vvSetState('paused');
 }
 
-// Fetch (or re-fetch) the summary for the current transcript and fill the box.
-// Honest on failure: shows the raw transcript and says so, rather than passing
-// it off as a summary. Also bound to the "Regenerate" button.
-async function loadVoiceSummary() {
-  const original = _voiceOriginal;
-  if (!original) return;
-
-  const box     = document.getElementById('vc-summary');
-  const origWrap = document.getElementById('vc-original-wrap');
-  const regen   = document.getElementById('vc-regen');
-  const status  = document.getElementById('voice-status');
-
-  box.value       = '';
-  box.placeholder = '';
-  origWrap.classList.add('hidden');
-  if (regen)  regen.disabled = true;
-  if (status) status.textContent = 'Summarizing what you said…';
-
-  const formData = new FormData();
-  formData.append('transcript', original);
-
-  try {
-    const resp = await postWithOverloadRetry('/api/voice_summary', formData, {
-      onRetry: (n, total) => {
-        if (status) status.textContent = `Model busy — retrying (${n}/${total})…`;
-      },
-    });
-    const summary = (resp.summary || original).trim() || original;
-    _voiceSummary = summary;
-    box.value     = summary;
-    const same = summary === original;
-    document.getElementById('vc-original').textContent = original;
-    origWrap.classList.toggle('hidden', same);
-    document.getElementById('voice-confirm')?.classList.remove('hidden');
-    if (status) status.textContent = same
-      ? 'Does this look right? Edit it if needed.'
-      : 'Here\'s a summary — edit it, or keep what was heard.';
-  } catch (e) {
-    // Couldn't summarise (e.g. model overloaded) — show the raw transcript and
-    // be clear that it isn't a summary, with Regenerate available.
-    _voiceSummary = original;
-    box.value     = original;
-    origWrap.classList.add('hidden');
-    document.getElementById('vc-original').textContent = original;
-    document.getElementById('voice-confirm')?.classList.remove('hidden');
-    if (status) status.textContent =
-      'Couldn\'t summarize (model busy). Showing what you said — edit it, or tap Regenerate.';
-  } finally {
-    if (regen) regen.disabled = false;
-  }
-}
-
-// Restore the editable field back to the raw transcript Gemini Live heard.
-function revertVoiceCorrection() {
-  document.getElementById('vc-summary').value = _voiceOriginal;
-}
-
-// User picked which text to use → extract the expense from it.
-// useSummary=true uses the (possibly edited) summary in the box; false uses the
-// raw transcript as heard.
-async function confirmVoiceTranscript(useSummary) {
-  const transcript = (useSummary
-    ? document.getElementById('vc-summary').value
-    : _voiceOriginal).trim();
-  if (!transcript) { showToast('Transcript is empty — please edit it first.', true); return; }
+// Resume recording — capture any edits from the textarea first, then re-open mic.
+async function resumeVoiceRecording() {
+  const edited = (document.getElementById('vc-transcript')?.value || '').trim();
+  _liveTranscript    = edited;
+  _interimTranscript = '';
+  _voiceFinalized    = false;
 
   document.getElementById('voice-confirm')?.classList.add('hidden');
-  _vvSetState('processing');
 
-  const formData = new FormData();
-  formData.append('transcript', transcript);
-  const eventBudgetNames = getCustomBudgets().filter(b => b.type === 'event' && !isBudgetArchived(b)).map(b => b.name);
-  if (eventBudgetNames.length > 0) {
-    formData.append('event_budgets', JSON.stringify(eventBudgetNames));
-  }
+  const sub = document.getElementById('voice-subtitle');
+  const fin = document.getElementById('voice-subtitle-final');
+  const itr = document.getElementById('voice-subtitle-interim');
+  if (fin) fin.textContent = _liveTranscript;
+  if (itr) itr.textContent = '';
+  if (sub && _liveTranscript) sub.classList.remove('hidden');
 
-  const btn = document.getElementById('voice-btn');
-  if (btn) btn.disabled = true;
+  document.getElementById('vv-mic-wrap')?.classList.remove('hidden');
+  document.getElementById('voice-label')?.classList.remove('hidden');
 
-  const abort = new AbortController();
-  _voiceAbort = abort;
+  await startVoiceRecording();
+}
 
+// Send the (possibly edited) transcript to AI for expense extraction — runs in background.
+function submitVoiceTranscript() {
+  const transcript = (document.getElementById('vc-transcript')?.value || '').trim();
+  if (!transcript) { showToast('Transcript is empty — please record something first.', true); return; }
+
+  queueBackgroundVoice(transcript);
+  resetVoiceBtn();
+  showView('home');
+  showToast('Extracting details in background…');
+}
+
+function queueBackgroundVoice(transcript) {
+  const id = generateId();
+  _pendingVoiceAborts[id] = new AbortController();
+
+  const scans = getPendingScans();
+  scans.push({
+    id,
+    type:          'voice',
+    status:        'processing',
+    transcript,
+    extractedData: null,
+    errorMessage:  null,
+    createdAt:     new Date().toISOString(),
+  });
+  savePendingScans(scans);
+  _refreshHomePendingScans();
+  _runBackgroundVoice(id, transcript, _pendingVoiceAborts[id]);
+}
+
+async function _runBackgroundVoice(id, transcript, abort) {
   try {
-    const resp = await postWithOverloadRetry('/api/voice_extract', formData, {
-      signal: abort.signal,
-      onRetry: (n, total) =>
-        showToast(`The model is in high demand. Please wait… (retry ${n}/${total})`, true),
-    });
+    const formData = new FormData();
+    formData.append('transcript', transcript);
+    const eventBudgetNames = getCustomBudgets().filter(b => b.type === 'event' && !isBudgetArchived(b)).map(b => b.name);
+    if (eventBudgetNames.length > 0) formData.append('event_budgets', JSON.stringify(eventBudgetNames));
+
+    const resp = await postWithOverloadRetry('/api/voice_extract', formData, { signal: abort.signal });
     if (abort.signal.aborted) return;
-    populateFormFromVoice(resp.data);
-    showToast('Voice input captured!');
+
+    const scans = getPendingScans();
+    const item  = scans.find(s => s.id === id);
+    if (item) { item.status = 'ready'; item.extractedData = resp.data; savePendingScans(scans); }
+    delete _pendingVoiceAborts[id];
+
+    _refreshHomePendingScans();
+    showToast('Voice ready — tap to add!');
   } catch (e) {
     if (e.name === 'AbortError' || abort.signal.aborted) return;
-    showToast(e.retryable ? e.message : 'Voice failed: ' + e.message, true);
-    resetVoiceBtn();
-  } finally {
-    if (_voiceAbort === abort) _voiceAbort = null;
-    if (btn) btn.disabled = false;
+
+    const scans = getPendingScans();
+    const item  = scans.find(s => s.id === id);
+    if (item) { item.status = 'error'; item.errorMessage = e.message || 'Extraction failed'; savePendingScans(scans); }
+    delete _pendingVoiceAborts[id];
+
+    _refreshHomePendingScans();
+    showToast('Voice extraction failed: ' + (e.message || 'unknown error'), true);
   }
 }
 

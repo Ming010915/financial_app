@@ -266,24 +266,7 @@ _STT_FINANCIAL_HINTS = [
     # Currencies
     "Euro", "Euros", "EUR", "Dollar", "Dollars", "USD",
     "Pound", "Pounds", "GBP", "Swiss Franc", "CHF", "Yen", "JPY",
-    "cent", "cents", "pence",
-    # Transaction verbs
-    "spent", "paid", "bought", "purchased", "received", "earned", "charged",
-    "transferred", "withdrew", "deposited", "refunded",
-    # Financial nouns
-    "expense", "income", "salary", "receipt", "invoice", "budget",
-    "transaction", "payment", "rent", "bill", "tip", "fee", "tax",
-    "subscription", "insurance", "dividend", "interest", "bonus",
-    # Categories
-    "groceries", "supermarket", "restaurant", "coffee", "takeaway",
-    "transport", "train", "bus", "taxi", "Uber", "fuel", "petrol",
-    "pharmacy", "doctor", "gym", "fitness",
-    "shopping", "clothing", "electronics",
-    "entertainment", "cinema", "Netflix", "Spotify",
-    "utilities", "electricity", "internet", "water",
-    "travel", "hotel", "flight", "Airbnb",
-    # Amounts
-    "fifty", "hundred", "thousand", "point five", "zero point",
+    "cent", "cents", "pence"
 ]
 
 @app.route("/api/stt", methods=["POST"])

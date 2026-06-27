@@ -50,30 +50,22 @@
       </div>
     </div>
 
-    <!-- Transcript confirmation (shown after recording, before extraction) -->
+    <!-- Transcript edit + action panel (shown when paused, before extraction) -->
     <div id="voice-confirm" class="hidden w-full text-left space-y-3">
-      <div class="bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-1">
-          <div class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider">Summary · tap to edit</div>
-          <button type="button" id="vc-regen" onclick="loadVoiceSummary()"
-                  class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider disabled:opacity-40">Regenerate</button>
-        </div>
-        <textarea id="vc-summary" rows="3"
-                  class="w-full bg-transparent text-sm text-[#191c1d] leading-relaxed resize-none focus:outline-none"></textarea>
-      </div>
-      <div id="vc-original-wrap" class="bg-[#f8f9fa] border border-[#e8e9ea] rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-1">
-          <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider">Heard</div>
-          <button type="button" onclick="revertVoiceCorrection()"
-                  class="text-[10px] font-bold text-[#006b55] uppercase tracking-wider">Reset to this</button>
-        </div>
-        <div id="vc-original" class="text-sm text-[#44474a] leading-relaxed"></div>
-      </div>
+      <textarea id="vc-transcript" rows="5"
+                class="w-full bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl p-4 text-sm text-[#191c1d] leading-relaxed resize-none focus:outline-none"
+                placeholder="Your words will appear here…"></textarea>
       <div class="flex gap-3 pt-1">
-        <button type="button" onclick="confirmVoiceTranscript(false)"
-                class="flex-1 py-3 rounded-2xl border border-[#c5c6ca] text-sm font-bold text-[#44474a] active:scale-95 transition">Use original</button>
-        <button type="button" onclick="confirmVoiceTranscript(true)"
-                class="flex-1 py-3 rounded-2xl text-sm font-bold text-white active:scale-95 transition" style="background:#006b55;">Use summary</button>
+        <button type="button" onclick="resumeVoiceRecording()"
+                class="flex-1 py-3 rounded-2xl border border-[#c5c6ca] text-sm font-bold text-[#44474a] active:scale-95 transition flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+          </svg>
+          Continue
+        </button>
+        <button type="button" onclick="submitVoiceTranscript()"
+                class="flex-1 py-3 rounded-2xl text-sm font-bold text-white active:scale-95 transition" style="background:#006b55;">Log Expense</button>
       </div>
     </div>
 
