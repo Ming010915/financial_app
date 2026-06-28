@@ -20,7 +20,7 @@ from transformers import AutoModelForMultimodalLM, AutoProcessor
 
 
 DEFAULT_MODEL = os.environ.get("QWEN_ITEM_MODEL", "Qwen/Qwen3.5-4B")
-DEFAULT_TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "receipt_item_classification_skill.md"
+DEFAULT_TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "taxonomy" / "receipt_item_classification_skill.md"
 UNKNOWN_CLASSIFICATION = {
     "main_category": "other",
     "sub_category": "other.unknown",
