@@ -31,6 +31,34 @@ SAMPLE_PAYLOAD = {
     ],
 }
 
+SAMPLE_EXPENSES = {
+    "edeka-magnum": {
+        "id": "tx_demo_edeka_magnum",
+        "merchant": "edika",
+        "date": "2026-06-28",
+        "time": "18:42",
+        "datetime": "2026-06-28T18:42:00+02:00",
+        "timezone": "Europe/Berlin",
+        "weekday": 7,
+        "hour": 18,
+        "amount": 2.79,
+        "currency": "EUR",
+        "amount_base": 2.79,
+        "category": "Groceries",
+        "source": "receipt",
+        "type": "expense",
+        "created_at": "2026-06-28T18:45:00+02:00",
+        "items": [
+            {
+                "id": "item_demo_magnum",
+                "name": "MAGNUM MANDEL",
+                "quantity": 1,
+                "amount": 2.79,
+            }
+        ],
+    }
+}
+
 
 def build_prompt(payload: dict[str, Any]) -> str:
     return f"""
@@ -68,6 +96,80 @@ Output schema:
 """.strip()
 
 
+def normalize_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip().lower())
+
+
+def normalize_merchant(value: str) -> str:
+    aliases = {
+        "edika": "edeka",
+    }
+    normalized = normalize_text(value)
+    return aliases.get(normalized, normalized)
+
+
+def expense_to_classification_payload(expense: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "merchant": expense.get("merchant", ""),
+        "transaction_category": expense.get("category", ""),
+        "currency": expense.get("currency", "EUR"),
+        "items": [
+            {
+                "raw_name": item.get("name") or item.get("raw_name") or "",
+                "quantity": item.get("quantity") or 1,
+                "amount": item.get("amount", item.get("price")),
+            }
+            for item in expense.get("items", [])
+        ],
+    }
+
+
+def build_flo_items(expense: dict[str, Any], classification: dict[str, Any]) -> list[dict[str, Any]]:
+    source_items = expense.get("items", [])
+    classified_items = classification.get("items", [])
+    merchant = expense.get("merchant", "")
+    currency = expense.get("currency", "EUR")
+    expense_id = expense.get("id")
+    records = []
+
+    for index, item in enumerate(source_items):
+        classified = classified_items[index] if index < len(classified_items) else {}
+        quantity = item.get("quantity") or 1
+        amount = item.get("amount", item.get("price"))
+        unit_price = round(amount / quantity, 2) if isinstance(amount, (int, float)) and quantity else None
+        raw_name = item.get("name") or item.get("raw_name") or classified.get("raw_name") or ""
+
+        records.append(
+            {
+                "id": item.get("id") or f"{expense_id}_item_{index + 1}",
+                "expense_id": expense_id,
+                "merchant": merchant,
+                "merchant_normalized": normalize_merchant(merchant),
+                "raw_name": raw_name,
+                "normalized_name": classified.get("normalized_name") or normalize_text(raw_name),
+                "unit_price": unit_price,
+                "quantity": quantity,
+                "amount": amount,
+                "currency": currency,
+                "amount_base": item.get("amount_base", amount),
+                "date": expense.get("date"),
+                "time": expense.get("time"),
+                "datetime": expense.get("datetime"),
+                "timezone": expense.get("timezone"),
+                "weekday": expense.get("weekday"),
+                "hour": expense.get("hour"),
+                "main_category": classified.get("main_category") or expense.get("category"),
+                "sub_category": classified.get("sub_category"),
+                "tags": classified.get("tags") or [],
+                "confidence": classified.get("confidence"),
+                "classification_source": classified.get("classification_source") or "qwen",
+                "created_at": expense.get("created_at"),
+            }
+        )
+
+    return records
+
+
 def extract_json(text: str) -> dict[str, Any]:
     cleaned = text.strip()
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, re.DOTALL)
@@ -92,14 +194,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Classify receipt items with local Qwen.")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--payload", help="Path to JSON payload. Defaults to a REWE sample.")
+    parser.add_argument(
+        "--sample",
+        choices=sorted(SAMPLE_EXPENSES),
+        help="Use a built-in transaction sample and output flo_items records.",
+    )
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--raw", action="store_true", help="Print raw model text before parsed JSON.")
+    parser.add_argument("--flo-items", action="store_true", help="Print flo_items records after classification.")
     args = parser.parse_args()
 
-    payload = SAMPLE_PAYLOAD
+    expense = SAMPLE_EXPENSES.get(args.sample) if args.sample else None
+    payload = expense_to_classification_payload(expense) if expense else SAMPLE_PAYLOAD
     if args.payload:
         with open(args.payload, "r", encoding="utf-8") as f:
             payload = json.load(f)
+        expense = None
 
     if torch.backends.mps.is_available():
         device = torch.device("mps")
@@ -175,7 +285,14 @@ def main() -> None:
         print(raw_text)
         print("\nParsed JSON:\n")
 
-    print(json.dumps(extract_json(raw_text), ensure_ascii=False, indent=2))
+    parsed = extract_json(raw_text)
+
+    if args.flo_items:
+        if not expense:
+            raise SystemExit("--flo-items requires --sample for this demo.")
+        print(json.dumps(build_flo_items(expense, parsed), ensure_ascii=False, indent=2))
+    else:
+        print(json.dumps(parsed, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
