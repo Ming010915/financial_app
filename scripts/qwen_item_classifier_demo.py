@@ -28,6 +28,86 @@ UNKNOWN_CLASSIFICATION = {
     "confidence": 0.3,
     "classification_source": "qwen",
 }
+MERCHANT_CONTEXT_RULES = [
+    {
+        "merchant_type": "supermarket",
+        "keywords": ["rewe", "edeka", "edika", "aldi", "lidl", "netto", "penny", "kaufland"],
+        "candidate_main_categories": [
+            "groceries",
+            "household",
+            "personal_care",
+            "health",
+            "pets",
+            "children_family",
+            "financial_admin",
+            "retail_goods",
+        ],
+        "confidence": 0.9,
+        "notes": "Supermarkets commonly sell food, drinks, household consumables, personal care, pet, baby, deposit, discount, and occasional retail items.",
+    },
+    {
+        "merchant_type": "drugstore_or_pharmacy",
+        "keywords": ["dm", "rossmann", "müller", "mueller", "cvs", "walgreens", "boots", "apotheke", "pharmacy"],
+        "candidate_main_categories": [
+            "personal_care",
+            "health",
+            "household",
+            "groceries",
+            "children_family",
+            "pets",
+        ],
+        "confidence": 0.85,
+        "notes": "Drugstores and pharmacies should be classified by item purpose, not as one generic category.",
+    },
+    {
+        "merchant_type": "restaurant_or_cafe",
+        "keywords": ["restaurant", "cafe", "coffee", "starbucks", "mcdonald", "burger king", "kfc", "subway", "lieferando"],
+        "candidate_main_categories": [
+            "dining",
+            "gifts_donations",
+            "financial_admin",
+        ],
+        "confidence": 0.85,
+        "notes": "Prepared food, served drinks, takeaway, delivery, tips, and service fees are most likely.",
+    },
+    {
+        "merchant_type": "bakery",
+        "keywords": ["bäckerei", "baeckerei", "bakery", "backwerk"],
+        "candidate_main_categories": [
+            "dining",
+            "groceries",
+        ],
+        "confidence": 0.8,
+        "notes": "Bakery items may be immediate consumption dining or take-home groceries depending on item context.",
+    },
+    {
+        "merchant_type": "marketplace_or_payment",
+        "keywords": ["amazon", "ebay", "aliexpress", "paypal", "klarna"],
+        "candidate_main_categories": [
+            "retail_goods",
+            "digital_subscriptions",
+            "household",
+            "personal_care",
+            "health",
+            "pets",
+            "children_family",
+            "other",
+        ],
+        "confidence": 0.7,
+        "notes": "Marketplace/payment merchants are weak signals; classify by item purpose whenever item text is available.",
+    },
+    {
+        "merchant_type": "fuel_or_mobility",
+        "keywords": ["shell", "aral", "esso", "total", "bp", "jet", "uber", "bolt", "taxi"],
+        "candidate_main_categories": [
+            "transport",
+            "groceries",
+            "financial_admin",
+        ],
+        "confidence": 0.8,
+        "notes": "Fuel, parking, rides, and convenience-store items are all possible depending on the line item.",
+    },
+]
 
 SAMPLE_PAYLOAD = {
     "merchant": "REWE",
@@ -103,13 +183,38 @@ def load_taxonomy(path: Path) -> dict[str, Any]:
     }
 
 
-def build_prompt(payload: dict[str, Any], taxonomy: dict[str, Any]) -> str:
+def focus_taxonomy_for_merchant(taxonomy: dict[str, Any], merchant_context: dict[str, Any]) -> dict[str, Any]:
+    candidate_categories = [
+        category
+        for category in merchant_context.get("candidate_main_categories", [])
+        if category in taxonomy["allowed_main_categories"]
+    ]
+    if not candidate_categories:
+        return taxonomy
+
+    focused_categories = list(dict.fromkeys([*candidate_categories, "other"]))
+    return {
+        "allowed_main_categories": focused_categories,
+        "allowed_subcategories_by_main": {
+            category: taxonomy["allowed_subcategories_by_main"][category] for category in focused_categories
+        },
+        "allowed_tags": taxonomy["allowed_tags"],
+    }
+
+
+def build_prompt(payload: dict[str, Any], taxonomy: dict[str, Any], merchant_context: dict[str, Any]) -> str:
     taxonomy_json = json.dumps(taxonomy, ensure_ascii=False, indent=2)
+    merchant_context_json = json.dumps(merchant_context, ensure_ascii=False, indent=2)
     return f"""
 You classify receipt line items for a personal finance app.
 Use only the merchant, currency, item names, quantities, and item amounts as receipt context.
+Use the merchant_context below as a first-pass candidate range inferred only from the merchant name.
 Use the taxonomy JSON below only as the allowed classification vocabulary.
 Return strict JSON only. Do not include markdown, comments, or explanations.
+
+Two-stage task:
+1. Use merchant_context.merchant_type and merchant_context.candidate_main_categories to understand the likely main_category range.
+2. For each item, use raw_name, quantity, amount, and merchant context to choose the final main_category, sub_category, and tags.
 
 Hard rules:
 - Preserve every input item exactly once and keep raw_name unchanged.
@@ -122,6 +227,9 @@ Hard rules:
 - classification_source must always be "qwen".
 - Classify item-level categories by item purpose and consumption context, not by merchant type alone.
 - Merchant is context only. Do not classify all items as the merchant category.
+- Prefer merchant_context.candidate_main_categories when the item evidence is compatible.
+- Do not force a candidate category when the item name clearly belongs to another allowed main_category.
+- If merchant_context.confidence is low or merchant_type is unknown, rely more on raw_name.
 - If unclear, use main_category "other", sub_category "other.unknown", tags ["unknown"], and confidence <= 0.5.
 
 Boundary rules:
@@ -141,6 +249,9 @@ Boundary rules:
 
 Allowed taxonomy:
 {taxonomy_json}
+
+Merchant context:
+{merchant_context_json}
 
 Input:
 {json.dumps(payload, ensure_ascii=False, indent=2)}
@@ -172,6 +283,37 @@ def normalize_merchant(value: str) -> str:
     }
     normalized = normalize_text(value)
     return aliases.get(normalized, normalized)
+
+
+def merchant_keyword_matches(merchant: str, keyword: str) -> bool:
+    normalized = normalize_text(merchant)
+    normalized_keyword = normalize_text(keyword)
+    if len(normalized_keyword) <= 3:
+        return re.search(rf"(^|[^a-z0-9]){re.escape(normalized_keyword)}([^a-z0-9]|$)", normalized) is not None
+    return normalized_keyword in normalized
+
+
+def infer_merchant_context(merchant: str) -> dict[str, Any]:
+    normalized = normalize_merchant(merchant)
+    for rule in MERCHANT_CONTEXT_RULES:
+        if any(merchant_keyword_matches(normalized, keyword) for keyword in rule["keywords"]):
+            return {
+                "merchant": merchant,
+                "merchant_normalized": normalized,
+                "merchant_type": rule["merchant_type"],
+                "candidate_main_categories": rule["candidate_main_categories"],
+                "confidence": rule["confidence"],
+                "notes": rule["notes"],
+            }
+
+    return {
+        "merchant": merchant,
+        "merchant_normalized": normalized,
+        "merchant_type": "unknown",
+        "candidate_main_categories": [],
+        "confidence": 0.3,
+        "notes": "No merchant rule matched. Do not narrow by merchant; classify mainly from item names.",
+    }
 
 
 def expense_to_classification_payload(expense: dict[str, Any]) -> dict[str, Any]:
@@ -351,7 +493,9 @@ def main() -> None:
         expense = None
 
     taxonomy = load_taxonomy(Path(args.taxonomy))
-    prompt = build_prompt(payload, taxonomy)
+    merchant_context = infer_merchant_context(payload.get("merchant", ""))
+    focused_taxonomy = focus_taxonomy_for_merchant(taxonomy, merchant_context)
+    prompt = build_prompt(payload, focused_taxonomy, merchant_context)
     if args.print_prompt:
         print(prompt)
         return
@@ -364,11 +508,17 @@ def main() -> None:
         dtype = torch.float32
 
     started_at = time.time()
-    subcategory_count = sum(len(value) for value in taxonomy["allowed_subcategories_by_main"].values())
+    subcategory_count = sum(len(value) for value in focused_taxonomy["allowed_subcategories_by_main"].values())
     print(
         f"Loaded taxonomy from {args.taxonomy}: "
-        f"{len(taxonomy['allowed_main_categories'])} main categories, "
-        f"{subcategory_count} subcategories, {len(taxonomy['allowed_tags'])} tags.",
+        f"{len(taxonomy['allowed_main_categories'])} full main categories, "
+        f"{len(focused_taxonomy['allowed_main_categories'])} prompt main categories, "
+        f"{subcategory_count} prompt subcategories, {len(focused_taxonomy['allowed_tags'])} tags.",
+        flush=True,
+    )
+    print(
+        "Merchant context: "
+        f"{merchant_context['merchant_type']} -> {', '.join(merchant_context['candidate_main_categories']) or 'no narrowed candidates'}",
         flush=True,
     )
     print(f"Loading {args.model} on {device} with {dtype}...", flush=True)
@@ -437,7 +587,7 @@ def main() -> None:
         print(raw_text)
         print("\nParsed JSON:\n")
 
-    parsed = sanitize_classification(extract_json(raw_text), payload, taxonomy)
+    parsed = sanitize_classification(extract_json(raw_text), payload, focused_taxonomy)
 
     if args.flo_items:
         if not expense:
