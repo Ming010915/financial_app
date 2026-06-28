@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Qwen Item Classification Experiment Report</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --ink: #18202f;
+      --muted: #647084;
+      --line: #d9dee8;
+      --accent: #126a6f;
+      --accent-soft: #e3f3f2;
+      --warn: #8a5b00;
+      --warn-soft: #fff1cc;
+      --ok: #17633a;
+      --ok-soft: #e6f4eb;
+      --code: #111827;
+      --code-bg: #f2f4f8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1160px, calc(100vw - 32px));
+      margin: 32px auto 56px;
+    }
+
+    header {
+      margin-bottom: 24px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.18;
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: 34px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 22px;
+      margin-bottom: 14px;
+    }
+
+    h3 {
+      font-size: 17px;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      max-width: 900px;
+      font-size: 16px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 3px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 24px;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+    }
+
+    .step-number {
+      display: inline-flex;
+      width: 24px;
+      height: 24px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .case {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 14px;
+      background: var(--panel);
+    }
+
+    .case-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+
+    .case-title {
+      min-width: 0;
+    }
+
+    .case-title p {
+      color: var(--muted);
+      margin: 6px 0 0;
+      font-size: 13px;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      align-self: start;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .observed {
+      background: var(--ok-soft);
+      color: var(--ok);
+    }
+
+    .expected {
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+
+    .case-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .case-col {
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .case-col + .case-col {
+      border-left: 1px solid var(--line);
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      background: var(--code-bg);
+      color: var(--code);
+      border-radius: 8px;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      tab-size: 2;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: var(--code-bg);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 700;
+      background: #fbfcfe;
+    }
+
+    @media (max-width: 900px) {
+      .grid,
+      .flow,
+      .case-body {
+        grid-template-columns: 1fr;
+      }
+
+      .case-col + .case-col {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Qwen Item Classification Experiment Report</h1>
+      <p class="subtitle">
+        This report documents the current local Qwen item-classification experiment for generating
+        <code>flo_items</code> from already extracted receipt line items. Qwen receives merchant and item text only,
+        while category IDs and tags are constrained by the receipt item taxonomy.
+      </p>
+      <div class="meta">
+        <span class="pill">Branch: llm-memory</span>
+        <span class="pill">Model: Qwen/Qwen3.5-4B</span>
+        <span class="pill">Runtime: conda env genai, Apple MPS</span>
+        <span class="pill">Report date: 2026-06-28</span>
+      </div>
+    </header>
+
+    <section class="section">
+      <h2>Executive Summary</h2>
+      <div class="grid">
+        <div class="stat">
+          <strong>5</strong>
+          <span>example scenarios in this report</span>
+        </div>
+        <div class="stat">
+          <strong>1</strong>
+          <span>actual Qwen run completed for the report</span>
+        </div>
+        <div class="stat">
+          <strong>18</strong>
+          <span>full taxonomy main categories</span>
+        </div>
+        <div class="stat">
+          <strong>9</strong>
+          <span>focused main categories for the EDEKA supermarket case</span>
+        </div>
+      </div>
+      <p style="margin-top: 16px;">
+        The important design change is merchant-first narrowing. The app first infers a
+        <code>merchant_context</code>, then gives Qwen a focused taxonomy subset. Qwen still classifies each item by
+        item purpose, so a supermarket receipt can contain groceries, household products, personal care items, pet
+        items, deposits, and retail goods in the same transaction.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>Pipeline Under Test</h2>
+      <div class="flow">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Receipt Extraction</h3>
+          <p>Gemini extracts merchant, currency, line item names, quantities, and amounts. No transaction category is passed to Qwen.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>Merchant Context</h3>
+          <p>Local rules infer a merchant type and a candidate range of possible main categories.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Focused Taxonomy</h3>
+          <p>The full taxonomy is narrowed to the merchant candidates plus <code>other</code>, reducing prompt size and ambiguity.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <h3>Qwen + Validation</h3>
+          <p>Qwen outputs JSON. Python validation enforces allowed main categories, subcategories, tags, raw item order, and source.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Current Prompt Contract</h2>
+      <ul>
+        <li>Qwen input contains <code>merchant</code>, <code>currency</code>, <code>raw_name</code>, <code>quantity</code>, and <code>amount</code>.</li>
+        <li>Qwen does not receive a fabricated transaction category.</li>
+        <li><code>main_category</code> must be one ID from the allowed focused taxonomy.</li>
+        <li><code>sub_category</code> must belong to the selected <code>main_category</code>.</li>
+        <li><code>tags</code> must contain 1 to 4 values from the allowed tag vocabulary.</li>
+        <li>If validation fails, the item falls back to <code>other</code>, <code>other.unknown</code>, and <code>["unknown"]</code>.</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>Experiment Cases</h2>
+
+      <article class="case">
+        <div class="case-head">
+          <div class="case-title">
+            <h3>Case 1: EDEKA packaged ice cream</h3>
+            <p>Merchant-first narrowing classifies EDIKA/EDIKA as a supermarket. This result is from an actual local Qwen run.</p>
+          </div>
+          <span class="badge observed">Observed</span>
+        </div>
+        <div class="case-body">
+          <div class="case-col">
+            <h3>Input</h3>
+            <pre>{
+  "merchant_context": {
+    "merchant_type": "supermarket",
+    "candidate_main_categories": [
+      "groceries",
+      "household",
+      "personal_care",
+      "health",
+      "pets",
+      "children_family",
+      "financial_admin",
+      "retail_goods"
+    ]
+  },
+  "payload": {
+    "merchant": "edika",
+    "currency": "EUR",
+    "items": [
+      {
+        "raw_name": "MAGNUM MANDEL",
+        "quantity": 1,
+        "amount": 2.79
+      }
+    ]
+  }
+}</pre>
+          </div>
+          <div class="case-col">
+            <h3>Output</h3>
+            <pre>{
+  "items": [
+    {
+      "raw_name": "MAGNUM MANDEL",
+      "normalized_name": "magnum mandel",
+      "main_category": "groceries",
+      "sub_category": "groceries.snacks_sweets",
+      "tags": [
+        "dessert",
+        "snack",
+        "supermarket_item"
+      ],
+      "confidence": 0.95,
+      "classification_source": "qwen"
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+      </article>
+
+      <article class="case">
+        <div class="case-head">
+          <div class="case-title">
+            <h3>Case 2: REWE mixed supermarket basket</h3>
+            <p>This expected output demonstrates that a supermarket basket should not force all items into groceries.</p>
+          </div>
+          <span class="badge expected">Expected</span>
+        </div>
+        <div class="case-body">
+          <div class="case-col">
+            <h3>Input</h3>
+            <pre>{
+  "merchant_context": {
+    "merchant_type": "supermarket",
+    "candidate_main_categories": [
+      "groceries",
+      "household",
+      "personal_care",
+      "health",
+      "pets",
+      "children_family",
+      "financial_admin",
+      "retail_goods"
+    ]
+  },
+  "payload": {
+    "merchant": "REWE",
+    "currency": "EUR",
+    "items": [
+      { "raw_name": "MILCH 1.5%", "quantity": 1, "amount": 1.29 },
+      { "raw_name": "ZAHNCREME", "quantity": 1, "amount": 2.49 },
+      { "raw_name": "WASCHMITTEL", "quantity": 1, "amount": 5.99 },
+      { "raw_name": "PFAND", "quantity": 1, "amount": 0.25 }
+    ]
+  }
+}</pre>
+          </div>
+          <div class="case-col">
+            <h3>Expected Output</h3>
+            <pre>{
+  "items": [
+    {
+      "raw_name": "MILCH 1.5%",
+      "normalized_name": "milk",
+      "main_category": "groceries",
+      "sub_category": "groceries.dairy",
+      "tags": ["food", "home_consumption", "daily_necessity"],
+      "confidence": 0.95,
+      "classification_source": "qwen"
+    },
+    {
+      "raw_name": "ZAHNCREME",
+      "normalized_name": "toothpaste",
+      "main_category": "personal_care",
+      "sub_category": "personal_care.dental_care",
+      "tags": ["hygiene", "dental", "daily_necessity"],
+      "confidence": 0.90,
+      "classification_source": "qwen"
+    },
+    {
+      "raw_name": "WASCHMITTEL",
+      "normalized_name": "laundry detergent",
+      "main_category": "household",
+      "sub_category": "household.laundry",
+      "tags": ["laundry", "cleaning", "household"],
+      "confidence": 0.93,
+      "classification_source": "qwen"
+    },
+    {
+      "raw_name": "PFAND",
+      "normalized_name": "bottle deposit",
+      "main_category": "financial_admin",
+      "sub_category": "financial_admin.deposits_refunds",
+      "tags": ["deposit"],
+      "confidence": 0.91,
+      "classification_source": "qwen"
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+      </article>
+
+      <article class="case">
+        <div class="case-head">
+          <div class="case-title">
+            <h3>Case 3: dm drugstore basket</h3>
+            <p>The merchant narrows the candidates to personal care, health, household, groceries, children and pets.</p>
+          </div>
+          <span class="badge expected">Expected</span>
+        </div>
+        <div class="case-body">
+          <div class="case-col">
+            <h3>Input</h3>
+            <pre>{
+  "merchant_context": {
+    "merchant_type": "drugstore_or_pharmacy",
+    "candidate_main_categories": [
+      "personal_care",
+      "health",
+      "household",
+      "groceries",
+      "children_family",
+      "pets"
+    ]
+  },
+  "payload": {
+    "merchant": "dm",
+    "currency": "EUR",
+    "items": [
+      { "raw_name": "SHAMPOO", "quantity": 1, "amount": 2.95 },
+      { "raw_name": "VITAMIN D", "quantity": 1, "amount": 4.95 },
+      { "raw_name": "BABY WIPES", "quantity": 1, "amount": 1.75 }
+    ]
+  }
+}</pre>
+          </div>
+          <div class="case-col">
+            <h3>Expected Output</h3>
+            <pre>{
+  "items": [
+    {
+      "raw_name": "SHAMPOO",
+      "normalized_name": "shampoo",
+      "main_category": "personal_care",
+      "sub_category": "personal_care.hair_care",
+      "tags": ["hygiene", "hair_care"],
+      "confidence": 0.94,
+      "classification_source": "qwen"
+    },
+    {
+      "raw_name": "VITAMIN D",
+      "normalized_name": "vitamin d",
+      "main_category": "health",
+      "sub_category": "health.supplements",
+      "tags": ["supplements", "health"],
+      "confidence": 0.92,
+      "classification_source": "qwen"
+    },
+    {
+      "raw_name": "BABY WIPES",
+      "normalized_name": "baby wipes",
+      "main_category": "children_family",
+      "sub_category": "children_family.baby_supplies",
+      "tags": ["child_related", "hygiene", "daily_necessity"],
+      "confidence": 0.89,
+      "classification_source": "qwen"
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+      </article>
+
+      <article class="case">
+        <div class="case-head">
+          <div class="case-title">
+            <h3>Case 4: Starbucks cafe receipt</h3>
+            <p>The merchant context makes dining likely, while tip lines still map to the financial/social taxonomy.</p>
+          </div>
+          <span class="badge expected">Expected</span>
+        </div>
+        <div class="case-body">
+          <div class="case-col">
+            <h3>Input</h3>
+            <pre>{
+  "merchant_context": {
+    "merchant_type": "restaurant_or_cafe",
+    "candidate_main_categories": [
+      "dining",
+      "gifts_donations",
+      "financial_admin"
+    ]
+  },
+  "payload": {
+    "merchant": "Starbucks",
+    "currency": "EUR",
+    "items": [
+      { "raw_name": "LATTE GRANDE", "quantity": 1, "amount": 4.80 },
+      { "raw_name": "CROISSANT", "quantity": 1, "amount": 2.60 },
+      { "raw_name": "TIP", "quantity": 1, "amount": 1.00 }
+    ]
+  }
+}</pre>
+          </div>
+          <div class="case-col">
+            <h3>Expected Output</h3>
+            <pre>{
+  "items": [
+    {
+      "raw_name": "LATTE GRANDE",
+      "normalized_name": "latte",
+      "main_category": "dining",
+      "sub_category": "dining.cafe_coffee",
+      "tags": ["drink", "coffee", "cafe_item", "served_on_premise"],
+      "confidence": 0.95,
+      "classification_source": "qwen"
+    },
+    {
+      "raw_name": "CROISSANT",
+      "normalized_name": "croissant",
+      "main_category": "dining",
+      "sub_category": "dining.bakery_pastry",
+      "tags": ["food", "cafe_item", "served_on_premise"],
+      "confidence": 0.89,
+      "classification_source": "qwen"
+    },
+    {
+      "raw_name": "TIP",
+      "normalized_name": "tip",
+      "main_category": "gifts_donations",
+      "sub_category": "gifts_donations.tips",
+      "tags": ["fee"],
+      "confidence": 0.84,
+      "classification_source": "qwen"
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+      </article>
+
+      <article class="case">
+        <div class="case-head">
+          <div class="case-title">
+            <h3>Case 5: Amazon marketplace basket</h3>
+            <p>Marketplace merchant context is intentionally weak. The item name should decide the final category.</p>
+          </div>
+          <span class="badge expected">Expected</span>
+        </div>
+        <div class="case-body">
+          <div class="case-col">
+            <h3>Input</h3>
+            <pre>{
+  "merchant_context": {
+    "merchant_type": "marketplace_or_payment",
+    "candidate_main_categories": [
+      "retail_goods",
+      "digital_subscriptions",
+      "household",
+      "personal_care",
+      "health",
+      "pets",
+      "children_family",
+      "other"
+    ]
+  },
+  "payload": {
+    "merchant": "Amazon",
+    "currency": "EUR",
+    "items": [
+      { "raw_name": "USB-C CABLE", "quantity": 1, "amount": 8.99 },
+      { "raw_name": "VITAMIN D 1000IE", "quantity": 1, "amount": 6.99 },
+      { "raw_name": "CAT FOOD", "quantity": 1, "amount": 12.49 }
+    ]
+  }
+}</pre>
+          </div>
+          <div class="case-col">
+            <h3>Expected Output</h3>
+            <pre>{
+  "items": [
+    {
+      "raw_name": "USB-C CABLE",
+      "normalized_name": "usb-c cable",
+      "main_category": "retail_goods",
+      "sub_category": "retail_goods.electronics",
+      "tags": ["electronics", "retail_item", "marketplace_item"],
+      "confidence": 0.91,
+      "classification_source": "qwen"
+    },
+    {
+      "raw_name": "VITAMIN D 1000IE",
+      "normalized_name": "vitamin d",
+      "main_category": "health",
+      "sub_category": "health.supplements",
+      "tags": ["supplements", "health", "marketplace_item"],
+      "confidence": 0.90,
+      "classification_source": "qwen"
+    },
+    {
+      "raw_name": "CAT FOOD",
+      "normalized_name": "cat food",
+      "main_category": "pets",
+      "sub_category": "pets.pet_food",
+      "tags": ["pet", "marketplace_item"],
+      "confidence": 0.92,
+      "classification_source": "qwen"
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="section">
+      <h2>Runtime Notes</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Observation</th>
+            <th>Impact</th>
+            <th>Recommendation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>The EDEKA single-item case completed after the model was loaded, but generation still took about 95 seconds.</td>
+            <td>CLI-style local inference is acceptable for experiments, not for a smooth app flow.</td>
+            <td>Run Qwen as a warm local service process and call it from the app instead of loading it per request.</td>
+          </tr>
+          <tr>
+            <td>The multi-item REWE batch was interrupted because generation exceeded the expected wait time.</td>
+            <td>Long prompts plus multi-item output can be slow on the 4B model through this CLI path.</td>
+            <td>Keep merchant-focused taxonomy narrowing, reduce output tokens, and consider classifying item lines in smaller batches.</td>
+          </tr>
+          <tr>
+            <td>Python validation protects the saved <code>flo_items</code> fields from out-of-vocabulary model output.</td>
+            <td>The app can safely store stable category IDs even when model text is imperfect.</td>
+            <td>Keep validation as a required post-processing step before writing to localStorage or a future database.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Conclusion</h2>
+      <p>
+        The merchant-first design is the right direction. It gives Qwen a smaller and more relevant decision space while
+        preserving item-level classification. For example, a supermarket merchant should make groceries likely, but it
+        should still allow toothpaste, detergent, pet food, baby supplies, bottle deposits, and occasional retail goods.
+      </p>
+      <p>
+        The next engineering step is not another prompt tweak. The next step is to turn this demo into a stable local
+        classification service and then connect it to receipt save flow so that <code>flo_expenses</code> remains the
+        transaction index and <code>flo_items</code> becomes the item-level analytics index.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
