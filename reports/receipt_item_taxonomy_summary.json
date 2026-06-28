@@ -1,0 +1,325 @@
+{
+  "source": "receipt_item_classification_skill.md",
+  "generated_at": "2026-06-28",
+  "counts": {
+    "main_categories": 18,
+    "sub_categories": 146,
+    "tags": 58
+  },
+  "main_categories": [
+    {
+      "id": "groceries",
+      "sub_category_count": 12,
+      "sub_categories": [
+        "groceries.dairy",
+        "groceries.bread_bakery",
+        "groceries.produce",
+        "groceries.meat_seafood",
+        "groceries.frozen_food",
+        "groceries.pantry_staples",
+        "groceries.snacks_sweets",
+        "groceries.soft_drinks",
+        "groceries.alcohol",
+        "groceries.ready_meals",
+        "groceries.baby_food",
+        "groceries.other_groceries"
+      ]
+    },
+    {
+      "id": "dining",
+      "sub_category_count": 9,
+      "sub_categories": [
+        "dining.restaurant",
+        "dining.fast_food",
+        "dining.cafe_coffee",
+        "dining.bakery_pastry",
+        "dining.delivery_takeaway",
+        "dining.bar_nightlife",
+        "dining.canteen",
+        "dining.dessert",
+        "dining.other_dining"
+      ]
+    },
+    {
+      "id": "household",
+      "sub_category_count": 10,
+      "sub_categories": [
+        "household.cleaning",
+        "household.laundry",
+        "household.paper_goods",
+        "household.kitchen_supplies",
+        "household.home_essentials",
+        "household.furniture_decor",
+        "household.tools_hardware",
+        "household.garden_plants",
+        "household.home_repair_maintenance",
+        "household.other_household"
+      ]
+    },
+    {
+      "id": "personal_care",
+      "sub_category_count": 8,
+      "sub_categories": [
+        "personal_care.dental_care",
+        "personal_care.hair_care",
+        "personal_care.skin_care",
+        "personal_care.cosmetics",
+        "personal_care.hygiene",
+        "personal_care.fragrance",
+        "personal_care.grooming_services",
+        "personal_care.other_personal_care"
+      ]
+    },
+    {
+      "id": "health",
+      "sub_category_count": 8,
+      "sub_categories": [
+        "health.medicine",
+        "health.pharmacy",
+        "health.supplements",
+        "health.medical_devices",
+        "health.doctor_clinic",
+        "health.therapy",
+        "health.fitness_wellness",
+        "health.other_health"
+      ]
+    },
+    {
+      "id": "transport",
+      "sub_category_count": 9,
+      "sub_categories": [
+        "transport.public_transport",
+        "transport.train",
+        "transport.taxi_ride_hailing",
+        "transport.fuel",
+        "transport.parking",
+        "transport.car_maintenance",
+        "transport.bike_scooter",
+        "transport.vehicle_admin",
+        "transport.other_transport"
+      ]
+    },
+    {
+      "id": "travel",
+      "sub_category_count": 9,
+      "sub_categories": [
+        "travel.flights",
+        "travel.accommodation",
+        "travel.long_distance_train_bus",
+        "travel.local_transport",
+        "travel.travel_food",
+        "travel.activities_tours",
+        "travel.luggage_travel_supplies",
+        "travel.visa_travel_fees",
+        "travel.other_travel"
+      ]
+    },
+    {
+      "id": "housing_utilities",
+      "sub_category_count": 6,
+      "sub_categories": [
+        "housing_utilities.rent_mortgage",
+        "housing_utilities.electricity_gas_water",
+        "housing_utilities.internet_phone",
+        "housing_utilities.property_fee_tax",
+        "housing_utilities.repairs_services",
+        "housing_utilities.other_housing"
+      ]
+    },
+    {
+      "id": "retail_goods",
+      "sub_category_count": 10,
+      "sub_categories": [
+        "retail_goods.clothing",
+        "retail_goods.shoes_bags_accessories",
+        "retail_goods.electronics",
+        "retail_goods.books_media",
+        "retail_goods.stationery",
+        "retail_goods.sports_outdoor",
+        "retail_goods.toys_games",
+        "retail_goods.general_merchandise",
+        "retail_goods.luxury",
+        "retail_goods.other_retail_goods"
+      ]
+    },
+    {
+      "id": "digital_subscriptions",
+      "sub_category_count": 9,
+      "sub_categories": [
+        "digital_subscriptions.streaming",
+        "digital_subscriptions.music_audio",
+        "digital_subscriptions.gaming",
+        "digital_subscriptions.software_apps",
+        "digital_subscriptions.cloud_storage",
+        "digital_subscriptions.news_media",
+        "digital_subscriptions.telecom_mobile_plan",
+        "digital_subscriptions.membership_platform",
+        "digital_subscriptions.other_digital_subscription"
+      ]
+    },
+    {
+      "id": "entertainment_leisure",
+      "sub_category_count": 8,
+      "sub_categories": [
+        "entertainment_leisure.cinema_events",
+        "entertainment_leisure.museums_culture",
+        "entertainment_leisure.hobbies",
+        "entertainment_leisure.sports_activities",
+        "entertainment_leisure.nightlife",
+        "entertainment_leisure.games_arcades",
+        "entertainment_leisure.leisure_services",
+        "entertainment_leisure.other_entertainment"
+      ]
+    },
+    {
+      "id": "education_work",
+      "sub_category_count": 8,
+      "sub_categories": [
+        "education_work.tuition_courses",
+        "education_work.study_materials",
+        "education_work.office_supplies",
+        "education_work.professional_services",
+        "education_work.work_equipment",
+        "education_work.conferences",
+        "education_work.certifications",
+        "education_work.other_education_work"
+      ]
+    },
+    {
+      "id": "pets",
+      "sub_category_count": 5,
+      "sub_categories": [
+        "pets.pet_food",
+        "pets.pet_care_supplies",
+        "pets.veterinary",
+        "pets.pet_services",
+        "pets.other_pets"
+      ]
+    },
+    {
+      "id": "children_family",
+      "sub_category_count": 8,
+      "sub_categories": [
+        "children_family.childcare",
+        "children_family.baby_food_formula",
+        "children_family.baby_supplies",
+        "children_family.kids_clothing",
+        "children_family.kids_toys",
+        "children_family.kids_education_activities",
+        "children_family.family_support",
+        "children_family.other_family"
+      ]
+    },
+    {
+      "id": "gifts_donations",
+      "sub_category_count": 5,
+      "sub_categories": [
+        "gifts_donations.gifts",
+        "gifts_donations.donations_charity",
+        "gifts_donations.tips",
+        "gifts_donations.celebrations",
+        "gifts_donations.other_gifts_donations"
+      ]
+    },
+    {
+      "id": "insurance",
+      "sub_category_count": 7,
+      "sub_categories": [
+        "insurance.health_insurance",
+        "insurance.car_insurance",
+        "insurance.home_insurance",
+        "insurance.travel_insurance",
+        "insurance.life_insurance",
+        "insurance.liability_insurance",
+        "insurance.other_insurance"
+      ]
+    },
+    {
+      "id": "financial_admin",
+      "sub_category_count": 13,
+      "sub_categories": [
+        "financial_admin.bank_fee",
+        "financial_admin.card_fee",
+        "financial_admin.atm_fee",
+        "financial_admin.interest",
+        "financial_admin.loan_payment",
+        "financial_admin.taxes",
+        "financial_admin.fines_penalties",
+        "financial_admin.legal_accounting",
+        "financial_admin.government_services",
+        "financial_admin.deposits_refunds",
+        "financial_admin.discounts_adjustments",
+        "financial_admin.service_delivery_fees",
+        "financial_admin.other_financial_admin"
+      ]
+    },
+    {
+      "id": "other",
+      "sub_category_count": 2,
+      "sub_categories": [
+        "other.other",
+        "other.unknown"
+      ]
+    }
+  ],
+  "tags": [
+    "food",
+    "drink",
+    "coffee",
+    "tea",
+    "snack",
+    "dessert",
+    "alcohol",
+    "ready_to_eat",
+    "home_cooking",
+    "home_consumption",
+    "served_on_premise",
+    "restaurant_item",
+    "cafe_item",
+    "delivery",
+    "takeaway",
+    "daily_necessity",
+    "non_essential",
+    "hygiene",
+    "dental",
+    "hair_care",
+    "skincare",
+    "cosmetics",
+    "cleaning",
+    "laundry",
+    "paper_goods",
+    "household",
+    "medicine",
+    "supplements",
+    "health",
+    "pet",
+    "child_related",
+    "clothing",
+    "electronics",
+    "book",
+    "stationery",
+    "gift",
+    "transport",
+    "commute",
+    "fuel",
+    "parking",
+    "travel",
+    "accommodation",
+    "subscription",
+    "digital_service",
+    "entertainment",
+    "education",
+    "work_related",
+    "fee",
+    "tax",
+    "insurance",
+    "recurring",
+    "supermarket_item",
+    "retail_item",
+    "marketplace_item",
+    "deposit",
+    "refund",
+    "discount",
+    "unknown"
+  ]
+}
