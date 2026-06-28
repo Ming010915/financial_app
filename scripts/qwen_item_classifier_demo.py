@@ -12,6 +12,7 @@ import json
 import os
 import re
 import time
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -19,6 +20,14 @@ from transformers import AutoModelForMultimodalLM, AutoProcessor
 
 
 DEFAULT_MODEL = os.environ.get("QWEN_ITEM_MODEL", "Qwen/Qwen3.5-4B")
+DEFAULT_TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "receipt_item_classification_skill.md"
+UNKNOWN_CLASSIFICATION = {
+    "main_category": "other",
+    "sub_category": "other.unknown",
+    "tags": ["unknown"],
+    "confidence": 0.3,
+    "classification_source": "qwen",
+}
 
 SAMPLE_PAYLOAD = {
     "merchant": "REWE",
@@ -58,21 +67,80 @@ SAMPLE_EXPENSES = {
 }
 
 
-def build_prompt(payload: dict[str, Any]) -> str:
+def extract_markdown_section(text: str, start_heading: str, end_heading: str) -> str:
+    start = text.index(start_heading)
+    end = text.index(end_heading, start)
+    return text[start:end]
+
+
+def extract_json_array(section: str) -> list[str]:
+    match = re.search(r"```json\s*(\[.*?\])\s*```", section, re.DOTALL)
+    if not match:
+        raise ValueError("Could not find a JSON array in taxonomy section.")
+    return json.loads(match.group(1))
+
+
+def load_taxonomy(path: Path) -> dict[str, Any]:
+    text = path.read_text(encoding="utf-8")
+    main_categories = extract_json_array(
+        extract_markdown_section(text, "## 3. Allowed Main Categories", "## 4. Allowed Taxonomy")
+    )
+    tags = extract_json_array(extract_markdown_section(text, "## 5. Allowed Tags", "## 6. Decision Rules"))
+
+    taxonomy_section = extract_markdown_section(text, "## 4. Allowed Taxonomy", "## 5. Allowed Tags")
+    headings = list(re.finditer(r"^### 4\.\d+ `([^`]+)`.*$", taxonomy_section, re.MULTILINE))
+    subcategories_by_main: dict[str, list[str]] = {}
+    for index, heading in enumerate(headings):
+        main_category = heading.group(1)
+        section_start = heading.end()
+        section_end = headings[index + 1].start() if index + 1 < len(headings) else len(taxonomy_section)
+        subcategories_by_main[main_category] = extract_json_array(taxonomy_section[section_start:section_end])
+
+    return {
+        "allowed_main_categories": main_categories,
+        "allowed_subcategories_by_main": subcategories_by_main,
+        "allowed_tags": tags,
+    }
+
+
+def build_prompt(payload: dict[str, Any], taxonomy: dict[str, Any]) -> str:
+    taxonomy_json = json.dumps(taxonomy, ensure_ascii=False, indent=2)
     return f"""
 You classify receipt line items for a personal finance app.
-Use only the merchant, currency, item names, quantities, and item amounts as context.
-Return strict JSON only. Do not include markdown or explanation.
+Use only the merchant, currency, item names, quantities, and item amounts as receipt context.
+Use the taxonomy JSON below only as the allowed classification vocabulary.
+Return strict JSON only. Do not include markdown, comments, or explanations.
 
-Rules:
+Hard rules:
 - Preserve every input item exactly once and keep raw_name unchanged.
-- Do not invent items.
+- Do not invent, merge, split, remove, or reorder items.
 - normalized_name must be concise English lowercase.
-- main_category should be inferred from the item and merchant context, for example Groceries, Food & Beverage, Shopping, Health & Wellness, Home & Living, Personal Care, Pet Supplies, Transport, Entertainment & Subscriptions, Banking & Fees, Other.
-- sub_category should be specific, for example Ice Cream, Frozen Desserts, Dairy, Bakery, Snacks, Drinks, Produce, Meat, Household, Personal Care, Pet Supplies, Transport, Fees, Other.
-- tags must contain 1 to 4 lowercase semantic tags.
+- main_category must be exactly one ID from allowed_main_categories.
+- sub_category must be exactly one ID under the selected main_category in allowed_subcategories_by_main.
+- tags must contain 1 to 4 values from allowed_tags.
 - confidence must be a number from 0 to 1.
-- classification_source must be "qwen".
+- classification_source must always be "qwen".
+- Classify item-level categories by item purpose and consumption context, not by merchant type alone.
+- Merchant is context only. Do not classify all items as the merchant category.
+- If unclear, use main_category "other", sub_category "other.unknown", tags ["unknown"], and confidence <= 0.5.
+
+Boundary rules:
+- Groceries means food and drink for home or later consumption.
+- Dining means prepared food/drinks served in restaurants, cafes, bars, canteens, delivery, or takeaway contexts.
+- Household means non-food home supplies such as cleaning, laundry, paper goods, kitchen supplies, tools, and home maintenance supplies.
+- Housing & Utilities means rent, electricity, gas, water, heating, internet, property bills, and housing-related service bills.
+- Retail Goods means durable/discretionary retail goods such as clothing, electronics, books, stationery, sports goods, toys, gifts, luxury, and general merchandise.
+- Personal Care means hygiene, dental care, hair care, skin care, cosmetics, fragrance, and grooming.
+- Health means medicine, supplements, medical devices, pharmacy, doctor/clinic, therapy, and wellness.
+- If a food or drink item is served in a restaurant/cafe/bar, classify it under dining.
+- If a food or drink item is bought from a supermarket/grocery store for later consumption, classify it under groceries.
+- Common supermarket/grocery merchants include REWE, EDEKA/EDIKA, ALDI, Lidl, Netto, Penny, Kaufland, and supermarket-like OCR variants.
+- Packaged supermarket ice cream, frozen dessert, frozen pizza, and frozen vegetables should be groceries.frozen_food, not dining.
+- Do not classify packaged supermarket food as dining just because it is ready_to_eat, sweet, or a dessert.
+- For Amazon/marketplace/payment merchants, classify by item purpose, not as retail_goods by default.
+
+Allowed taxonomy:
+{taxonomy_json}
 
 Input:
 {json.dumps(payload, ensure_ascii=False, indent=2)}
@@ -84,7 +152,7 @@ Output schema:
       "raw_name": "string",
       "normalized_name": "string",
       "main_category": "string",
-      "sub_category": "string|null",
+      "sub_category": "string",
       "tags": ["string"],
       "confidence": 0.0,
       "classification_source": "qwen"
@@ -180,6 +248,74 @@ def extract_json(text: str) -> dict[str, Any]:
     return json.loads(cleaned)
 
 
+def clamp_confidence(value: Any, fallback: float = 0.3) -> float:
+    if isinstance(value, (int, float)):
+        return max(0.0, min(1.0, float(value)))
+    return fallback
+
+
+def fallback_item(raw_name: str) -> dict[str, Any]:
+    return {
+        "raw_name": raw_name,
+        "normalized_name": normalize_text(raw_name),
+        **UNKNOWN_CLASSIFICATION,
+    }
+
+
+def sanitize_classification(
+    classification: dict[str, Any],
+    payload: dict[str, Any],
+    taxonomy: dict[str, Any],
+) -> dict[str, Any]:
+    allowed_main = set(taxonomy["allowed_main_categories"])
+    allowed_subcategories = taxonomy["allowed_subcategories_by_main"]
+    allowed_tags = set(taxonomy["allowed_tags"])
+    source_items = payload.get("items", [])
+    classified_items = classification.get("items", [])
+    if not isinstance(classified_items, list):
+        classified_items = []
+
+    sanitized_items = []
+    for index, source_item in enumerate(source_items):
+        raw_name = source_item.get("raw_name") or source_item.get("name") or ""
+        classified = classified_items[index] if index < len(classified_items) and isinstance(classified_items[index], dict) else {}
+        normalized_name = classified.get("normalized_name")
+        if not isinstance(normalized_name, str) or not normalized_name.strip():
+            normalized_name = normalize_text(raw_name)
+
+        main_category = classified.get("main_category")
+        sub_category = classified.get("sub_category")
+        category_valid = (
+            main_category in allowed_main
+            and sub_category in allowed_subcategories.get(main_category, [])
+            and classified.get("raw_name") == raw_name
+        )
+        if not category_valid:
+            sanitized_items.append(fallback_item(raw_name))
+            continue
+
+        raw_tags = classified.get("tags", [])
+        if not isinstance(raw_tags, list):
+            raw_tags = []
+        tags = [tag for tag in raw_tags if isinstance(tag, str) and tag in allowed_tags][:4]
+        if not tags:
+            tags = ["unknown"]
+
+        sanitized_items.append(
+            {
+                "raw_name": raw_name,
+                "normalized_name": normalize_text(normalized_name),
+                "main_category": main_category,
+                "sub_category": sub_category,
+                "tags": tags,
+                "confidence": clamp_confidence(classified.get("confidence")),
+                "classification_source": "qwen",
+            }
+        )
+
+    return {"items": sanitized_items}
+
+
 def tensor_dict_to_device(inputs: dict[str, Any], device: torch.device) -> dict[str, Any]:
     moved = {}
     for key, value in inputs.items():
@@ -192,6 +328,11 @@ def main() -> None:
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--payload", help="Path to JSON payload. Defaults to a REWE sample.")
     parser.add_argument(
+        "--taxonomy",
+        default=str(DEFAULT_TAXONOMY_PATH),
+        help="Path to receipt item classification skill markdown.",
+    )
+    parser.add_argument(
         "--sample",
         choices=sorted(SAMPLE_EXPENSES),
         help="Use a built-in transaction sample and output flo_items records.",
@@ -199,6 +340,7 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--raw", action="store_true", help="Print raw model text before parsed JSON.")
     parser.add_argument("--flo-items", action="store_true", help="Print flo_items records after classification.")
+    parser.add_argument("--print-prompt", action="store_true", help="Print the Qwen prompt and exit before loading model.")
     args = parser.parse_args()
 
     expense = SAMPLE_EXPENSES.get(args.sample) if args.sample else None
@@ -208,6 +350,12 @@ def main() -> None:
             payload = json.load(f)
         expense = None
 
+    taxonomy = load_taxonomy(Path(args.taxonomy))
+    prompt = build_prompt(payload, taxonomy)
+    if args.print_prompt:
+        print(prompt)
+        return
+
     if torch.backends.mps.is_available():
         device = torch.device("mps")
         dtype = torch.float16
@@ -216,6 +364,13 @@ def main() -> None:
         dtype = torch.float32
 
     started_at = time.time()
+    subcategory_count = sum(len(value) for value in taxonomy["allowed_subcategories_by_main"].values())
+    print(
+        f"Loaded taxonomy from {args.taxonomy}: "
+        f"{len(taxonomy['allowed_main_categories'])} main categories, "
+        f"{subcategory_count} subcategories, {len(taxonomy['allowed_tags'])} tags.",
+        flush=True,
+    )
     print(f"Loading {args.model} on {device} with {dtype}...", flush=True)
     print("Loading processor...", flush=True)
     processor = AutoProcessor.from_pretrained(args.model, trust_remote_code=True)
@@ -246,7 +401,7 @@ def main() -> None:
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": build_prompt(payload)},
+                {"type": "text", "text": prompt},
             ],
         }
     ]
@@ -282,7 +437,7 @@ def main() -> None:
         print(raw_text)
         print("\nParsed JSON:\n")
 
-    parsed = extract_json(raw_text)
+    parsed = sanitize_classification(extract_json(raw_text), payload, taxonomy)
 
     if args.flo_items:
         if not expense:
