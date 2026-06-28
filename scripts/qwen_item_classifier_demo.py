@@ -22,7 +22,6 @@ DEFAULT_MODEL = os.environ.get("QWEN_ITEM_MODEL", "Qwen/Qwen3.5-4B")
 
 SAMPLE_PAYLOAD = {
     "merchant": "REWE",
-    "transaction_category": "Groceries",
     "currency": "EUR",
     "items": [
         {"raw_name": "MILCH 1.5%", "quantity": 1, "amount": 1.29},
@@ -44,7 +43,6 @@ SAMPLE_EXPENSES = {
         "amount": 2.79,
         "currency": "EUR",
         "amount_base": 2.79,
-        "category": "Groceries",
         "source": "receipt",
         "type": "expense",
         "created_at": "2026-06-28T18:45:00+02:00",
@@ -63,15 +61,15 @@ SAMPLE_EXPENSES = {
 def build_prompt(payload: dict[str, Any]) -> str:
     return f"""
 You classify receipt line items for a personal finance app.
-Use the merchant and transaction category as context.
+Use only the merchant, currency, item names, quantities, and item amounts as context.
 Return strict JSON only. Do not include markdown or explanation.
 
 Rules:
 - Preserve every input item exactly once and keep raw_name unchanged.
 - Do not invent items.
 - normalized_name must be concise English lowercase.
-- main_category should usually match transaction_category unless clearly wrong.
-- sub_category should be specific, for example Dairy, Bakery, Snacks, Drinks, Produce, Meat, Household, Personal Care, Pet Supplies, Transport, Fees, Other.
+- main_category should be inferred from the item and merchant context, for example Groceries, Food & Beverage, Shopping, Health & Wellness, Home & Living, Personal Care, Pet Supplies, Transport, Entertainment & Subscriptions, Banking & Fees, Other.
+- sub_category should be specific, for example Ice Cream, Frozen Desserts, Dairy, Bakery, Snacks, Drinks, Produce, Meat, Household, Personal Care, Pet Supplies, Transport, Fees, Other.
 - tags must contain 1 to 4 lowercase semantic tags.
 - confidence must be a number from 0 to 1.
 - classification_source must be "qwen".
@@ -111,7 +109,6 @@ def normalize_merchant(value: str) -> str:
 def expense_to_classification_payload(expense: dict[str, Any]) -> dict[str, Any]:
     return {
         "merchant": expense.get("merchant", ""),
-        "transaction_category": expense.get("category", ""),
         "currency": expense.get("currency", "EUR"),
         "items": [
             {
@@ -158,7 +155,7 @@ def build_flo_items(expense: dict[str, Any], classification: dict[str, Any]) -> 
                 "timezone": expense.get("timezone"),
                 "weekday": expense.get("weekday"),
                 "hour": expense.get("hour"),
-                "main_category": classified.get("main_category") or expense.get("category"),
+                "main_category": classified.get("main_category"),
                 "sub_category": classified.get("sub_category"),
                 "tags": classified.get("tags") or [],
                 "confidence": classified.get("confidence"),
