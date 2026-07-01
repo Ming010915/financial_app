@@ -1,0 +1,19 @@
+<!-- ── RECURRING EXPENSES VIEW ─────────────────────────────────────────── -->
+<div id="view-recurring" class="view p-4 space-y-4 fade-in">
+  <div class="flex items-center gap-3">
+    <button onclick="showView('settings')"
+            class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-[#191c1d]">Recurring Expenses</h2>
+  </div>
+
+  <p class="text-xs text-[#44474a] -mt-1">These expenses are automatically added on the 1st of every month.</p>
+
+  <div id="recurring-list" class="space-y-2"></div>
+
+  <button onclick="openRecurringForm(null)"
+          class="w-full py-3 border border-[#6dfad2] text-[#006b55] rounded-2xl font-semibold text-sm hover:bg-[#f0fdf9] transition-colors">
+    + Add Recurring Expense
+  </button>
+</div>
