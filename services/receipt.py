@@ -12,6 +12,10 @@ from services.prompts import build_receipt_prompt, TRANSACTION_SCHEMA
 from config import GEMINI_MODELS, ASK_BELOW
 
 
+class NotAReceiptError(ValueError):
+    pass
+
+
 def scan_receipt(image_data: bytes, mime_type: str,
                  payment_methods: list[str] | None = None) -> dict:
     """
@@ -35,6 +39,12 @@ def scan_receipt(image_data: bytes, mime_type: str,
         config   = config,
     ), GEMINI_MODELS)
     extracted = json.loads(response.text)
+
+    if extracted.get("is_receipt") is False:
+        raise NotAReceiptError(
+            "This file doesn't appear to be a receipt. "
+            "Please upload an image or PDF of a receipt, invoice, or bill."
+        )
 
     extracted.setdefault("transaction_type", "expense")
     extracted.setdefault("merchant",         "")

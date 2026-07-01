@@ -15,8 +15,19 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
     """Build the receipt-extraction prompt, injecting the allowed payment methods."""
     methods_str = ", ".join(payment_methods) if payment_methods else ", ".join(DEFAULT_PAYMENT_METHODS)
     return (
-        "You are an expert receipt-parsing assistant. Analyze this receipt (image or PDF "
-        "document) carefully and extract the structured information.\n"
+        "You are an expert receipt-parsing assistant. Analyze this image carefully.\n"
+        "\n"
+        "IS_RECEIPT (check this first):\n"
+        "- Set 'is_receipt' to true ONLY if the file is a receipt, invoice, bill, bank statement, "
+        "or any document showing a financial transaction (purchase, payment, refund, etc.). "
+        "This applies to both images and PDFs.\n"
+        "- Set 'is_receipt' to false if the file is NOT a financial document — for example: a "
+        "selfie, landscape photo, screenshot of a chat, meme, map, product photo, a PDF that is "
+        "not a financial document, or any file that does not record a transaction. "
+        "If 'is_receipt' is false, leave all other fields null or empty and do not attempt to "
+        "extract transaction data.\n"
+        "\n"
+        "If the file IS a receipt or financial document, extract the structured information. "
         "The receipt may be in any language, may be rotated, blurry, crumpled, or a photo "
         "taken at an angle. It may be a store receipt, restaurant bill, invoice, or online "
         "order confirmation. Read every part — header, body, and footer — before answering.\n"
@@ -66,10 +77,15 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
         "- List the purchased line items with their individual prices and quantities. Exclude subtotal, tax, "
         "tip, rounding, and total lines. If a price is unreadable use null.\n"
         "- Set 'quantity' to the number of units for that line (integer). Default to 1 if not shown.\n"
+        "- Watch for quantity lines written as 'N * unit' or 'N x unit' (e.g. '2 * 3,29' or '2 x 3,29 = 6,58'), "
+        "often shown on a separate line below the item name. Here N is the quantity (2) and the unit price is 3,29 — "
+        "set 'quantity' to N, not 1.\n"
         "- 'price' is the total for the line (quantity × unit price). If only the unit price is visible "
         "and quantity > 1, multiply to get the line total.\n"
-        "- Do NOT produce duplicate entries for the same item — if the same item appears multiple times "
-        "on the receipt, emit it once with the combined quantity and total price.\n"
+        "- Merge duplicate lines ONLY when they share the same item name AND the same unit price — "
+        "emit them once with the combined quantity and total price.\n"
+        "- If the same item name appears with a DIFFERENT unit price, keep them as separate entries "
+        "(do NOT merge them), since they are priced differently.\n"
         "\n"
         "GENERAL:\n"
         "- If any field is unclear, unreadable, or absent, use null (or an empty list for items) "
@@ -125,27 +141,51 @@ def build_summary_prompt(transcript: str) -> str:
     )
 
 
-VOICE_PROMPT = (
-    "The user recorded a short voice note describing a financial transaction — "
-    "either a purchase/expense OR received money (income). "
-    "Call the add_expense function with the details you hear. "
-    "Rules:\n"
-    "- Set 'transaction_type' to 'income' if the user is describing money they "
-    "RECEIVED (e.g. salary, paycheck, freelance payment, client payment, refund, "
-    "gift received, rental income, dividend, interest). "
-    "Set it to 'expense' for any purchase, bill, or money spent.\n"
-    "- For expenses: use the STORE or MERCHANT name as 'merchant' (e.g. Lidl, Starbucks). "
-    "If no store is mentioned, use the item name.\n"
-    "- For income: use the SOURCE as 'merchant' (e.g. employer name, client name, "
-    "'Salary', 'Freelance payment'). If no source is mentioned, use the income type.\n"
-    "- If multiple items are mentioned, list each one in the 'items' array with its name and price.\n"
-    "- Set 'total' to the sum of all item prices, or the total explicitly stated.\n"
-    "- Default currency is EUR unless another is explicitly mentioned.\n"
-    "- If the speaker corrects themselves (e.g. 'vegetables, I mean fruits', "
-    "'actually fruits'), record ONLY the final corrected version and ignore the "
-    "retracted one.\n"
-    "- Use today's date if no date is mentioned."
-)
+def _build_event_hint_instruction(event_budgets: list[str]) -> str:
+    if event_budgets:
+        names = ", ".join(f'"{n}"' for n in event_budgets)
+        return (
+            f"\n- The user has these event budgets: [{names}]. "
+            "If the transcript refers to any of them — even indirectly or by a related name "
+            "(e.g. 'Bangkok trip' could match 'Thailand 2026', 'Paris holiday' could match "
+            "'Europe trip') — set 'event_hint' to the EXACT budget name from the list. "
+            "If none match, set 'event_hint' to null."
+        )
+    return (
+        "\n- If the user mentions a named trip, holiday, event, or occasion "
+        "(e.g. 'during my Thailand trip', 'birthday dinner'), "
+        "set 'event_hint' to a short label for it. Otherwise null."
+    )
+
+
+def build_voice_prompt(today: str, event_budgets: list[str] | None = None) -> str:
+    """Build the voice extraction prompt, injecting today's date so the LLM can
+    resolve relative references like 'yesterday' or 'last Monday'.
+    If event_budgets is provided, Gemini will match the transcript against them."""
+    return (
+        f"Today's date is {today}. "
+        "The user recorded a short voice note describing a financial transaction — "
+        "either a purchase/expense OR received money (income). "
+        "Call the add_expense function with the details you hear. "
+        "Rules:\n"
+        "- Set 'transaction_type' to 'income' if the user is describing money they "
+        "RECEIVED (e.g. salary, paycheck, freelance payment, client payment, refund, "
+        "gift received, rental income, dividend, interest). "
+        "Set it to 'expense' for any purchase, bill, or money spent.\n"
+        "- For expenses: use the STORE or MERCHANT name as 'merchant' (e.g. Lidl, Starbucks). "
+        "If no store is mentioned, use the item name.\n"
+        "- For income: use the SOURCE as 'merchant' (e.g. employer name, client name, "
+        "'Salary', 'Freelance payment'). If no source is mentioned, use the income type.\n"
+        "- If multiple items are mentioned, list each one in the 'items' array with its name and price.\n"
+        "- Set 'total' to the sum of all item prices, or the total explicitly stated.\n"
+        "- Default currency is EUR unless another is explicitly mentioned.\n"
+        "- If the speaker corrects themselves (e.g. 'vegetables, I mean fruits', "
+        "'actually fruits'), record ONLY the final corrected version and ignore the "
+        "retracted one.\n"
+        f"- Resolve relative date references ('yesterday', 'last Monday', 'two days ago', etc.) "
+        f"using today's date ({today}). Use today's date if no date is mentioned.\n"
+        + _build_event_hint_instruction(event_budgets or [])
+    )
 
 # ---------------------------------------------------------------------------
 # Monthly overview (services/summary.py)
@@ -167,6 +207,15 @@ def build_overview_prompt(current_text: str, historical_context: str) -> str:
 TRANSACTION_SCHEMA = {
     "type": "object",
     "properties": {
+        "is_receipt": {
+            "type": "boolean",
+            "nullable": True,
+            "description": (
+                "True if the file (image or PDF) is a receipt, invoice, bill, or any financial document. "
+                "False if the file is NOT a financial document (photo, selfie, screenshot, non-financial PDF, etc.). "
+                "If false, leave all other fields null/empty."
+            ),
+        },
         "transaction_type": {
             "type": "string",
             "enum": ["expense", "income"],
@@ -228,6 +277,16 @@ TRANSACTION_SCHEMA = {
             "type": "string",
             "nullable": True,
             "description": "Any extra context or notes",
+        },
+        "event_hint": {
+            "type": "string",
+            "nullable": True,
+            "description": (
+                "If the user mentions a named trip, event, occasion, or specific context "
+                "(e.g. 'Thailand trip', 'birthday dinner', 'Paris holiday', 'conference in Berlin'), "
+                "extract a short descriptive label for it (e.g. 'Thailand trip', 'birthday dinner'). "
+                "Otherwise null."
+            ),
         },
     },
     "required": ["merchant"],

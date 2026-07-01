@@ -185,6 +185,8 @@ def api_scan_receipt():
         payment_methods = [m.strip() for m in pm_raw.split(",") if m.strip()] if pm_raw else []
         data = receipt.scan_receipt(file_data, mime_type, payment_methods or None)
         return jsonify({"success": True, "data": data})
+    except receipt.NotAReceiptError as e:
+        return jsonify({"error": str(e), "error_code": "not_a_receipt"}), 422
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
     except Exception as e:
@@ -244,8 +246,12 @@ def api_voice_extract():
     if not transcript:
         return jsonify({"error": "Empty transcript"}), 400
 
+    import json as _json
+    raw_budgets   = request.form.get("event_budgets", "")
+    event_budgets = _json.loads(raw_budgets) if raw_budgets else []
+
     try:
-        data = voice.process_voice_text(transcript)
+        data = voice.process_voice_text(transcript, event_budgets=event_budgets)
         return jsonify({"success": True, "data": data})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
@@ -254,6 +260,14 @@ def api_voice_extract():
 
 
 # ── Speech-to-Text API ───────────────────────────────────────────────────────
+
+# Phrases boosted in Google Cloud STT to improve recognition of financial terms.
+_STT_FINANCIAL_HINTS = [
+    # Currencies
+    "Euro", "Euros", "EUR", "Dollar", "Dollars", "USD",
+    "Pound", "Pounds", "GBP", "Swiss Franc", "CHF", "Yen", "JPY",
+    "cent", "cents", "pence"
+]
 
 @app.route("/api/stt", methods=["POST"])
 def api_stt():
@@ -285,6 +299,10 @@ def api_stt():
             language_code="en-US",
             alternative_language_codes=["de-DE"],
             enable_automatic_punctuation=True,
+            speech_contexts=[speech.SpeechContext(
+                phrases=_STT_FINANCIAL_HINTS,
+                boost=15.0,
+            )],
         )
         print(f"[STT] Sending {len(audio_data)} bytes ({mime}) to Google Cloud STT...")
         response = client.recognize(
@@ -381,6 +399,10 @@ def voice_live_ws(ws):
                 language_code="en-US",
                 alternative_language_codes=["de-DE"],
                 enable_automatic_punctuation=True,
+                speech_contexts=[speech.SpeechContext(
+                    phrases=_STT_FINANCIAL_HINTS,
+                    boost=15.0,
+                )],
             )
             streaming_config = speech.StreamingRecognitionConfig(
                 config=config,
@@ -473,7 +495,12 @@ def _places_request(path, params):
         headers={"User-Agent": "Flo-Finance/1.0"},
     )
     with urllib.request.urlopen(req, timeout=8) as resp:
-        return json.loads(resp.read())
+        data = json.loads(resp.read())
+    status = data.get("status", "")
+    if status not in ("OK", "ZERO_RESULTS"):
+        msg = data.get("error_message", status)
+        raise ValueError(f"Google Places API error: {status} — {msg}")
+    return data
 
 
 def _normalize_places(results):
@@ -500,11 +527,11 @@ def api_places_text_search():
     if not query:
         return jsonify({"results": []})
 
-    params = {"query": query, "key": api_key}
+    params = {"query": query, "key": api_key, "type": "establishment"}
     lat, lng = body.get("lat"), body.get("lng")
     if lat is not None and lng is not None:
         params["location"] = f"{lat},{lng}"
-        params["radius"]   = 10000
+        params["radius"]   = 5000
 
     try:
         data = _places_request("textsearch/json", params)
@@ -526,7 +553,7 @@ def api_places_nearby():
 
     params = {
         "location": f"{lat},{lng}",
-        "radius":   500,
+        "rankby":   "distance",
         "type":     "establishment",
         "key":      api_key,
     }

@@ -1,0 +1,102 @@
+<!-- ── BUDGETS VIEW ─────────────────────────────────────────────────── -->
+<div id="view-budgets" class="view p-4 space-y-4 fade-in">
+  <div class="flex items-center gap-3">
+    <button onclick="showView('settings')"
+            class="w-8 h-8 flex items-center justify-center rounded-2xl bg-[#f8f9fa] text-[#44474a] hover:bg-[#e8e9ea] transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-[#191c1d]">Budgets</h2>
+  </div>
+
+  <!-- Monthly Budget -->
+  <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+    <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Monthly Budget</div>
+    <div class="flex gap-2 items-center">
+      <div class="relative flex-1">
+        <span id="s-budget-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
+        <input id="s-budget" type="text" inputmode="decimal" placeholder="e.g. 2000"
+               oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1')"
+               class="w-full pl-7 pr-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+      </div>
+      <button onclick="saveBudgetLimit()"
+              class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors whitespace-nowrap">
+        Set
+      </button>
+      <button id="s-budget-clear" onclick="clearBudgetLimit()" class="hidden px-3 py-2.5 border border-[#c5c6ca] text-[#44474a] rounded-2xl text-sm font-semibold hover:bg-[#f8f9fa] transition-colors whitespace-nowrap">
+        Clear
+      </button>
+    </div>
+    <div id="s-budget-status" class="text-xs text-[#44474a]"></div>
+  </div>
+
+  <!-- Custom Budgets -->
+  <div class="bg-white rounded-3xl p-4 border border-[#e8e9ea] shadow-sm space-y-3">
+    <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider">Custom Budgets</div>
+
+    <!-- Type toggle -->
+    <div class="flex gap-2">
+      <button id="cb-type-event" onclick="setCbType('event')"
+              class="flex-1 py-2 rounded-xl text-sm font-bold bg-[#006b55] text-white transition-colors">
+        Event
+      </button>
+      <button id="cb-type-category" onclick="setCbType('category')"
+              class="flex-1 py-2 rounded-xl text-sm font-bold border border-[#c5c6ca] text-[#44474a] hover:bg-[#f8f9fa] transition-colors">
+        Category
+      </button>
+    </div>
+
+    <!-- Name -->
+    <div>
+      <label class="block text-xs font-semibold text-[#44474a] mb-1">Budget Name</label>
+      <input id="cb-name" type="text" placeholder="e.g. Trip to Thailand"
+             class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+    </div>
+
+    <!-- Amount -->
+    <div>
+      <label class="block text-xs font-semibold text-[#44474a] mb-1">Budget Limit</label>
+      <div class="relative">
+        <span id="cb-budget-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
+        <input id="cb-amount" type="text" inputmode="decimal" placeholder="e.g. 1500"
+               oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1')"
+               class="w-full pl-7 pr-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+      </div>
+    </div>
+
+    <!-- Event fields -->
+    <div id="cb-event-fields" class="grid grid-cols-2 gap-2">
+      <div>
+        <label class="block text-xs font-semibold text-[#44474a] mb-1">Start Date <span class="font-normal">(opt.)</span></label>
+        <input id="cb-start" type="date"
+               class="w-full px-3 py-2 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-[#44474a] mb-1">End Date <span class="font-normal">(opt.)</span></label>
+        <input id="cb-end" type="date"
+               class="w-full px-3 py-2 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]" />
+      </div>
+    </div>
+
+    <!-- Category field -->
+    <div id="cb-category-field" class="hidden">
+      <label class="block text-xs font-semibold text-[#44474a] mb-1">Category</label>
+      <select id="cb-category"
+              class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]">
+      </select>
+    </div>
+
+    <!-- Color swatches -->
+    <div>
+      <div class="text-xs font-semibold text-[#44474a] mb-2">Color</div>
+      <div id="cb-color-swatches" class="flex gap-2 flex-wrap"></div>
+    </div>
+
+    <button onclick="saveCustomBudgetFromForm()"
+            class="w-full py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-2xl text-sm font-bold transition-colors">
+      + Create Budget
+    </button>
+
+    <!-- Existing budgets list -->
+    <div id="cb-list" class="space-y-0"></div>
+  </div>
+</div>

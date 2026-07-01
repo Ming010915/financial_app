@@ -8,7 +8,7 @@ from datetime import date
 
 from services import classifier
 from services.gemini_utils import generate_with_fallback
-from services.prompts import VOICE_PROMPT, ADD_EXPENSE_FUNC, build_summary_prompt
+from services.prompts import build_voice_prompt, ADD_EXPENSE_FUNC, build_summary_prompt
 from config import GEMINI_MODELS, ASK_BELOW
 
 
@@ -31,7 +31,7 @@ def summarize_transcript(transcript: str) -> str:
     return summary or transcript
 
 
-def process_voice_text(transcript: str) -> dict:
+def process_voice_text(transcript: str, event_budgets: list[str] | None = None) -> dict:
     """
     Extract expense details from a (user-confirmed) transcript via function
     calling, attach a category prediction, and return the structured dict.
@@ -43,9 +43,10 @@ def process_voice_text(transcript: str) -> dict:
     client = get_genai_client()
     tool   = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
 
+    today    = date.today().isoformat()
     response = generate_with_fallback(lambda model: client.models.generate_content(
         model    = model,
-        contents = [VOICE_PROMPT, transcript],
+        contents = [build_voice_prompt(today, event_budgets or []), transcript],
         config   = types.GenerateContentConfig(tools=[tool]),
     ), GEMINI_MODELS)
 
@@ -74,9 +75,10 @@ def process_voice_input(audio_data: bytes, mime_type: str) -> dict:
     audio_part = types.Part.from_bytes(data=audio_data, mime_type=mime_type)
     tool       = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
 
+    today    = date.today().isoformat()
     response = generate_with_fallback(lambda model: client.models.generate_content(
         model    = model,
-        contents = [VOICE_PROMPT, audio_part],
+        contents = [build_voice_prompt(today), audio_part],
         config   = types.GenerateContentConfig(tools=[tool]),
     ), GEMINI_MODELS)
 
@@ -110,6 +112,7 @@ def _finalize_extracted(extracted: dict) -> dict:
     extracted.setdefault("notes",            "")
     extracted.setdefault("items",            [])
     extracted.setdefault("transaction_type", "expense")
+    extracted.setdefault("event_hint",        None)
 
     # Normalise items to plain dicts (Gemini may return MapComposite objects)
     extracted["items"] = [dict(i) for i in extracted["items"]]
