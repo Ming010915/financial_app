@@ -45,6 +45,11 @@ function getIncomeEmojis() {
   return s ? JSON.parse(s) : {};
 }
 function saveIncomeEmojis(map) { localStorage.setItem('flo_income_emojis', JSON.stringify(map)); }
+function getRecurring() {
+  const s = localStorage.getItem('flo_recurring');
+  return s ? JSON.parse(s) : [];
+}
+function saveRecurring(list) { localStorage.setItem('flo_recurring', JSON.stringify(list)); }
 
 // ── Home widget layout ─────────────────────────────────────────────────────────
 const HOME_WIDGET_DEFS = [
@@ -391,6 +396,8 @@ const state = {
   originalCategory: null,
   selectedPayment:  null,
   isIncome:         false,
+  isRecurring:      false,
+  recurringEditId:  null,
   isReceipt:        false,
   isVoice:          false,
   receiptFile:         null,
@@ -783,6 +790,7 @@ function showView(name) {
   if (name === "preferences")     loadSettingsView();
   if (name === "categories")       { loadCategoriesView(); loadIncomeCategoriesSection(); loadOverrides(); }
   if (name === "payment-methods")  loadPaymentMethodsView();
+  if (name === "recurring") loadRecurringView();
 }
 
 // ── Add method shortcuts ──────────────────────────────────────────────────────
@@ -1018,7 +1026,9 @@ function miniExpenseCard(exp) {
   const badge  = income
     ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1 bg-green-100 text-green-700">+ income</span>`
     : exp.source === "receipt"
-    ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>` : "";
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>`
+    : exp.source === "recurring"
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1" style="background:${isDark()?"#1e2020":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">🔁</span>` : "";
   const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
@@ -1050,6 +1060,33 @@ function prepareAddForm() {
   populateCurrencySelect("f-currency", defaultCurrency);
   document.getElementById("f-cur-sym").textContent = curSym(defaultCurrency);
   renderPaymentButtons(state.selectedPayment, "payment-buttons");
+}
+
+function setRecurringMode(item) {
+  state.isRecurring     = true;
+  state.recurringEditId = item ? item.id : null;
+
+  const dateWrap = document.getElementById('f-date-wrap');
+  if (dateWrap) dateWrap.classList.add('hidden');
+  document.getElementById('f-location-wrap').classList.add('hidden');
+  document.getElementById('items-section').classList.add('hidden');
+  const rateRow = document.getElementById('f-rate-row');
+  if (rateRow) rateRow.style.display = 'none';
+
+  document.getElementById('add-form-title').textContent  = item ? 'Edit Recurring Expense' : 'Add Recurring Expense';
+  document.getElementById('save-label').textContent       = item ? 'Save Changes' : 'Add Recurring Expense';
+  const backBtn = document.getElementById('add-back-btn');
+  if (backBtn) backBtn.setAttribute('onclick', "showView('recurring')");
+
+  if (item) {
+    document.getElementById('f-merchant').value          = item.merchant;
+    document.getElementById('f-amount').value            = item.amount;
+    document.getElementById('f-notes').value             = item.notes || '';
+    populateCurrencySelect('f-currency', item.currency);
+    document.getElementById('f-cur-sym').textContent     = curSym(item.currency);
+    renderCatButtons(item.category);
+    renderPaymentButtons(item.payment_method || null, 'payment-buttons');
+  }
 }
 
 function setFormType(type) {
@@ -1608,11 +1645,19 @@ function resetForm() {
   const rateRow = document.getElementById("f-rate-row");
   if (rateRow) rateRow.style.display = "none";
   state.isIncome         = false;
+  state.isRecurring      = false;
+  state.recurringEditId  = null;
   state.selectedCategory = null;
   state.originalCategory = null;
   state.selectedPayment  = null;
   renderCatButtons(null);
   renderPaymentButtons(null, "payment-buttons");
+
+  const dateWrap = document.getElementById('f-date-wrap');
+  if (dateWrap) dateWrap.classList.remove('hidden');
+  document.getElementById('f-location-wrap').classList.remove('hidden');
+  const backBtn = document.getElementById('add-back-btn');
+  if (backBtn) backBtn.setAttribute('onclick', "showView('add-method')");
 }
 
 // ── Receipt verify view ───────────────────────────────────────────────────────
@@ -2307,6 +2352,42 @@ async function saveExpense() {
       category = "Other Income";
     }
 
+    if (state.isRecurring) {
+      const list = getRecurring();
+      if (state.recurringEditId) {
+        const item = list.find(r => r.id === state.recurringEditId);
+        if (item) {
+          item.merchant       = merchant;
+          item.amount         = Math.round(parseFloat(amount) * 100) / 100;
+          item.currency       = currency;
+          item.category       = category;
+          item.payment_method = payment_method;
+          item.notes          = notes;
+        }
+      } else {
+        list.push({
+          id:             generateId(),
+          merchant,
+          amount:         Math.round(parseFloat(amount) * 100) / 100,
+          currency,
+          category,
+          payment_method,
+          notes,
+          enabled:        true,
+          last_generated: '',
+        });
+      }
+      saveRecurring(list);
+      if (!state.recurringEditId) checkRecurringExpenses();
+      showToast(state.recurringEditId ? 'Recurring expense updated' : 'Recurring expense added');
+      btn.disabled = false;
+      spinner.classList.add('hidden');
+      label.textContent = 'Add Recurring Expense';
+      resetForm();
+      showView('recurring');
+      return;
+    }
+
     if (!state.isIncome) {
       fetch("/api/learn", {
         method: "POST", headers: {"Content-Type":"application/json"},
@@ -2694,6 +2775,8 @@ function historyExpenseCard(exp) {
     ? `<span class="text-[9px] px-1 py-0.5 rounded font-bold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>`
     : exp.source === "voice"
     ? `<span class="text-[9px] bg-rose-100 text-rose-500 px-1 py-0.5 rounded font-bold ml-1">🎤</span>`
+    : exp.source === "recurring"
+    ? `<span class="text-[9px] px-1 py-0.5 rounded font-bold ml-1" style="background:${isDark()?"#1e2020":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">🔁</span>`
     : "";
   const notes  = exp.notes
     ? `<span class="text-gray-400 text-xs truncate ml-1">· ${esc(exp.notes)}</span>` : "";
@@ -2911,9 +2994,11 @@ function _renderDetailView(exp) {
     locationRow.classList.add("hidden");
   }
 
-  const isReceipt = exp.source === "receipt";
-  document.getElementById("det-source-icon").textContent = isReceipt ? "📷" : "💳";
-  document.getElementById("det-source").textContent      = isReceipt ? "Scanned receipt" : "Manual entry";
+  const isReceipt   = exp.source === "receipt";
+  const isRecurring = exp.source === "recurring";
+  const isVoiceSrc  = exp.source === "voice";
+  document.getElementById("det-source-icon").textContent = isReceipt ? "📷" : isRecurring ? "🔁" : isVoiceSrc ? "🎙" : "💳";
+  document.getElementById("det-source").textContent      = isReceipt ? "Scanned receipt" : isRecurring ? "Recurring expense" : isVoiceSrc ? "Voice entry" : "Manual entry";
 
   const itemsSect = document.getElementById("det-items-section");
   if (exp.items && exp.items.length > 0) {
@@ -3917,6 +4002,99 @@ function onImportFile(event) {
   reader.readAsText(file);
 }
 
+// ── Recurring Expenses ────────────────────────────────────────────────────────
+function checkRecurringExpenses() {
+  const now = new Date();
+  const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const firstOfMonth = `${yearMonth}-01`;
+
+  const recurring = getRecurring();
+  if (!recurring.length) return;
+
+  const expenses = getExpenses();
+  let added = 0;
+
+  for (const r of recurring) {
+    if (r.last_generated === yearMonth) continue;
+
+    expenses.push({
+      id:             generateId(),
+      date:           firstOfMonth,
+      merchant:       r.merchant,
+      amount:         r.amount,
+      currency:       r.currency,
+      rate:           null,
+      category:       r.category,
+      confidence:     1.0,
+      payment_method: r.payment_method || '',
+      notes:          r.notes || '',
+      location:       '',
+      items:          [],
+      source:         'recurring',
+      type:           'expense',
+      created_at:     new Date().toISOString(),
+    });
+    r.last_generated = yearMonth;
+    added++;
+  }
+
+  if (added > 0) {
+    saveExpenses(expenses);
+    saveRecurring(recurring);
+    showToast(`${added} recurring expense${added > 1 ? 's' : ''} added for this month`);
+  }
+}
+
+function loadRecurringView() {
+  const list      = getRecurring();
+  const container = document.getElementById('recurring-list');
+  if (!list.length) {
+    container.innerHTML = `<div class="text-sm text-[#44474a] text-center py-6">No recurring expenses yet.</div>`;
+    return;
+  }
+
+  const defCur = localStorage.getItem('defaultCurrency') || 'EUR';
+  container.innerHTML = list.map(r => {
+    const col = catColor(r.category);
+    return `
+      <div class="bg-white rounded-3xl border border-[#e8e9ea] shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-4 py-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-sm font-semibold text-[#191c1d] truncate">${esc(r.merchant)}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold text-white flex-shrink-0"
+                    style="background:${col}">${catEmoji(r.category)} ${esc(r.category)}</span>
+            </div>
+            <div class="text-xs text-[#44474a]">${fmtAmount(r.amount, r.currency)}${r.currency !== defCur ? ' · ' + r.currency : ''}${r.payment_method ? ' · ' + esc(r.payment_method) : ''}${r.notes ? ' · ' + esc(r.notes) : ''}</div>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button onclick="openRecurringForm('${r.id}')"
+                    class="w-7 h-7 rounded-xl bg-[#f8f9fa] flex items-center justify-center text-[#44474a] hover:bg-[#e8e9ea] transition-colors text-xs">✏️</button>
+            <button onclick="deleteRecurringItem('${r.id}')"
+                    class="w-7 h-7 rounded-xl bg-[#fff0f0] flex items-center justify-center text-red-400 hover:bg-red-100 transition-colors text-xs">✕</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function deleteRecurringItem(id) {
+  showConfirm({
+    title:   'Delete recurring expense?',
+    message: 'This will stop future auto-adds. Past expenses are kept.',
+    okLabel: 'Delete',
+    okColor: 'bg-red-500 hover:bg-red-600',
+    onOk:    () => { saveRecurring(getRecurring().filter(r => r.id !== id)); loadRecurringView(); },
+  });
+}
+
+
+function openRecurringForm(id) {
+  const item = id ? getRecurring().find(r => r.id === id) : null;
+  showView('add');
+  setRecurringMode(item);
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function hydrateCentroids() {
   if (getCentroids()) return;
@@ -3943,6 +4121,7 @@ function init() {
   }
   if (_staleChanged) savePendingScans(_staleScans);
 
+  checkRecurringExpenses();
   loadHome();
 
   // Close nearby-results dropdowns when clicking outside their wrapper
