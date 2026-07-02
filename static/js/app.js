@@ -1,61 +1,231 @@
 // ── localStorage helpers ──────────────────────────────────────────────────────
 function getExpenses() {
-  return JSON.parse(localStorage.getItem('flo_expenses') || '[]');
+  return JSON.parse(kvGet('flo_expenses') || '[]');
 }
 function saveExpenses(exps) {
-  localStorage.setItem('flo_expenses', JSON.stringify(exps));
-  localStorage.removeItem('flo_ai_overview_cache');
+  kvSet('flo_expenses', JSON.stringify(exps));
+  kvDelete('flo_ai_overview_cache');
 }
 function getCentroids() {
-  const raw = localStorage.getItem('flo_centroids');
+  const raw = kvGet('flo_centroids');
   return raw ? JSON.parse(raw) : null;
 }
 function saveCentroids(data) {
-  localStorage.setItem('flo_centroids', JSON.stringify(data));
+  kvSet('flo_centroids', JSON.stringify(data));
 }
 function getPaymentMethods() {
-  const s = localStorage.getItem('flo_payment_methods');
+  const s = kvGet('flo_payment_methods');
   return s ? JSON.parse(s) : ["Cash","Debit Card","Credit Card","Mobile Pay","Bank Transfer"];
 }
-function savePaymentMethods(m) { localStorage.setItem('flo_payment_methods', JSON.stringify(m)); }
+function savePaymentMethods(m) { kvSet('flo_payment_methods', JSON.stringify(m)); }
 function getPaymentEmojis() {
-  const s = localStorage.getItem('flo_payment_emojis');
+  const s = kvGet('flo_payment_emojis');
   return s ? JSON.parse(s) : {};
 }
-function savePaymentEmojis(e) { localStorage.setItem('flo_payment_emojis', JSON.stringify(e)); }
+function savePaymentEmojis(e) { kvSet('flo_payment_emojis', JSON.stringify(e)); }
 function getCustomCurrencies() {
-  const s = localStorage.getItem('flo_custom_currencies');
+  const s = kvGet('flo_custom_currencies');
   return s ? JSON.parse(s) : [];
 }
-function saveCustomCurrencies(c) { localStorage.setItem('flo_custom_currencies', JSON.stringify(c)); }
+function saveCustomCurrencies(c) { kvSet('flo_custom_currencies', JSON.stringify(c)); }
 function getBudget() {
-  const v = localStorage.getItem('flo_budget');
+  const v = kvGet('flo_budget');
   return v ? parseFloat(v) : null;
 }
-function saveBudget(amount) { localStorage.setItem('flo_budget', String(amount)); }
-function clearBudget()      { localStorage.removeItem('flo_budget'); }
+function saveBudget(amount) { kvSet('flo_budget', String(amount)); }
+function clearBudget()      { kvDelete('flo_budget'); }
 function getCustomBudgets() {
-  const s = localStorage.getItem('flo_custom_budgets');
+  const s = kvGet('flo_custom_budgets');
   return s ? JSON.parse(s) : [];
 }
-function saveCustomBudgets(b) { localStorage.setItem('flo_custom_budgets', JSON.stringify(b)); }
-function getPendingScans()  { return JSON.parse(localStorage.getItem('flo_pending_scans') || '[]'); }
-function savePendingScans(s){ localStorage.setItem('flo_pending_scans', JSON.stringify(s)); }
+function saveCustomBudgets(b) { kvSet('flo_custom_budgets', JSON.stringify(b)); }
+function getPendingScans()  { return JSON.parse(kvGet('flo_pending_scans') || '[]'); }
+function savePendingScans(s){ kvSet('flo_pending_scans', JSON.stringify(s)); }
 function getCustomIncomeCategories() {
-  const s = localStorage.getItem('flo_income_categories');
+  const s = kvGet('flo_income_categories');
   return s ? JSON.parse(s) : [];
 }
-function saveCustomIncomeCategories(list) { localStorage.setItem('flo_income_categories', JSON.stringify(list)); }
+function saveCustomIncomeCategories(list) { kvSet('flo_income_categories', JSON.stringify(list)); }
 function getIncomeEmojis() {
-  const s = localStorage.getItem('flo_income_emojis');
+  const s = kvGet('flo_income_emojis');
   return s ? JSON.parse(s) : {};
 }
-function saveIncomeEmojis(map) { localStorage.setItem('flo_income_emojis', JSON.stringify(map)); }
+function saveIncomeEmojis(map) { kvSet('flo_income_emojis', JSON.stringify(map)); }
 function getRecurring() {
-  const s = localStorage.getItem('flo_recurring');
+  const s = kvGet('flo_recurring');
   return s ? JSON.parse(s) : [];
 }
-function saveRecurring(list) { localStorage.setItem('flo_recurring', JSON.stringify(list)); }
+function saveRecurring(list) { kvSet('flo_recurring', JSON.stringify(list)); }
+
+// ── IndexedDB (all persistent app storage) ──────────────────────────────────────
+// Three object stores in one DB:
+//  - `pending_files`    full-res receipt Files/Blobs for in-flight background
+//                        scans, keyed by scan id (localStorage only ever got a
+//                        small downscaled thumbnail, see _makeThumbnail).
+//  - `expense_receipts` the same full-res receipt, kept permanently once an
+//                        expense is saved, keyed by expense id — lets History
+//                        show the original image later.
+//  - `kv_store`          everything that used to live in localStorage (expenses,
+//                        budgets, preferences, caches, …).
+// IndexedDB has no synchronous API, so `kv_store` is mirrored into the in-memory
+// `_kvCache` (hydrated once at boot, see hydrateKvCache) and all reads go through
+// that cache — kvGet/kvSet/kvDelete below are synchronous, IndexedDB writes
+// happen in the background. The two file stores are accessed directly (async)
+// since they're only ever touched from already-async flows.
+const IDB_NAME    = 'flo_files';
+const IDB_VERSION = 3;
+const IDB_STORE         = 'pending_files';
+const IDB_RECEIPT_STORE = 'expense_receipts';
+const IDB_KV_STORE      = 'kv_store';
+let _idbPromise = null;
+
+function _openIdb() {
+  if (_idbPromise) return _idbPromise;
+  _idbPromise = new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error('IndexedDB unsupported')); return; }
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      for (const store of [IDB_STORE, IDB_RECEIPT_STORE, IDB_KV_STORE]) {
+        if (!db.objectStoreNames.contains(store)) db.createObjectStore(store);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+  return _idbPromise;
+}
+
+async function _idbPut(store, key, value) {
+  try {
+    const db = await _openIdb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).put(value, key);
+      tx.oncomplete = resolve;
+      tx.onerror    = () => reject(tx.error);
+    });
+  } catch (e) { console.warn(`idbPut(${store}) failed:`, e); }
+}
+
+async function _idbGet(store, key) {
+  try {
+    const db = await _openIdb();
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction(store, 'readonly').objectStore(store).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror   = () => reject(req.error);
+    });
+  } catch (e) { console.warn(`idbGet(${store}) failed:`, e); return null; }
+}
+
+async function _idbDelete(store, key) {
+  try {
+    const db = await _openIdb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).delete(key);
+      tx.oncomplete = resolve;
+      tx.onerror    = () => reject(tx.error);
+    });
+  } catch (e) { console.warn(`idbDelete(${store}) failed:`, e); }
+}
+
+const idbPutFile      = (id, file) => _idbPut(IDB_STORE, id, file);
+const idbGetFile      = id         => _idbGet(IDB_STORE, id);
+const idbDeleteFile   = id         => _idbDelete(IDB_STORE, id);
+
+const idbPutReceipt    = (id, file) => _idbPut(IDB_RECEIPT_STORE, id, file);
+const idbGetReceipt    = id         => _idbGet(IDB_RECEIPT_STORE, id);
+const idbDeleteReceipt = id         => _idbDelete(IDB_RECEIPT_STORE, id);
+
+async function idbGetAllKeys() {
+  try {
+    const db = await _openIdb();
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).getAllKeys();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror   = () => reject(req.error);
+    });
+  } catch (e) { console.warn('idbGetAllKeys failed:', e); return []; }
+}
+
+async function idbKvSet(key, value) {
+  try {
+    const db = await _openIdb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_KV_STORE, 'readwrite');
+      tx.objectStore(IDB_KV_STORE).put(value, key);
+      tx.oncomplete = resolve;
+      tx.onerror    = () => reject(tx.error);
+    });
+  } catch (e) { console.warn('idbKvSet failed:', e); }
+}
+
+async function idbKvDelete(key) {
+  try {
+    const db = await _openIdb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_KV_STORE, 'readwrite');
+      tx.objectStore(IDB_KV_STORE).delete(key);
+      tx.oncomplete = resolve;
+      tx.onerror    = () => reject(tx.error);
+    });
+  } catch (e) { console.warn('idbKvDelete failed:', e); }
+}
+
+// Reads every entry back as a plain { key: value } object, used once at boot.
+async function idbKvGetAll() {
+  try {
+    const db = await _openIdb();
+    return await new Promise((resolve, reject) => {
+      const store  = db.transaction(IDB_KV_STORE, 'readonly').objectStore(IDB_KV_STORE);
+      const out    = {};
+      const cursorReq = store.openCursor();
+      cursorReq.onsuccess = () => {
+        const cursor = cursorReq.result;
+        if (cursor) { out[cursor.key] = cursor.value; cursor.continue(); }
+        else resolve(out);
+      };
+      cursorReq.onerror = () => reject(cursorReq.error);
+    });
+  } catch (e) { console.warn('idbKvGetAll failed:', e); return {}; }
+}
+
+// In-memory mirror of IDB_KV_STORE — every kvGet/kvSet/kvDelete call site in this
+// file used to be a direct localStorage.getItem/setItem/removeItem call. Reads
+// stay synchronous because IndexedDB has no sync API on the main thread; writes
+// land in the cache immediately and persist to IndexedDB in the background.
+const _kvCache = {};
+function kvGet(key)          { return key in _kvCache ? _kvCache[key] : null; }
+function kvSet(key, value)   { _kvCache[key] = value; idbKvSet(key, value); }
+function kvDelete(key)       { delete _kvCache[key]; idbKvDelete(key); }
+
+// One-time migration from the old localStorage keys into IndexedDB, then hydrate
+// _kvCache from IndexedDB. Must resolve before init() reads any kv-backed data.
+async function hydrateKvCache() {
+  Object.assign(_kvCache, await idbKvGetAll());
+
+  const legacyKeys = [
+    'flo_expenses', 'flo_centroids', 'flo_payment_methods', 'flo_payment_emojis',
+    'flo_custom_currencies', 'flo_budget', 'flo_custom_budgets', 'flo_pending_scans',
+    'flo_income_categories', 'flo_income_emojis', 'flo_recurring', 'flo_home_layout',
+    'flo_summaries', 'flo_ai_overview_cache', 'defaultCurrency', 'darkMode',
+  ];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('flo_rates_')) legacyKeys.push(key);
+  }
+
+  const migrated = [];
+  for (const key of legacyKeys) {
+    if (!(key in _kvCache)) {
+      const raw = localStorage.getItem(key);
+      if (raw !== null) { _kvCache[key] = raw; idbKvSet(key, raw); migrated.push(key); }
+    }
+  }
+  migrated.forEach(key => localStorage.removeItem(key));
+}
 
 // ── Home widget layout ─────────────────────────────────────────────────────────
 const HOME_WIDGET_DEFS = [
@@ -69,7 +239,7 @@ const HOME_WIDGET_DEFS = [
 ];
 
 function getHomeLayout() {
-  const s = localStorage.getItem('flo_home_layout');
+  const s = kvGet('flo_home_layout');
   if (s) {
     try {
       const stored = JSON.parse(s);
@@ -82,7 +252,7 @@ function getHomeLayout() {
 }
 
 function saveHomeLayout(layout) {
-  localStorage.setItem('flo_home_layout', JSON.stringify(layout));
+  kvSet('flo_home_layout', JSON.stringify(layout));
 }
 
 function applyHomeLayout() {
@@ -202,10 +372,10 @@ function toggleHomeWidget(id, toggleEl) {
 }
 
 function getSummaries() {
-  const s = localStorage.getItem('flo_summaries');
+  const s = kvGet('flo_summaries');
   return s ? JSON.parse(s) : [];
 }
-function saveSummaries(summaries) { localStorage.setItem('flo_summaries', JSON.stringify(summaries)); }
+function saveSummaries(summaries) { kvSet('flo_summaries', JSON.stringify(summaries)); }
 function upsertSummary(period, text, spending) {
   const summaries = getSummaries().filter(s => s.period !== period);
   summaries.push({ period, text, spending });
@@ -213,7 +383,7 @@ function upsertSummary(period, text, spending) {
 }
 
 function rebuildSummariesFromExpenses(expenses) {
-  const defCur   = localStorage.getItem("defaultCurrency") || "EUR";
+  const defCur   = kvGet("defaultCurrency") || "EUR";
   const thisMonth = new Date().toISOString().slice(0, 7);
 
   // Group past-month expenses by YYYY-MM
@@ -411,19 +581,21 @@ const state = {
   isVoice:          false,
   receiptFile:         null,
   receiptItems:        [],
+  formItemsCurrency:   null, // currency state.receiptItems' prices are currently expressed in
   pendingReceiptData:  null,
   expenseMap:       {},   // id → full expense object
   currentEditId:    null,
   editCategory:     null,
   editPayment:      null,
   editItems:        [],
+  editItemsCurrency: null, // currency state.editItems' prices are currently expressed in
   rates:            null, // { base, rates: {USD:…}, date }
   currentPendingScanId: null,
 };
 
 let pieChartInst = null;
 let lineChartInst = null;
-const _pendingScansFiles  = {};  // id → File (in-memory only)
+const _pendingScansFiles  = {};  // id → File (in-memory cache; also mirrored to IndexedDB, see idbPutFile)
 const _pendingScansAborts = {};  // id → AbortController
 const _pendingVoiceAborts = {};  // id → AbortController (voice background jobs)
 
@@ -634,10 +806,27 @@ function setAmountSymbol(sym) {
 }
 
 function updateCurrencySymbol() {
-  const code   = document.getElementById("f-currency").value || "EUR";
-  const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+  const code   = (document.getElementById("f-currency").value || "EUR").toUpperCase();
+  const defCur = (kvGet("defaultCurrency") || "EUR").toUpperCase();
   setAmountSymbol(curSym(code));
   updateRateRow("f", code, defCur, null);
+  const converted = convertItemPrices(state.receiptItems, state.formItemsCurrency, code);
+  renderAddFormItems();
+  if (converted) syncItemsTotal();
+  state.formItemsCurrency = code;
+  updateAmountConvertedHint();
+}
+
+// Refreshes the "≈ <default currency>" hint under the Amount field.
+function updateAmountConvertedHint() {
+  const hint = document.getElementById("f-amount-converted");
+  if (!hint) return;
+  const amount = parseFloat(document.getElementById("f-amount")?.value);
+  const code   = document.getElementById("f-currency")?.value;
+  const rate   = parseFloat(document.getElementById("f-rate")?.value);
+  const text   = convertedHint(amount, code, isNaN(rate) ? null : rate);
+  hint.textContent = text;
+  hint.classList.toggle("hidden", !text);
 }
 
 function buildCurrencyOptions(selectedCode, compact) {
@@ -659,7 +848,7 @@ function populateCurrencySelect(id, selectedCode) {
 }
 
 function refreshAllCurrencySelects() {
-  const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
+  const defaultCurrency = kvGet("defaultCurrency") || "EUR";
   populateCurrencySelect("s-currency", defaultCurrency);
   const fCur = document.getElementById("f-currency");
   if (fCur) populateCurrencySelect("f-currency", fCur.value || defaultCurrency);
@@ -702,9 +891,9 @@ function deleteCustomCurrency(code) {
 
 // ── Exchange rates ────────────────────────────────────────────────────────────
 async function loadRates() {
-  const base = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+  const base = (kvGet("defaultCurrency") || "EUR").toUpperCase();
   const key  = "flo_rates_" + base;
-  const hit  = localStorage.getItem(key);
+  const hit  = kvGet(key);
   if (hit) {
     try {
       const { data, ts } = JSON.parse(hit);
@@ -716,13 +905,13 @@ async function loadRates() {
     const data = await r.json();
     if (data.rates) {
       state.rates = data;
-      localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+      kvSet(key, JSON.stringify({ data, ts: Date.now() }));
     }
   } catch (e) { console.warn("Exchange rates unavailable:", e); }
 }
 
 function convertToDefault(amount, fromCurrency, storedRate) {
-  const base = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+  const base = (kvGet("defaultCurrency") || "EUR").toUpperCase();
   const from = (fromCurrency || base).toUpperCase();
   if (from === base) return amount;
   if (storedRate != null && storedRate > 0) return amount * storedRate;
@@ -731,8 +920,53 @@ function convertToDefault(amount, fromCurrency, storedRate) {
   return rate ? amount / rate : amount;
 }
 
+// Converts between two arbitrary currencies by pivoting through state.rates'
+// base (the default currency). Returns null if a required rate isn't loaded.
+function convertAmount(amount, fromCode, toCode) {
+  const from = (fromCode || "").toUpperCase();
+  const to   = (toCode   || "").toUpperCase();
+  if (!from || !to || from === to) return amount;
+  const base  = (kvGet("defaultCurrency") || "EUR").toUpperCase();
+  const rates = state.rates?.rates;
+  if (!rates) return null;
+  const inBase = from === base ? amount : (rates[from] ? amount / rates[from] : null);
+  if (inBase == null) return null;
+  return to === base ? inBase : (rates[to] ? inBase * rates[to] : null);
+}
+
+// Converts every item's price from one currency to another in place, so item
+// prices stay consistent with the form's total when the user switches currency
+// (otherwise the items-vs-total sum check would compare mismatched currencies).
+// Returns true if any price was changed.
+function convertItemPrices(items, fromCode, toCode) {
+  const from = (fromCode || toCode || "EUR").toUpperCase();
+  const to   = (toCode   || from   || "EUR").toUpperCase();
+  if (!items || items.length === 0 || from === to) return false;
+  let changed = false;
+  items.forEach(it => {
+    const price = parseFloat(it.price);
+    if (isNaN(price)) return;
+    const converted = convertAmount(price, from, to);
+    if (converted != null) { it.price = Math.round(converted * 100) / 100; changed = true; }
+  });
+  return changed;
+}
+
+// "≈ <default-currency amount>" for display next to a native-currency value,
+// or "" when the amount is already in the default currency or no rate is
+// available. Mirrors convertToDefault's precedence (stored rate, then live rate).
+function convertedHint(amount, fromCode, rate) {
+  if (amount == null || isNaN(amount)) return "";
+  const defCur = (kvGet("defaultCurrency") || "EUR").toUpperCase();
+  const from   = (fromCode || defCur).toUpperCase();
+  if (from === defCur) return "";
+  const converted = (rate != null && rate > 0) ? amount * rate : convertAmount(amount, from, defCur);
+  if (converted == null) return "";
+  return `≈ ${fmtAmount(converted, defCur)}`;
+}
+
 function getLiveRate(fromCurrency) {
-  const base = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+  const base = (kvGet("defaultCurrency") || "EUR").toUpperCase();
   const from = (fromCurrency || base).toUpperCase();
   if (from === base || !state.rates?.rates) return null;
   const rate = state.rates.rates[from];
@@ -774,7 +1008,7 @@ function updateRateRow(prefix, fromCode, defCur, storedRate) {
 function toggleDarkMode() {
   const next = !isDark();
   document.documentElement.classList.toggle("dark", next);
-  localStorage.setItem("darkMode", next ? "1" : "0");
+  kvSet("darkMode", next ? "1" : "0");
   document.getElementById("dark-toggle").classList.toggle("on", next);
   if (document.getElementById("view-summary").classList.contains("active")) {
     loadSummary();
@@ -898,7 +1132,7 @@ function isBudgetArchived(budget) {
 }
 
 function _budgetRowHtml(b, archived = false) {
-  const defCur    = localStorage.getItem('defaultCurrency') || 'EUR';
+  const defCur    = kvGet('defaultCurrency') || 'EUR';
   const spent     = computeCustomBudgetSpent(b);
   const pct       = Math.round((spent / b.amount) * 100);
   const remaining = b.amount - spent;
@@ -990,7 +1224,7 @@ function toggleInlineEventBudget() {
   if (!form) return;
   form.classList.toggle('hidden');
   if (!form.classList.contains('hidden')) {
-    const defCur = localStorage.getItem('defaultCurrency') || 'EUR';
+    const defCur = kvGet('defaultCurrency') || 'EUR';
     const sym = document.getElementById('ief-sym');
     if (sym) sym.textContent = curSym(defCur);
     document.getElementById('ief-name')?.focus();
@@ -1110,7 +1344,7 @@ async function loadHome() {
   applyHomeLayout();
   await loadRates();
   const data   = computeSummary();
-  const defCur = localStorage.getItem("defaultCurrency") || "EUR";
+  const defCur = kvGet("defaultCurrency") || "EUR";
 
   // ── Main amount
   document.getElementById("home-month").textContent = fmtAmount(data.month_total, defCur);
@@ -1312,7 +1546,7 @@ function miniExpenseCard(exp) {
     ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1" style="background:${isDark()?"#1e1e1e":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">📷</span>`
     : exp.source === "recurring"
     ? `<span class="text-[9px] px-1 py-0.5 rounded font-semibold ml-1" style="background:${isDark()?"#1e2020":"#f0fdf9"};color:${isDark()?"#6dfad2":"#006b55"}">🔁</span>` : "";
-  const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+  const defCur = (kvGet("defaultCurrency") || "EUR").toUpperCase();
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
     ? `<div class="text-[9px] text-gray-400">≈ ${fmtAmount(convertToDefault(exp.amount, exp.currency, exp.rate), defCur)}</div>` : "";
@@ -1667,11 +1901,13 @@ function _makeImageZoom(imgId) {
   return { apply, reset, toggle, attach };
 }
 
-const _scanZoom   = _makeImageZoom('preview-img');
-const _verifyZoom = _makeImageZoom('verify-img');
-const _refZoom    = _makeImageZoom('receipt-ref-img');
+const _scanZoom      = _makeImageZoom('preview-img');
+const _verifyZoom    = _makeImageZoom('verify-img');
+const _refZoom       = _makeImageZoom('receipt-ref-img');
+const _detReceiptZoom = _makeImageZoom('det-receipt-img');
 
 function _initReceiptZoom() { _scanZoom.attach('receipt-zoom-container'); }
+function _initDetReceiptZoom() { _detReceiptZoom.attach('det-receipt-panel'); }
 function _initVerifyZoom()  { _verifyZoom.attach('verify-img-panel'); }
 function _initRefZoom()     { _refZoom.attach('receipt-ref-panel'); }
 
@@ -1747,6 +1983,7 @@ async function queueBackgroundScan(file) {
 
   _pendingScansFiles[id]  = file;
   _pendingScansAborts[id] = new AbortController();
+  idbPutFile(id, file); // survive a refresh mid-scan; cleaned up on dismiss/save
 
   const scans = getPendingScans();
   scans.push({
@@ -1882,6 +2119,7 @@ function dismissPendingScan(id) {
   _pendingScansAborts[id]?.abort();
   delete _pendingScansAborts[id];
   delete _pendingScansFiles[id];
+  idbDeleteFile(id);
   _pendingVoiceAborts[id]?.abort();
   delete _pendingVoiceAborts[id];
   savePendingScans(getPendingScans().filter(s => s.id !== id));
@@ -1903,7 +2141,8 @@ async function retryPendingScan(id) {
     return;
   }
 
-  const file = _pendingScansFiles[id];
+  let file = _pendingScansFiles[id];
+  if (!file) file = _pendingScansFiles[id] = await idbGetFile(id); // e.g. after a page refresh
   if (!file) { showToast('Original file no longer available — please re-upload', true); dismissPendingScan(id); return; }
   scan.status = 'processing'; scan.errorMessage = null;
   savePendingScans(scans);
@@ -2025,7 +2264,7 @@ function notifCard(scan) {
     const merchant = isVoice
       ? (scan.extractedData?.merchant || 'Voice input')
       : (scan.extractedData?.merchant || scan.fileName || 'Receipt');
-    const currency = scan.extractedData?.currency || (localStorage.getItem('defaultCurrency') || 'EUR');
+    const currency = scan.extractedData?.currency || (kvGet('defaultCurrency') || 'EUR');
     const total    = scan.extractedData?.total != null ? fmtAmount(scan.extractedData.total, currency) : null;
     return `<div onclick="notifOpenScan('${scan.id}')"
       class="flex items-center gap-3 p-3 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl cursor-pointer active:opacity-70 transition-opacity">
@@ -2077,7 +2316,7 @@ function notifCard(scan) {
 
 function recurringNotifCard(r) {
   const col    = catColor(r.category);
-  const defCur = localStorage.getItem('defaultCurrency') || 'EUR';
+  const defCur = kvGet('defaultCurrency') || 'EUR';
   return `<div class="flex items-center gap-3 p-3 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl">
     <div class="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 text-xl" style="background:${catBg(col)}">🔁</div>
     <div class="flex-1 min-w-0">
@@ -2099,14 +2338,22 @@ function notifConfirmRecurring(id) {
   const list = getRecurring();
   const r = list.find(x => x.id === id);
   if (!r) return;
-  _recordRecurringExpense(r);
-  saveRecurring(list);
-  showToast(`${r.merchant} added to this month's expenses`);
-  renderNotifications();
-  updateNotificationBadge();
-  if (document.getElementById('view-recurring')?.classList.contains('active')) loadRecurringView();
-  if (document.getElementById('view-home')?.classList.contains('active'))      loadHome();
-  if (document.getElementById('view-history')?.classList.contains('active'))  loadHistory();
+  showConfirm({
+    title:   'Add this expense?',
+    message: `Add ${fmtAmount(r.amount, r.currency)} for ${r.merchant} to this month's expenses?`,
+    okLabel: 'Add',
+    okColor: 'bg-[#006b55] hover:bg-[#004d3f]',
+    onOk: () => {
+      _recordRecurringExpense(r);
+      saveRecurring(list);
+      showToast(`${r.merchant} added to this month's expenses`);
+      renderNotifications();
+      updateNotificationBadge();
+      if (document.getElementById('view-recurring')?.classList.contains('active')) loadRecurringView();
+      if (document.getElementById('view-home')?.classList.contains('active'))      loadHome();
+      if (document.getElementById('view-history')?.classList.contains('active'))  loadHistory();
+    },
+  });
 }
 
 function notifModifyRecurring(id) {
@@ -2160,27 +2407,50 @@ function notifOpenScan(id) {
 }
 
 function notifDismiss(id) {
-  dismissPendingScan(id);
-  renderNotifications();
-  updateNotificationBadge();
+  showConfirm({
+    title:   'Dismiss this notification?',
+    message: 'This removes the pending scan. This cannot be undone.',
+    okLabel: 'Dismiss',
+    onOk: () => {
+      dismissPendingScan(id);
+      renderNotifications();
+      updateNotificationBadge();
+    },
+  });
 }
 
-async function notifRetry(id) {
-  await retryPendingScan(id);
-  renderNotifications();
+function notifRetry(id) {
+  showConfirm({
+    title:   'Retry this scan?',
+    message: 'This will re-run AI extraction on this receipt.',
+    okLabel: 'Retry',
+    okColor: 'bg-[#006b55] hover:bg-[#004d3f]',
+    onOk: async () => {
+      await retryPendingScan(id);
+      renderNotifications();
+    },
+  });
 }
 
 function clearAllNotifications() {
-  getPendingScans().forEach(s => {
-    _pendingScansAborts[s.id]?.abort();
-    delete _pendingScansAborts[s.id];
-    delete _pendingScansFiles[s.id];
-    _pendingVoiceAborts[s.id]?.abort();
-    delete _pendingVoiceAborts[s.id];
+  showConfirm({
+    title:   'Clear all notifications?',
+    message: 'This removes all pending scans. This cannot be undone.',
+    okLabel: 'Clear all',
+    onOk: () => {
+      getPendingScans().forEach(s => {
+        _pendingScansAborts[s.id]?.abort();
+        delete _pendingScansAborts[s.id];
+        delete _pendingScansFiles[s.id];
+        idbDeleteFile(s.id);
+        _pendingVoiceAborts[s.id]?.abort();
+        delete _pendingVoiceAborts[s.id];
+      });
+      savePendingScans([]);
+      updateNotificationBadge();
+      renderNotifications();
+    },
   });
-  savePendingScans([]);
-  updateNotificationBadge();
-  renderNotifications();
 }
 
 async function analyzeScanReceipt() {
@@ -2275,13 +2545,64 @@ function toggleReceiptRef() {
   chevron.style.transform = open ? "" : "rotate(180deg)";
 }
 
+// ── History detail: view the original receipt image ─────────────────────────
+let _detReceiptBlobUrl = null;
+
+// Looks up the permanently-stored receipt for this expense (see idbPutReceipt
+// in the save handler) and shows the strip if one exists; hides it otherwise.
+async function loadDetReceiptRef(expenseId) {
+  const file = await idbGetReceipt(expenseId);
+  const strip = document.getElementById("det-receipt-strip");
+  if (!strip) return;
+  if (!file) { hideDetReceiptRef(); return; }
+
+  if (_detReceiptBlobUrl) { URL.revokeObjectURL(_detReceiptBlobUrl); _detReceiptBlobUrl = null; }
+  const isPdf = file.type === "application/pdf";
+  const imgEl = document.getElementById("det-receipt-img");
+  const pdfEl = document.getElementById("det-receipt-pdf");
+  const pdfName = document.getElementById("det-receipt-pdf-name");
+  const hintEl = document.getElementById("det-receipt-hint");
+  if (isPdf) {
+    imgEl.classList.add("hidden");
+    pdfEl.classList.remove("hidden");
+    if (pdfName) pdfName.textContent = file.name || "Receipt.pdf";
+    if (hintEl) hintEl.classList.add("hidden");
+  } else {
+    _detReceiptBlobUrl = URL.createObjectURL(file);
+    imgEl.src = _detReceiptBlobUrl;
+    imgEl.classList.remove("hidden");
+    pdfEl.classList.add("hidden");
+    if (hintEl) hintEl.classList.remove("hidden");
+  }
+  document.getElementById("det-receipt-panel").classList.add("hidden");
+  document.getElementById("det-receipt-chevron").style.transform = "";
+  strip.classList.remove("hidden");
+  _detReceiptZoom.reset();
+}
+
+function hideDetReceiptRef() {
+  document.getElementById("det-receipt-strip")?.classList.add("hidden");
+  if (_detReceiptBlobUrl) { URL.revokeObjectURL(_detReceiptBlobUrl); _detReceiptBlobUrl = null; }
+  const imgEl = document.getElementById("det-receipt-img");
+  if (imgEl) imgEl.src = "";
+}
+
+function toggleDetReceipt() {
+  const panel = document.getElementById("det-receipt-panel");
+  const chevron = document.getElementById("det-receipt-chevron");
+  const open = !panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", open);
+  chevron.style.transform = open ? "" : "rotate(180deg)";
+}
+
 function resetForm() {
   hideReceiptRef();
-  const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
+  const defaultCurrency = kvGet("defaultCurrency") || "EUR";
   document.getElementById("f-merchant").value      = "";
   document.getElementById("f-amount").value        = "";
   populateCurrencySelect("f-currency", defaultCurrency);
   setAmountSymbol(curSym(defaultCurrency));
+  state.formItemsCurrency = defaultCurrency.toUpperCase();
   document.getElementById("f-date").value          = new Date().toISOString().split("T")[0];
   document.getElementById("f-notes").value         = "";
   document.getElementById("f-location").value      = "";
@@ -2301,6 +2622,7 @@ function resetForm() {
   loadCustomBudgetSelect('f-budget-tag', null);
   document.querySelector('#f-budget-wrap .voice-budget-hint')?.remove();
   checkAmountMismatch();
+  updateAmountConvertedHint();
 
   const dateWrap = document.getElementById('f-date-wrap');
   if (dateWrap) dateWrap.classList.remove('hidden');
@@ -2355,11 +2677,12 @@ function showVerifyView(data) {
   document.getElementById("v-merchant").value = data.merchant || "";
   if (data.total != null) document.getElementById("v-total").value = Number(data.total).toFixed(2);
   else document.getElementById("v-total").value = "";
-  const code = data.currency ? data.currency.toUpperCase() : (localStorage.getItem("defaultCurrency") || "EUR");
+  const code = data.currency ? data.currency.toUpperCase() : (kvGet("defaultCurrency") || "EUR");
   populateCurrencySelect("v-currency", code);
   document.getElementById("v-date").value = data.date || new Date().toISOString().split("T")[0];
 
   renderVerifyItems();
+  updateVerifyTotalHint();
   showView("verify");
 }
 
@@ -2367,22 +2690,60 @@ function renderVerifyItems() {
   const items = state.pendingReceiptData?.items || [];
   const countEl = document.getElementById("v-items-count");
   if (countEl) countEl.textContent = items.length > 0 ? `(${items.length})` : "";
-  document.getElementById("v-items-list").innerHTML = items.map((item, i) => `
-    <div class="flex items-center gap-2">
-      <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
-             oninput="state.pendingReceiptData.items[${i}].name = this.value"
-             class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
-             oninput="state.pendingReceiptData.items[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
-             class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01"
-             oninput="state.pendingReceiptData.items[${i}].price = this.value === '' ? null : parseFloat(this.value)"
-             class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <button type="button" onclick="removeVerifyItem(${i})"
-              class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>`).join("");
+  const code = document.getElementById("v-currency")?.value || "EUR";
+  document.getElementById("v-items-list").innerHTML = items.map((item, i) => {
+    const hint = convertedHint(parseFloat(item.price), code, null);
+    return `
+    <div class="space-y-0.5">
+      <div class="flex items-center gap-2">
+        <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
+               oninput="state.pendingReceiptData.items[${i}].name = this.value"
+               class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
+               oninput="state.pendingReceiptData.items[${i}].quantity = this.value === '' ? 1 : parseInt(this.value)"
+               class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <div class="flex items-center w-24 border border-[#c5c6ca] rounded-xl bg-white focus-within:ring-2 focus-within:ring-[#006b55]">
+          <span class="pl-1.5 text-[10px] text-[#44474a] flex-shrink-0">${esc(curSym(code))}</span>
+          <input type="number" value="${item.price != null ? item.price : ""}" placeholder="0.00" step="0.01"
+                 oninput="state.pendingReceiptData.items[${i}].price = this.value === '' ? null : parseFloat(this.value); updateVerifyItemHint(${i})"
+                 class="w-full min-w-0 pl-0.5 pr-1.5 py-2 text-xs text-right focus:outline-none bg-transparent border-0" />
+        </div>
+        <button type="button" onclick="removeVerifyItem(${i})"
+                class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="v-item-hint-${i}" class="${hint ? "text-[9px] text-gray-400 text-right pr-9" : "hidden"}">${hint}</div>
+    </div>`;
+  }).join("");
+}
+
+function updateVerifyItemHint(i) {
+  const el   = document.getElementById(`v-item-hint-${i}`);
+  const item = state.pendingReceiptData?.items?.[i];
+  if (!el || !item) return;
+  const code = document.getElementById("v-currency")?.value || "EUR";
+  const text = convertedHint(parseFloat(item.price), code, null);
+  el.textContent = text;
+  el.className   = text ? "text-[9px] text-gray-400 text-right pr-9" : "hidden";
+}
+
+function updateVerifyTotalHint() {
+  const hint = document.getElementById("v-total-converted");
+  if (!hint) return;
+  const amount = parseFloat(document.getElementById("v-total")?.value);
+  const code   = document.getElementById("v-currency")?.value;
+  const text   = convertedHint(amount, code, null);
+  hint.textContent = text;
+  hint.classList.toggle("hidden", !text);
+}
+
+// The Verify screen's currency select only corrects a misread currency label
+// (the raw numbers stay as extracted) — unlike the Add form, it does not
+// convert values. Just refresh the unit labels and converted-amount hints.
+function onVerifyCurrencyChange() {
+  renderVerifyItems();
+  updateVerifyTotalHint();
 }
 
 function addVerifyItem() {
@@ -2425,7 +2786,7 @@ function checkAmountMismatch() {
   if (isNaN(entered) || Math.abs(itemsTotal - entered) <= 0.01) {
     warn.classList.add("hidden");
   } else {
-    const cur = document.getElementById("f-currency")?.value || (localStorage.getItem("defaultCurrency") || "EUR");
+    const cur = document.getElementById("f-currency")?.value || (kvGet("defaultCurrency") || "EUR");
     if (valEl) valEl.textContent = fmtAmount(itemsTotal, cur);
     warn.classList.remove("hidden");
   }
@@ -2438,22 +2799,46 @@ function renderAddFormItems() {
     el.innerHTML = "";
     return;
   }
-  el.innerHTML = state.receiptItems.map((item, i) => `
-    <div class="flex items-center gap-2">
-      <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
-             oninput="state.receiptItems[${i}].name = this.value"
-             class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="text" inputmode="numeric" value="${item.quantity != null ? item.quantity : 1}" placeholder="1"
-             oninput="const _q=this.value.replace(/[^0-9]/g,''); if(_q!==this.value)this.value=_q; state.receiptItems[${i}].quantity = _q === '' ? 1 : parseInt(_q); syncItemsTotal()"
-             class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-      <input type="number" step="0.01" min="0" value="${item.price != null ? item.price : ""}" placeholder="0.00"
-             oninput="state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value); syncItemsTotal()"
-             class="w-20 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-      <button type="button" onclick="removeFormItem(${i})"
-              class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>`).join("");
+  const code = document.getElementById("f-currency")?.value || "EUR";
+  const rate = parseFloat(document.getElementById("f-rate")?.value);
+  el.innerHTML = state.receiptItems.map((item, i) => {
+    const hint = convertedHint(parseFloat(item.price), code, isNaN(rate) ? null : rate);
+    return `
+    <div class="space-y-0.5">
+      <div class="flex items-center gap-2">
+        <input type="text" value="${esc(item.name || "")}" placeholder="Item name"
+               oninput="state.receiptItems[${i}].name = this.value"
+               class="flex-1 min-w-0 px-3 py-2 border border-[#c5c6ca] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <input type="text" inputmode="numeric" value="${item.quantity != null ? item.quantity : 1}" placeholder="1"
+               oninput="const _q=this.value.replace(/[^0-9]/g,''); if(_q!==this.value)this.value=_q; state.receiptItems[${i}].quantity = _q === '' ? 1 : parseInt(_q); syncItemsTotal()"
+               class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+        <div class="flex items-center w-24 border border-[#c5c6ca] rounded-xl bg-white focus-within:ring-2 focus-within:ring-[#006b55]">
+          <span class="pl-1.5 text-[10px] text-[#44474a] flex-shrink-0">${esc(curSym(code))}</span>
+          <input type="number" step="0.01" min="0" value="${item.price != null ? item.price : ""}" placeholder="0.00"
+                 oninput="state.receiptItems[${i}].price = this.value === '' ? null : parseFloat(this.value); syncItemsTotal(); updateFormItemHint(${i})"
+                 class="w-full min-w-0 pl-0.5 pr-1.5 py-2 text-xs text-right focus:outline-none bg-transparent border-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+        </div>
+        <button type="button" onclick="removeFormItem(${i})"
+                class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 transition-colors flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="f-item-hint-${i}" class="${hint ? "text-[9px] text-gray-400 text-right pr-9" : "hidden"}">${hint}</div>
+    </div>`;
+  }).join("");
+}
+
+// Refreshes a single item's "≈ <default currency>" hint without re-rendering
+// the whole list, so typing in the price field doesn't lose focus.
+function updateFormItemHint(i) {
+  const el = document.getElementById(`f-item-hint-${i}`);
+  const item = state.receiptItems?.[i];
+  if (!el || !item) return;
+  const code = document.getElementById("f-currency")?.value || "EUR";
+  const rate = parseFloat(document.getElementById("f-rate")?.value);
+  const text = convertedHint(parseFloat(item.price), code, isNaN(rate) ? null : rate);
+  el.textContent = text;
+  el.className   = text ? "text-[9px] text-gray-400 text-right pr-9" : "hidden";
 }
 
 function addFormItem() {
@@ -2557,11 +2942,15 @@ function populateFormFromReceipt(data) {
   if (data.total != null) document.getElementById("f-amount").value = Number(data.total).toFixed(2);
   if (data.currency) {
     const code   = data.currency.toUpperCase();
-    const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+    const defCur = (kvGet("defaultCurrency") || "EUR").toUpperCase();
     const sel    = document.getElementById("f-currency");
     if ([...sel.options].some(o => o.value === code)) sel.value = code;
     setAmountSymbol(curSym(code));
     updateRateRow("f", code, defCur, null);
+    // Items were extracted in this same currency — track it so a later manual
+    // currency switch (updateCurrencySymbol) converts items in lockstep instead
+    // of leaving them stale in the old currency (which broke the sum check).
+    state.formItemsCurrency = code;
   }
   if (data.date)     document.getElementById("f-date").value     = data.date;
   if (data.location) document.getElementById("f-location").value = data.location;
@@ -2585,6 +2974,8 @@ function populateFormFromReceipt(data) {
     document.getElementById("items-section").classList.remove("hidden");
     renderAddFormItems();
   }
+  checkAmountMismatch();
+  updateAmountConvertedHint();
   document.getElementById("save-label").textContent = "Confirm & Save";
 }
 
@@ -2924,11 +3315,12 @@ function populateFormFromVoice(data) {
 
   if (data.currency) {
     const code   = data.currency.toUpperCase();
-    const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+    const defCur = (kvGet("defaultCurrency") || "EUR").toUpperCase();
     const sel    = document.getElementById("f-currency");
     if ([...sel.options].some(o => o.value === code)) sel.value = code;
     setAmountSymbol(curSym(code));
     updateRateRow("f", code, defCur, null);
+    state.formItemsCurrency = code;
   }
   if (data.date)     document.getElementById("f-date").value     = data.date;
   if (data.location && !isIncome) document.getElementById("f-location").value = data.location;
@@ -2955,6 +3347,7 @@ function populateFormFromVoice(data) {
     document.getElementById("items-section").classList.remove("hidden");
     renderAddFormItems();
   }
+  updateAmountConvertedHint();
 
   // Auto-select event budget when Gemini matched one by name
   if (!isIncome && data.event_hint) {
@@ -3005,7 +3398,7 @@ async function saveExpense() {
   const location       = document.getElementById("f-location").value.trim();
   let   category       = state.selectedCategory;
   const payment_method = state.selectedPayment || "";
-  const defCur         = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+  const defCur         = (kvGet("defaultCurrency") || "EUR").toUpperCase();
   const rateRaw        = parseFloat(document.getElementById("f-rate")?.value);
   const storedRate     = currency.toUpperCase() !== defCur && !isNaN(rateRaw) && rateRaw > 0 ? rateRaw : null;
 
@@ -3102,14 +3495,18 @@ async function saveExpense() {
     saveExpenses(expenses);
     state.expenseMap[expense.id] = expense;
 
+    if (state.isReceipt && state.receiptFile) idbPutReceipt(expense.id, state.receiptFile);
+
     showToast(state.isIncome ? "Income saved!" : "Expense saved!");
     btn.disabled = false;
     spinner.classList.add("hidden");
     if (state.currentPendingScanId) {
       savePendingScans(getPendingScans().filter(s => s.id !== state.currentPendingScanId));
       delete _pendingScansFiles[state.currentPendingScanId];
+      idbDeleteFile(state.currentPendingScanId);
       delete _pendingScansAborts[state.currentPendingScanId];
       state.currentPendingScanId = null;
+      updateNotificationBadge();
     }
     clearScan();
     resetForm();
@@ -3444,7 +3841,7 @@ function renderHistory(exps) {
     return;
   }
 
-  const defCur    = localStorage.getItem("defaultCurrency") || "EUR";
+  const defCur    = kvGet("defaultCurrency") || "EUR";
   const budgetMap = Object.fromEntries(getCustomBudgets().map(b => [b.id, b]));
   const grouped   = {};
   for (const exp of exps) {
@@ -3539,7 +3936,7 @@ function historyExpenseCard(exp, budgetMap = {}) {
   const budgetPill = budget
     ? `<span class="text-[9px] px-1.5 py-0.5 rounded-full font-semibold ml-1 text-white" style="background:${budget.color || '#006b55'}">${esc(budget.name)}</span>`
     : "";
-  const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+  const defCur = (kvGet("defaultCurrency") || "EUR").toUpperCase();
   const isDiff = state.rates && exp.currency && exp.currency.toUpperCase() !== defCur;
   const cvt    = isDiff
     ? `<div class="text-[9px] text-gray-400">≈ ${fmtAmount(convertToDefault(exp.amount, exp.currency, exp.rate), defCur)}</div>` : "";
@@ -3570,6 +3967,7 @@ function deleteExpense(id) {
   const expenses = getExpenses().filter(e => e.id !== id);
   saveExpenses(expenses);
   delete state.expenseMap[id];
+  idbDeleteReceipt(id);
   showToast("Expense deleted");
   loadHistory();
   loadHome();
@@ -3614,7 +4012,7 @@ function calNavMonth(delta) {
 }
 
 function renderCalendar() {
-  const defCur   = (localStorage.getItem('defaultCurrency') || 'EUR').toUpperCase();
+  const defCur   = (kvGet('defaultCurrency') || 'EUR').toUpperCase();
   const monthStr = `${_calYear}-${String(_calMonth + 1).padStart(2, '0')}`;
   const today    = new Date().toISOString().split('T')[0];
 
@@ -3711,6 +4109,7 @@ function showExpenseDetail(id) {
   document.getElementById("det-edit-mode").classList.add("hidden");
   document.getElementById("detail-overlay").classList.remove("hidden");
   document.body.style.overflow = "hidden";
+  if (exp.source === "receipt") loadDetReceiptRef(exp.id); else hideDetReceiptRef();
 }
 
 function _renderDetailView(exp) {
@@ -3724,6 +4123,10 @@ function _renderDetailView(exp) {
   const amtEl = document.getElementById("det-amount");
   amtEl.textContent  = (income ? "+" : "") + fmtAmount(exp.amount, exp.currency);
   amtEl.style.color  = income ? "#16a34a" : "";
+  const amtHint = document.getElementById("det-amount-converted");
+  const amtHintText = convertedHint(exp.amount, exp.currency, exp.rate ?? null);
+  amtHint.textContent = amtHintText;
+  amtHint.classList.toggle("hidden", !amtHintText);
   document.getElementById("det-date").textContent       = fmtDateLabel(exp.date);
 
   const paymentRow = document.getElementById("det-payment-row");
@@ -3761,9 +4164,13 @@ function _renderDetailView(exp) {
   if (exp.items && exp.items.length > 0) {
     itemsSect.classList.remove("hidden");
     document.getElementById("det-items-list").innerHTML = exp.items.map(item => {
-      const qty   = (item.quantity ?? 1) > 1 ? `<span class="text-[#44474a] mr-1">×${item.quantity}</span>` : "";
+      const qty  = (item.quantity ?? 1) > 1 ? `<span class="text-[#44474a] mr-1">×${item.quantity}</span>` : "";
+      const hint = item.price != null ? convertedHint(item.price, exp.currency, exp.rate ?? null) : "";
       const price = item.price != null
-        ? `<span class="font-semibold">${fmtAmount(item.price, exp.currency)}</span>` : "";
+        ? `<div class="text-right flex-shrink-0">
+             <span class="font-semibold">${fmtAmount(item.price, exp.currency)}</span>
+             ${hint ? `<div class="text-[9px] text-gray-400">${hint}</div>` : ""}
+           </div>` : "";
       return `<div class="flex items-center justify-between py-0.5 border-b border-gray-100 last:border-0">
         <span class="truncate mr-2">${qty}${esc(item.name || "")}</span>${price}</div>`;
     }).join("");
@@ -3780,6 +4187,7 @@ function _renderDetailView(exp) {
 function closeDetail() {
   document.getElementById("detail-overlay").classList.add("hidden");
   document.body.style.overflow = "";
+  hideDetReceiptRef();
 }
 
 // ── Edit mode ─────────────────────────────────────────────────────────────────
@@ -3788,7 +4196,7 @@ function openEdit() {
   if (!exp) return;
 
   const cur    = exp.currency || "EUR";
-  const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+  const defCur = (kvGet("defaultCurrency") || "EUR").toUpperCase();
   document.getElementById("edit-merchant").value       = exp.merchant || "";
   document.getElementById("edit-amount").value         = exp.amount != null ? Number(exp.amount).toFixed(2) : "";
   populateCurrencySelect("edit-currency", cur);
@@ -3820,8 +4228,10 @@ function openEdit() {
   if (editBudgetWrap) editBudgetWrap.classList.toggle('hidden', editIncome);
   if (!editIncome) loadCustomBudgetSelect('edit-budget-tag', exp.budgetId || null);
 
-  state.editItems = (exp.items || []).map(i => ({ name: i.name || "", price: i.price ?? null, quantity: i.quantity ?? 1 }));
+  state.editItems         = (exp.items || []).map(i => ({ name: i.name || "", price: i.price ?? null, quantity: i.quantity ?? 1 }));
+  state.editItemsCurrency = cur.toUpperCase();
   renderEditItems();
+  updateEditAmountHint();
 
   document.getElementById("det-view-mode").classList.add("hidden");
   document.getElementById("det-edit-mode").classList.remove("hidden");
@@ -3829,9 +4239,14 @@ function openEdit() {
 }
 
 function updateEditCurrencyRate(fromCode) {
-  const defCur = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
-  document.getElementById("edit-cur-sym").textContent = curSym(fromCode);
-  updateRateRow("edit", fromCode, defCur, null);
+  const code   = (fromCode || "EUR").toUpperCase();
+  const defCur = (kvGet("defaultCurrency") || "EUR").toUpperCase();
+  document.getElementById("edit-cur-sym").textContent = curSym(code);
+  updateRateRow("edit", code, defCur, null);
+  convertItemPrices(state.editItems, state.editItemsCurrency, code);
+  renderEditItems();
+  state.editItemsCurrency = code;
+  updateEditAmountHint();
 }
 
 function cancelEdit() {
@@ -3880,20 +4295,53 @@ function renderEditItems() {
     el.innerHTML = `<div class="text-xs text-gray-400 text-center py-2 border border-dashed border-gray-200 rounded-xl">No items — tap "+ Add item" to add one</div>`;
     return;
   }
-  el.innerHTML = state.editItems.map((item, idx) => `
-    <div class="flex items-center gap-2">
-      <input type="text" value="${esc(item.name)}" placeholder="Item name"
-             oninput="state.editItems[${idx}].name = this.value"
-             class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white min-w-0" />
-      <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
-             oninput="state.editItems[${idx}].quantity = this.value === '' ? 1 : parseInt(this.value)"
-             class="w-12 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
-      <input type="number" value="${item.price ?? ""}" placeholder="0.00" step="0.01"
-             oninput="state.editItems[${idx}].price = this.value === '' ? null : parseFloat(this.value)"
-             class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
-      <button type="button" onclick="removeEditItem(${idx})"
-              class="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 flex-shrink-0 transition-colors text-sm">✕</button>
-    </div>`).join("");
+  const code = document.getElementById("edit-currency")?.value || "EUR";
+  const rate = parseFloat(document.getElementById("edit-rate")?.value);
+  el.innerHTML = state.editItems.map((item, idx) => {
+    const hint = convertedHint(parseFloat(item.price), code, isNaN(rate) ? null : rate);
+    return `
+    <div class="space-y-0.5">
+      <div class="flex items-center gap-2">
+        <input type="text" value="${esc(item.name)}" placeholder="Item name"
+               oninput="state.editItems[${idx}].name = this.value"
+               class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white min-w-0" />
+        <input type="number" value="${item.quantity != null ? item.quantity : 1}" placeholder="1" min="1" step="1"
+               oninput="state.editItems[${idx}].quantity = this.value === '' ? 1 : parseInt(this.value)"
+               class="w-12 px-2 py-2 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white flex-shrink-0" />
+        <div class="flex items-center w-24 border border-gray-200 rounded-lg bg-white focus-within:ring-2 focus-within:ring-[#006b55] flex-shrink-0">
+          <span class="pl-1.5 text-[10px] text-gray-400 flex-shrink-0">${esc(curSym(code))}</span>
+          <input type="number" value="${item.price ?? ""}" placeholder="0.00" step="0.01"
+                 oninput="state.editItems[${idx}].price = this.value === '' ? null : parseFloat(this.value); updateEditItemHint(${idx})"
+                 class="w-full min-w-0 pl-0.5 pr-1.5 py-2 text-xs text-right focus:outline-none bg-transparent border-0" />
+        </div>
+        <button type="button" onclick="removeEditItem(${idx})"
+                class="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 flex-shrink-0 transition-colors text-sm">✕</button>
+      </div>
+      <div id="edit-item-hint-${idx}" class="${hint ? "text-[9px] text-gray-400 text-right pr-9" : "hidden"}">${hint}</div>
+    </div>`;
+  }).join("");
+}
+
+function updateEditItemHint(idx) {
+  const el   = document.getElementById(`edit-item-hint-${idx}`);
+  const item = state.editItems?.[idx];
+  if (!el || !item) return;
+  const code = document.getElementById("edit-currency")?.value || "EUR";
+  const rate = parseFloat(document.getElementById("edit-rate")?.value);
+  const text = convertedHint(parseFloat(item.price), code, isNaN(rate) ? null : rate);
+  el.textContent = text;
+  el.className   = text ? "text-[9px] text-gray-400 text-right pr-9" : "hidden";
+}
+
+function updateEditAmountHint() {
+  const hint = document.getElementById("edit-amount-converted");
+  if (!hint) return;
+  const amount = parseFloat(document.getElementById("edit-amount")?.value);
+  const code   = document.getElementById("edit-currency")?.value;
+  const rate   = parseFloat(document.getElementById("edit-rate")?.value);
+  const text   = convertedHint(amount, code, isNaN(rate) ? null : rate);
+  hint.textContent = text;
+  hint.classList.toggle("hidden", !text);
 }
 
 function addEditItem() {
@@ -3922,7 +4370,7 @@ async function saveEdit() {
   const location       = document.getElementById("edit-location").value.trim();
   const category       = state.editCategory;
   const payment_method = state.editPayment || "";
-  const defCurE        = (localStorage.getItem("defaultCurrency") || "EUR").toUpperCase();
+  const defCurE        = (kvGet("defaultCurrency") || "EUR").toUpperCase();
   const rateRawE       = parseFloat(document.getElementById("edit-rate")?.value);
   const storedRateE    = currency !== defCurE && !isNaN(rateRawE) && rateRawE > 0 ? rateRawE : null;
 
@@ -4025,7 +4473,7 @@ function retrieveSimilarSummaries(spending, daysElapsed, daysInMonth, nResults =
 async function loadSummary() {
   await loadRates();
   const data   = computeSummary();
-  const defCur = localStorage.getItem("defaultCurrency") || "EUR";
+  const defCur = kvGet("defaultCurrency") || "EUR";
   document.getElementById("sum-month").textContent = fmtAmount(data.month_total, defCur);
   document.getElementById("sum-today").textContent = fmtAmount(data.today_total, defCur);
   renderPieChart(data.category_breakdown, defCur);
@@ -4037,7 +4485,7 @@ async function loadAiOverview(breakdown, defCur) {
   const el = document.getElementById("ai-overview-text");
   if (!el) return;
 
-  const cached = JSON.parse(localStorage.getItem('flo_ai_overview_cache') || 'null');
+  const cached = JSON.parse(kvGet('flo_ai_overview_cache') || 'null');
   if (cached) {
     document.getElementById("ai-overview-card").classList.remove("hidden");
     el.textContent = cached.overview;
@@ -4093,7 +4541,7 @@ async function loadAiOverview(breakdown, defCur) {
     const basedOnEl = document.getElementById("ai-overview-based-on");
     if (basedOnEl) basedOnEl.textContent = basedOnText;
 
-    localStorage.setItem('flo_ai_overview_cache', JSON.stringify({ overview: data.overview, basedOnText }));
+    kvSet('flo_ai_overview_cache', JSON.stringify({ overview: data.overview, basedOnText }));
   } catch (e) {
     el.textContent = "Couldn't load insight: " + e.message;
   }
@@ -4101,7 +4549,7 @@ async function loadAiOverview(breakdown, defCur) {
 
 async function archiveCurrentMonth() {
   const data    = computeSummary();
-  const defCur  = localStorage.getItem("defaultCurrency") || "EUR";
+  const defCur  = kvGet("defaultCurrency") || "EUR";
   const now     = new Date();
   const period  = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
@@ -4288,12 +4736,12 @@ async function loadSettingsView() {
     data = await r.json();
   } catch (e) { console.error("loadSettings:", e); }
 
-  const storedCurrency = localStorage.getItem("defaultCurrency") || "EUR";
+  const storedCurrency = kvGet("defaultCurrency") || "EUR";
   populateCurrencySelect("s-currency", storedCurrency);
   renderCustomCurrenciesSettings();
 
   const rateEl  = document.getElementById("s-rates-date");
-  const cached  = localStorage.getItem("flo_rates_" + storedCurrency);
+  const cached  = kvGet("flo_rates_" + storedCurrency);
   if (rateEl && cached) {
     try {
       const { data } = JSON.parse(cached);
@@ -4344,7 +4792,7 @@ async function resetCentroids() {
 function saveCurrency() {
   const currency = document.getElementById("s-currency").value;
   if (!currency) return;
-  localStorage.setItem("defaultCurrency", currency);
+  kvSet("defaultCurrency", currency);
   showToast("Currency saved.");
 }
 
@@ -4378,7 +4826,7 @@ function _refreshBudgetStatus() {
   const statusEl  = document.getElementById("s-budget-status");
   const clearBtn  = document.getElementById("s-budget-clear");
   const symEl     = document.getElementById("s-budget-sym");
-  const defCur    = localStorage.getItem("defaultCurrency") || "EUR";
+  const defCur    = kvGet("defaultCurrency") || "EUR";
   if (symEl) symEl.textContent = curSym(defCur);
   if (budget && budget > 0) {
     if (statusEl) {
@@ -4424,7 +4872,7 @@ function _renderCbList() {
   const listEl = document.getElementById('cb-list');
   if (!listEl) return;
   const budgets  = getCustomBudgets();
-  const defCur   = localStorage.getItem('defaultCurrency') || 'EUR';
+  const defCur   = kvGet('defaultCurrency') || 'EUR';
   if (budgets.length === 0) {
     listEl.innerHTML = '<div class="text-xs text-[#c5c6ca] text-center py-2">No custom budgets yet.</div>';
     return;
@@ -4463,7 +4911,7 @@ function _renderCbList() {
 }
 
 function loadCustomBudgetsPrefs() {
-  const defCur = localStorage.getItem('defaultCurrency') || 'EUR';
+  const defCur = kvGet('defaultCurrency') || 'EUR';
   const symEl  = document.getElementById('cb-budget-sym');
   if (symEl) symEl.textContent = curSym(defCur);
   const catSel = document.getElementById('cb-category');
@@ -4537,7 +4985,7 @@ function editCustomBudget(id) {
   _cbEditType          = budget.type || 'event';
   _cbEditSelectedColor = budget.color || CB_COLORS[0];
 
-  const defCur = localStorage.getItem('defaultCurrency') || 'EUR';
+  const defCur = kvGet('defaultCurrency') || 'EUR';
   const symEl  = document.getElementById('ecb-budget-sym');
   if (symEl) symEl.textContent = curSym(defCur);
 
@@ -5098,7 +5546,7 @@ function loadRecurringView() {
     return;
   }
 
-  const defCur = localStorage.getItem('defaultCurrency') || 'EUR';
+  const defCur = kvGet('defaultCurrency') || 'EUR';
   container.innerHTML = list.map(r => {
     const col = catColor(r.category);
     return `
@@ -5157,7 +5605,9 @@ async function hydrateCentroids() {
   } catch (e) { console.warn("base centroid fetch failed:", e); }
 }
 
-function init() {
+async function init() {
+  await hydrateKvCache(); // must resolve before anything below reads kv-backed data
+
   const now = new Date();
   document.getElementById("header-date").textContent = now.toLocaleDateString("en-US", {
     weekday: "short", month: "short", day: "numeric"
@@ -5173,6 +5623,22 @@ function init() {
     if (s.status === 'processing') { s.status = 'error'; s.errorMessage = 'Interrupted — tap Retry'; _staleChanged = true; }
   }
   if (_staleChanged) savePendingScans(_staleScans);
+
+  // Restore full-res receipt files from IndexedDB so a refreshed page can still
+  // retry/verify pending scans instead of demanding a re-upload; also drop any
+  // orphaned entries left behind by scans that no longer exist.
+  (async () => {
+    const liveIds = new Set(_staleScans.filter(s => s.type !== 'voice').map(s => s.id));
+    for (const id of liveIds) {
+      if (!_pendingScansFiles[id]) {
+        const file = await idbGetFile(id);
+        if (file) _pendingScansFiles[id] = file;
+      }
+    }
+    for (const key of await idbGetAllKeys()) {
+      if (!liveIds.has(key)) idbDeleteFile(key);
+    }
+  })();
 
   checkRecurringExpenses();
   loadHome();
@@ -5201,8 +5667,9 @@ function init() {
   _initReceiptZoom();
   _initVerifyZoom();
   _initRefZoom();
+  _initDetReceiptZoom();
   loadCategoriesIntoButtons();
-  const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
+  const defaultCurrency = kvGet("defaultCurrency") || "EUR";
   populateCurrencySelect("f-currency", defaultCurrency);
   setAmountSymbol(curSym(defaultCurrency));
   renderPaymentButtons(null, "payment-buttons");
