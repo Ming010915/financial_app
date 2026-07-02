@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Item Classification Benchmark Report</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #d9dee8;
+      --accent: #0f6b6f;
+      --soft: #e5f3f2;
+      --warn: #8a5b00;
+      --warn-soft: #fff2cc;
+      --code: #f2f4f8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.58 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1160px, calc(100vw - 32px));
+      margin: 32px auto 56px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: 34px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 22px;
+      margin-bottom: 14px;
+    }
+
+    h3 {
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      background: var(--code);
+      border-radius: 8px;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      max-width: 920px;
+      font-size: 16px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 3px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 14px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 25px;
+      line-height: 1.1;
+      margin-bottom: 5px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .answer {
+      border-left: 4px solid var(--accent);
+      background: var(--soft);
+      padding: 14px 16px;
+      border-radius: 6px;
+      margin-top: 12px;
+    }
+
+    .warning {
+      border-left: 4px solid var(--warn);
+      background: var(--warn-soft);
+      padding: 14px 16px;
+      border-radius: 6px;
+      margin-top: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      color: var(--muted);
+      background: #fbfcfe;
+      font-weight: 700;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .grid,
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Item Classification Benchmark Report</h1>
+      <p class="subtitle">
+        这份报告解释当前 item-level 分类 benchmark 是怎么设计的、是否包含大类和小类、
+        当前实际评估了什么，以及 legacy embedding 与 Harrier embedding 的结果。
+      </p>
+      <div class="meta">
+        <span class="pill">Branch: llm-memory</span>
+        <span class="pill">Dataset: benchmarks/item_classification_benchmark.csv</span>
+        <span class="pill">Scope: item main_category accuracy</span>
+        <span class="pill">Report date: 2026-07-02</span>
+      </div>
+    </header>
+
+    <section class="section">
+      <h2>Short Answer</h2>
+      <div class="answer">
+        <p>
+          Benchmark 数据集里<strong>同时有大类和小类 gold label</strong>：
+          <code>gold_main_category</code> 和 <code>gold_sub_category</code>。
+        </p>
+        <p>
+          但是当前 benchmark 的<strong>准确率只评估大类</strong>，也就是
+          <code>main_category</code>。小类现在只是先保存在数据集中，方便下一阶段扩展。
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Dataset Design</h2>
+      <div class="grid">
+        <div class="stat">
+          <strong>120</strong>
+          <span>gold-labeled item rows</span>
+        </div>
+        <div class="stat">
+          <strong>12</strong>
+          <span>main categories covered</span>
+        </div>
+        <div class="stat">
+          <strong>10</strong>
+          <span>items per covered main category</span>
+        </div>
+        <div class="stat">
+          <strong>main only</strong>
+          <span>current scoring target</span>
+        </div>
+      </div>
+      <p style="margin-top:16px;">
+        每条 benchmark row 表示一个已经 OCR/receipt extraction 完成后的 item。字段如下：
+      </p>
+      <pre>id, merchant, raw_name, quantity, amount, currency, gold_main_category, gold_sub_category</pre>
+      <p style="margin-top:12px;">
+        当前 benchmark 覆盖了 12 个 main categories，每个 10 条样本：
+      </p>
+      <pre>{
+  "groceries": 10,
+  "dining": 10,
+  "household": 10,
+  "personal_care": 10,
+  "health": 10,
+  "transport": 10,
+  "retail_goods": 10,
+  "digital_subscriptions": 10,
+  "entertainment_leisure": 10,
+  "education_work": 10,
+  "pets": 10,
+  "financial_admin": 10
+}</pre>
+      <div class="warning">
+        <p>
+          完整 taxonomy 有 18 个 main categories。当前 benchmark 还没有覆盖：
+          <code>travel</code>, <code>housing_utilities</code>, <code>children_family</code>,
+          <code>gifts_donations</code>, <code>insurance</code>, <code>other</code>。
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Is It Main Category or Subcategory?</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Level</th>
+            <th>Exists In Dataset?</th>
+            <th>Currently Scored?</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>gold_main_category</code></td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td>All compared models can produce or be mapped to a main-category prediction.</td>
+          </tr>
+          <tr>
+            <td><code>gold_sub_category</code></td>
+            <td>Yes</td>
+            <td>No</td>
+            <td>Legacy embedding and Harrier zero-shot currently only output main categories. Subcategory scoring would be unfair unless every model outputs subcategory.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin-top:12px;">
+        Example row:
+      </p>
+      <pre>{
+  "merchant": "REWE",
+  "raw_name": "ZAHNCREME",
+  "gold_main_category": "personal_care",
+  "gold_sub_category": "personal_care.dental_care"
+}</pre>
+    </section>
+
+    <section class="section">
+      <h2>Models Compared</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Input</th>
+            <th>Method</th>
+            <th>Output Evaluated</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Legacy embedding</td>
+            <td><code>merchant</code> only</td>
+            <td>Existing SentenceTransformer nearest-centroid classifier from <code>dataset/centroids.json</code>, then mapped from old transaction categories to taxonomy main categories.</td>
+            <td><code>main_category</code></td>
+          </tr>
+          <tr>
+            <td>Harrier 0.6B</td>
+            <td><code>merchant + raw_name + amount</code></td>
+            <td><code>microsoft/harrier-oss-v1-0.6b</code> as zero-shot embedding classifier against taxonomy main-category descriptions, with merchant-focused candidate narrowing.</td>
+            <td><code>main_category</code></td>
+          </tr>
+          <tr>
+            <td>Legacy embedding auxiliary</td>
+            <td><code>merchant + raw_name</code></td>
+            <td>Same old centroids, but item text is appended. This is not the current production path; it is only a diagnostic comparison.</td>
+            <td><code>main_category</code></td>
+          </tr>
+          <tr>
+            <td>Qwen local LLM</td>
+            <td><code>merchant + raw_name + amount</code></td>
+            <td>Runner exists, but full 120-row benchmark was not completed because local Transformers/MPS generation was too slow in this workflow.</td>
+            <td>Not included in final accuracy yet</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Current Results</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Correct</th>
+            <th>Total</th>
+            <th>Accuracy</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Legacy embedding, merchant-only</td>
+            <td>43</td>
+            <td>120</td>
+            <td>35.83%</td>
+            <td>This reflects the old app path: classify merchant name, not item.</td>
+          </tr>
+          <tr>
+            <td>Harrier 0.6B zero-shot, merchant-focus</td>
+            <td>43</td>
+            <td>120</td>
+            <td>35.83%</td>
+            <td>Same overall accuracy as legacy embedding, but different strengths and failures.</td>
+          </tr>
+          <tr>
+            <td>Legacy embedding auxiliary, merchant + item</td>
+            <td>46</td>
+            <td>120</td>
+            <td>38.33%</td>
+            <td>Diagnostic only; not the old app production path.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Per-Category Accuracy</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Main Category</th>
+            <th>Legacy Embedding</th>
+            <th>Harrier 0.6B</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>digital_subscriptions</code></td><td>4/10</td><td>8/10</td></tr>
+          <tr><td><code>dining</code></td><td>9/10</td><td>1/10</td></tr>
+          <tr><td><code>education_work</code></td><td>0/10</td><td>2/10</td></tr>
+          <tr><td><code>entertainment_leisure</code></td><td>0/10</td><td>0/10</td></tr>
+          <tr><td><code>financial_admin</code></td><td>2/10</td><td>5/10</td></tr>
+          <tr><td><code>groceries</code></td><td>3/10</td><td>5/10</td></tr>
+          <tr><td><code>health</code></td><td>10/10</td><td>10/10</td></tr>
+          <tr><td><code>household</code></td><td>0/10</td><td>0/10</td></tr>
+          <tr><td><code>personal_care</code></td><td>1/10</td><td>0/10</td></tr>
+          <tr><td><code>pets</code></td><td>2/10</td><td>8/10</td></tr>
+          <tr><td><code>retail_goods</code></td><td>6/10</td><td>3/10</td></tr>
+          <tr><td><code>transport</code></td><td>6/10</td><td>1/10</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>What This Means</h2>
+      <ul>
+        <li>The current benchmark is an item-level benchmark, but it only scores main-category accuracy for now.</li>
+        <li>The gold dataset already contains subcategory labels, so subcategory evaluation can be added later without rewriting the dataset.</li>
+        <li>Legacy embedding performs well on merchant-driven categories such as <code>dining</code>, <code>health</code>, and <code>transport</code>, but fails on item-purpose distinctions like household vs health or personal care vs health.</li>
+        <li>Harrier zero-shot is stronger on <code>digital_subscriptions</code>, <code>pets</code>, <code>financial_admin</code>, and <code>groceries</code>, but it over-predicts <code>health</code> for many unrelated categories.</li>
+        <li>Neither current embedding approach is enough for robust item-level classification. The next meaningful comparison should be Harrier trained into taxonomy centroids, or Qwen running as a stable local service.</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>Limitations</h2>
+      <ul>
+        <li>The benchmark is hand-authored and balanced. It is useful for model comparison, but it is not yet a production distribution.</li>
+        <li>It covers 12 of the 18 main taxonomy categories.</li>
+        <li>It does not yet score subcategory accuracy.</li>
+        <li>It evaluates each item row independently, not full multi-item receipt context.</li>
+        <li>Qwen full benchmark is not included because the current local generation path is too slow for a 120-row interactive run.</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>Recommended Next Step</h2>
+      <div class="answer">
+        <p>
+          The most useful next benchmark is not another zero-shot similarity test. It should be:
+          <strong>train taxonomy centroids using Harrier embeddings on labeled item examples</strong>,
+          then evaluate both <code>main_category</code> and <code>sub_category</code>.
+        </p>
+        <p>
+          That would be a fairer embedding-model comparison against the current centroid approach, and it would also be fast enough to run locally.
+        </p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
