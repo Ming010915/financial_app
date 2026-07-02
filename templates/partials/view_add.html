@@ -8,6 +8,17 @@
     <h2 id="add-form-title" class="text-xl font-bold text-[#191c1d]">Add Expense</h2>
   </div>
 
+  <!-- Recurring edit scope (only shown when confirming a due reminder) -->
+  <div id="recur-scope-toggle-wrap" class="hidden">
+    <div class="text-xs font-semibold text-[#44474a] dark:text-[#aaa] mb-1.5 uppercase tracking-wider">Apply changes to</div>
+    <div class="flex bg-[#f8f9fa] dark:bg-[#1e1e1e] rounded-2xl p-1 gap-1">
+      <button type="button" id="recur-scope-btn-once" onclick="setRecurringScope('once')"
+              class="flex-1 py-2 rounded-xl text-sm font-bold transition-all">Just this time</button>
+      <button type="button" id="recur-scope-btn-all" onclick="setRecurringScope('all')"
+              class="flex-1 py-2 rounded-xl text-sm font-bold transition-all">This &amp; future</button>
+    </div>
+  </div>
+
   <!-- Receipt reference strip (shown only after scan) -->
   <div id="receipt-ref-strip" class="hidden">
     <button type="button" onclick="toggleReceiptRef()"
@@ -62,6 +73,11 @@
       <div id="f-date-wrap" class="col-span-2">
         <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Date</label>
         <input id="f-date" type="date"
+               class="w-full px-3 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      </div>
+      <div id="f-recur-day-wrap" class="col-span-2 hidden">
+        <label class="block text-sm font-semibold text-[#191c1d] mb-1.5">Day of Month <span class="text-xs text-[#44474a] font-normal">(optional)</span></label>
+        <input id="f-recur-day" type="number" inputmode="numeric" min="1" max="31" placeholder="1"
                class="w-full px-3 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
       </div>
     </div>

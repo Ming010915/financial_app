@@ -101,6 +101,33 @@
   </div>
 </div>
 
+<!-- ── Snooze Recurring Reminder ─────────────────────────────────────────────── -->
+<div id="snooze-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center px-6"
+     style="background:rgba(0,0,0,0.45)">
+  <div class="bg-white rounded-3xl shadow-xl w-full max-w-xs p-6 space-y-4 fade-in">
+    <div class="text-base font-bold text-[#191c1d]">Remind me later</div>
+    <div class="text-sm text-[#44474a]">Snooze this reminder for:</div>
+    <div class="grid grid-cols-3 gap-2">
+      <button onclick="snoozeConfirm(1)"
+              class="py-2 rounded-xl border border-[#c5c6ca] text-sm font-semibold text-[#191c1d] hover:bg-[#f8f9fa] transition-colors">1 day</button>
+      <button onclick="snoozeConfirm(3)"
+              class="py-2 rounded-xl border border-[#c5c6ca] text-sm font-semibold text-[#191c1d] hover:bg-[#f8f9fa] transition-colors">3 days</button>
+      <button onclick="snoozeConfirm(7)"
+              class="py-2 rounded-xl border border-[#c5c6ca] text-sm font-semibold text-[#191c1d] hover:bg-[#f8f9fa] transition-colors">1 week</button>
+    </div>
+    <div class="flex items-center gap-2">
+      <input id="snooze-custom-days" type="number" inputmode="numeric" min="1" max="90" placeholder="Custom days"
+             class="flex-1 min-w-0 px-3 py-2.5 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <button onclick="snoozeConfirmCustom()"
+              class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-xl text-sm font-bold transition-colors flex-shrink-0">Set</button>
+    </div>
+    <button onclick="snoozeCancel()"
+            class="w-full py-2.5 rounded-2xl border border-[#c5c6ca] text-sm font-semibold text-[#44474a] hover:bg-[#f8f9fa] transition-colors">
+      Cancel
+    </button>
+  </div>
+</div>
+
 <!-- ── Notifications Panel ────────────────────────────────────────────────────── -->
 <div id="notifications-overlay" class="hidden fixed inset-0 z-40 flex items-end justify-center"
      style="background:rgba(0,0,0,0.5)">

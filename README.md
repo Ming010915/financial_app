@@ -15,7 +15,7 @@ Browser (SPA)  ── localStorage ───────────────
     ▼
 Flask backend  (app.py)
     ├── services/classifier.py
-    │     • SentenceTransformer (paraphrase-multilingual-mpnet-base-v2)
+    │     • SentenceTransformer (microsoft/harrier-oss-v1-0.6b) [1]
     │     • Nearest-centroid + cosine similarity
     │     • Online (incremental) centroid updates
     ├── services/receipt.py   ── Gemini 2.5 Flash            (receipt OCR → JSON)
@@ -32,6 +32,8 @@ Flask backend  (app.py)
 The server is **mostly stateless with respect to user data**. Expenses, personalised centroids, overrides, budgets, spending summaries, and home layout all live in the browser's `localStorage`. The server ships a read-only *base model* (`dataset/centroids.json`) that new clients download on first run.
 
 The AI spending overview uses a **client-side RAG pipeline**: monthly summaries are computed and stored in `localStorage`, similarity search runs in the browser, and only the Gemini generation call goes to the server.
+
+[1] Selected by comparing candidates from the [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard) against leave-one-out classification accuracy on `dataset/monthly_spending_2024.csv`, not by MTEB rank alone — see `THRESHOLD`/`ASK_BELOW` comments in [config.py](config.py) for the calibration data.
 
 ---
 
@@ -59,7 +61,7 @@ The AI spending overview uses a **client-side RAG pipeline**: monthly summaries 
 
 ### 1. Server Startup
 
-1. The `paraphrase-multilingual-mpnet-base-v2` SentenceTransformer model is loaded into memory.
+1. The `microsoft/harrier-oss-v1-0.6b` SentenceTransformer model is loaded into memory.
 2. If `dataset/centroids.json` exists, base centroids and overrides are loaded from it.
 3. Otherwise, if `dataset/monthly_spending_2024.csv` exists, base centroids are computed (merchant names → embeddings → per-category mean vectors) and saved to JSON.
 4. Otherwise the classifier starts empty (every merchant falls through to "Others").

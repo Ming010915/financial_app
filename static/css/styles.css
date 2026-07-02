@@ -17,6 +17,18 @@ body { font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: n
 
 .bar-fill { transition: height 0.7s cubic-bezier(0.4,0,0.2,1), width 0.7s cubic-bezier(0.4,0,0.2,1); }
 
+/* Bell icon: brief oscillation, repeating with a pause, while notifications are pending */
+.bell-shake { animation: bellRing 3.2s ease-in-out infinite; transform-origin: 50% 4px; }
+@keyframes bellRing {
+  0%, 62%, 100% { transform: rotate(0deg); }
+  65%  { transform: rotate(14deg); }
+  68%  { transform: rotate(-11deg); }
+  71%  { transform: rotate(8deg); }
+  74%  { transform: rotate(-6deg); }
+  77%  { transform: rotate(3deg); }
+  80%  { transform: rotate(0deg); }
+}
+
 /* ── Home widget layout ─────────────────────────────────────────────────── */
 [data-widget-hidden] { display: none !important; }
 [data-drag-handle] { touch-action: none; cursor: grab; }

@@ -4,6 +4,7 @@ function getExpenses() {
 }
 function saveExpenses(exps) {
   localStorage.setItem('flo_expenses', JSON.stringify(exps));
+  localStorage.removeItem('flo_ai_overview_cache');
 }
 function getCentroids() {
   const raw = localStorage.getItem('flo_centroids');
@@ -404,6 +405,8 @@ const state = {
   isIncome:         false,
   isRecurring:      false,
   recurringEditId:  null,
+  recurringConfirmMode: false,
+  recurringScope:   'once',
   isReceipt:        false,
   isVoice:          false,
   receiptFile:         null,
@@ -1328,21 +1331,35 @@ function prepareAddForm() {
   setFormType('expense');
 }
 
-function setRecurringMode(item) {
-  state.isRecurring     = true;
-  state.recurringEditId = item ? item.id : null;
+function setRecurringMode(item, confirmMode = false) {
+  state.isRecurring          = true;
+  state.recurringEditId      = item ? item.id : null;
+  state.recurringConfirmMode = confirmMode;
 
   const dateWrap = document.getElementById('f-date-wrap');
   if (dateWrap) dateWrap.classList.add('hidden');
+  const recurDayWrap = document.getElementById('f-recur-day-wrap');
+  if (recurDayWrap) recurDayWrap.classList.remove('hidden');
   document.getElementById('f-location-wrap').classList.add('hidden');
   document.getElementById('items-section').classList.add('hidden');
   const rateRow = document.getElementById('f-rate-row');
   if (rateRow) rateRow.style.display = 'none';
 
-  document.getElementById('add-form-title').textContent  = item ? 'Edit Recurring Expense' : 'Add Recurring Expense';
-  document.getElementById('save-label').textContent       = item ? 'Save Changes' : 'Add Recurring Expense';
+  document.getElementById('add-form-title').textContent  = confirmMode ? 'Confirm Recurring Expense' : (item ? 'Edit Recurring Expense' : 'Add Recurring Expense');
   const backBtn = document.getElementById('add-back-btn');
   if (backBtn) backBtn.setAttribute('onclick', "showView('recurring')");
+
+  const scopeWrap = document.getElementById('recur-scope-toggle-wrap');
+  if (confirmMode) {
+    scopeWrap?.classList.remove('hidden');
+    setRecurringScope('once'); // default to the safer, narrower choice
+  } else {
+    scopeWrap?.classList.add('hidden');
+    document.getElementById('save-label').textContent = item ? 'Save Changes' : 'Add Recurring Expense';
+  }
+
+  const dayInput = document.getElementById('f-recur-day');
+  if (dayInput) dayInput.value = item && item.day_of_month ? item.day_of_month : '';
 
   if (item) {
     document.getElementById('f-merchant').value          = item.merchant;
@@ -1353,6 +1370,20 @@ function setRecurringMode(item) {
     renderCatButtons(item.category);
     renderPaymentButtons(item.payment_method || null, 'payment-buttons');
   }
+}
+
+function setRecurringScope(scope) {
+  state.recurringScope = scope;
+  const onceBtn = document.getElementById('recur-scope-btn-once');
+  const allBtn  = document.getElementById('recur-scope-btn-all');
+  if (onceBtn && allBtn) {
+    const activeCls   = 'flex-1 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#141414] text-[#006b55] dark:text-[#6dfad2] shadow-sm transition-all';
+    const inactiveCls = 'flex-1 py-2 rounded-xl text-sm font-bold text-[#44474a] dark:text-[#aaa] transition-all';
+    onceBtn.className = scope === 'once' ? activeCls : inactiveCls;
+    allBtn.className  = scope === 'all'  ? activeCls : inactiveCls;
+  }
+  const saveLabel = document.getElementById('save-label');
+  if (saveLabel) saveLabel.textContent = scope === 'once' ? 'Confirm — this time only' : 'Confirm — this & future';
 }
 
 function setFormType(type) {
@@ -1940,15 +1971,25 @@ async function retryPendingScan(id) {
 
 // ── Notifications ─────────────────────────────────────────────────────────────
 
+const NOTIF_BELL_HIGHLIGHT_CLASSES = ['bg-[#f0fdf9]', 'text-[#006b55]'];
+
 function updateNotificationBadge() {
-  const badge = document.getElementById('notif-badge');
+  const badge   = document.getElementById('notif-badge');
+  const bellBtn = document.getElementById('notif-bell-btn');
+  const bellIcon = document.getElementById('notif-bell-icon');
   if (!badge) return;
   const readyCount = getPendingScans().filter(s => s.status === 'ready').length;
-  if (readyCount > 0) {
-    badge.textContent = readyCount > 9 ? '9+' : String(readyCount);
+  const dueCount   = getDueRecurring().length;
+  const total      = readyCount + dueCount;
+  if (total > 0) {
+    badge.textContent = total > 9 ? '9+' : String(total);
     badge.classList.remove('hidden');
+    bellIcon?.classList.add('bell-shake');
+    bellBtn?.classList.add(...NOTIF_BELL_HIGHLIGHT_CLASSES);
   } else {
     badge.classList.add('hidden');
+    bellIcon?.classList.remove('bell-shake');
+    bellBtn?.classList.remove(...NOTIF_BELL_HIGHLIGHT_CLASSES);
   }
 }
 
@@ -1962,23 +2003,24 @@ function closeNotifications() {
 }
 
 function renderNotifications() {
-  const scans = getPendingScans();
+  const scans        = getPendingScans();
+  const dueRecurring = getDueRecurring();
   const content = document.getElementById('notifications-content');
   const clearBtn = document.getElementById('notif-clear-btn');
   if (!content) return;
 
-  if (scans.length === 0) {
+  if (scans.length === 0 && dueRecurring.length === 0) {
     clearBtn.classList.add('hidden');
     content.innerHTML = `
       <div class="flex flex-col items-center justify-center py-16 gap-3 text-center">
         <div class="w-16 h-16 rounded-full bg-[#f0fdf9] flex items-center justify-center text-3xl">🔔</div>
         <div class="text-sm font-semibold text-[#191c1d]">No notifications</div>
-        <div class="text-xs text-[#44474a]">Completed receipt scans will appear here</div>
+        <div class="text-xs text-[#44474a]">Completed receipt scans and due recurring bills will appear here</div>
       </div>`;
     return;
   }
 
-  clearBtn.classList.remove('hidden');
+  clearBtn.classList.toggle('hidden', scans.length === 0);
 
   const ready      = scans.filter(s => s.status === 'ready');
   const processing = scans.filter(s => s.status === 'processing');
@@ -1986,6 +2028,12 @@ function renderNotifications() {
 
   let html = '';
 
+  if (dueRecurring.length) {
+    html += `<div>
+      <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-2">Recurring Due</div>
+      <div class="space-y-2">${dueRecurring.map(recurringNotifCard).join('')}</div>
+    </div>`;
+  }
   if (ready.length) {
     html += `<div>
       <div class="text-[10px] font-bold text-[#44474a] uppercase tracking-wider mb-2">Ready to Review</div>
@@ -2072,6 +2120,85 @@ function notifCard(scan) {
     </div>`;
   }
   return '';
+}
+
+function recurringNotifCard(r) {
+  const col    = catColor(r.category);
+  const defCur = localStorage.getItem('defaultCurrency') || 'EUR';
+  return `<div class="flex items-center gap-3 p-3 bg-[#f0fdf9] border border-[#6dfad2] rounded-2xl">
+    <div class="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 text-xl" style="background:${catBg(col)}">🔁</div>
+    <div class="flex-1 min-w-0">
+      <div class="text-sm font-bold text-[#191c1d] truncate">${esc(r.merchant)}</div>
+      <div class="text-xs text-[#44474a]">${fmtAmount(r.amount, r.currency)}${r.currency !== defCur ? ' · ' + r.currency : ''} · ${esc(r.category)}</div>
+      <div class="flex items-center gap-1.5 mt-2">
+        <button onclick="event.stopPropagation();notifConfirmRecurring('${r.id}')"
+          class="text-xs font-bold text-white bg-[#006b55] hover:bg-[#004d3f] px-2.5 py-1 rounded-xl flex-shrink-0 whitespace-nowrap transition-colors">Confirm</button>
+        <button onclick="event.stopPropagation();notifModifyRecurring('${r.id}')"
+          class="text-xs font-bold text-[#006b55] px-2.5 py-1 rounded-xl border border-[#006b55] flex-shrink-0 whitespace-nowrap">Modify</button>
+        <button onclick="event.stopPropagation();notifSnoozeRecurring('${r.id}')"
+          class="text-xs font-semibold text-[#44474a] px-2.5 py-1 rounded-xl border border-[#c5c6ca] flex-shrink-0 whitespace-nowrap">Remind later</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function notifConfirmRecurring(id) {
+  const list = getRecurring();
+  const r = list.find(x => x.id === id);
+  if (!r) return;
+  _recordRecurringExpense(r);
+  saveRecurring(list);
+  showToast(`${r.merchant} added to this month's expenses`);
+  renderNotifications();
+  updateNotificationBadge();
+  if (document.getElementById('view-recurring')?.classList.contains('active')) loadRecurringView();
+  if (document.getElementById('view-home')?.classList.contains('active'))      loadHome();
+  if (document.getElementById('view-history')?.classList.contains('active'))  loadHistory();
+}
+
+function notifModifyRecurring(id) {
+  closeNotifications();
+  openRecurringForm(id, true);
+}
+
+let _snoozeTargetId = null;
+
+function notifSnoozeRecurring(id) {
+  _snoozeTargetId = id;
+  const customInput = document.getElementById('snooze-custom-days');
+  if (customInput) customInput.value = '';
+  document.getElementById('snooze-overlay').classList.remove('hidden');
+}
+
+function snoozeCancel() {
+  document.getElementById('snooze-overlay').classList.add('hidden');
+  _snoozeTargetId = null;
+}
+
+function snoozeConfirm(days) {
+  _applySnooze(_snoozeTargetId, days);
+  snoozeCancel();
+}
+
+function snoozeConfirmCustom() {
+  const raw  = document.getElementById('snooze-custom-days')?.value;
+  const days = Math.max(1, Math.min(90, parseInt(raw, 10) || 0));
+  if (!days) { showToast('Enter a valid number of days', true); return; }
+  _applySnooze(_snoozeTargetId, days);
+  snoozeCancel();
+}
+
+function _applySnooze(id, days) {
+  const list = getRecurring();
+  const r = list.find(x => x.id === id);
+  if (!r) return;
+  const until = new Date();
+  until.setDate(until.getDate() + days);
+  r.snoozed_until = until.toISOString().split('T')[0];
+  saveRecurring(list);
+  showToast(`Reminder snoozed for ${days} day${days > 1 ? 's' : ''}`);
+  renderNotifications();
+  updateNotificationBadge();
 }
 
 function notifOpenScan(id) {
@@ -2208,6 +2335,8 @@ function resetForm() {
   state.isIncome         = false;
   state.isRecurring      = false;
   state.recurringEditId  = null;
+  state.recurringConfirmMode = false;
+  state.recurringScope   = 'once';
   state.selectedCategory = null;
   state.originalCategory = null;
   state.selectedPayment  = null;
@@ -2219,6 +2348,11 @@ function resetForm() {
 
   const dateWrap = document.getElementById('f-date-wrap');
   if (dateWrap) dateWrap.classList.remove('hidden');
+  const recurDayWrap = document.getElementById('f-recur-day-wrap');
+  if (recurDayWrap) recurDayWrap.classList.add('hidden');
+  const dayInput = document.getElementById('f-recur-day');
+  if (dayInput) dayInput.value = '';
+  document.getElementById('recur-scope-toggle-wrap')?.classList.add('hidden');
   document.getElementById('f-location-wrap').classList.remove('hidden');
   const backBtn = document.getElementById('add-back-btn');
   if (backBtn) backBtn.setAttribute('onclick', "showView('add-method')");
@@ -2966,38 +3100,21 @@ async function saveExpense() {
     }
 
     if (state.isRecurring) {
-      const list = getRecurring();
-      if (state.recurringEditId) {
-        const item = list.find(r => r.id === state.recurringEditId);
-        if (item) {
-          item.merchant       = merchant;
-          item.amount         = Math.round(parseFloat(amount) * 100) / 100;
-          item.currency       = currency;
-          item.category       = category;
-          item.payment_method = payment_method;
-          item.notes          = notes;
-        }
-      } else {
-        list.push({
-          id:             generateId(),
-          merchant,
-          amount:         Math.round(parseFloat(amount) * 100) / 100,
-          currency,
-          category,
-          payment_method,
-          notes,
-          enabled:        true,
-          last_generated: '',
-        });
-      }
-      saveRecurring(list);
-      if (!state.recurringEditId) checkRecurringExpenses();
-      showToast(state.recurringEditId ? 'Recurring expense updated' : 'Recurring expense added');
+      const dayRaw = document.getElementById('f-recur-day')?.value;
+      const dayVal = dayRaw ? Math.min(31, Math.max(1, parseInt(dayRaw, 10) || 1)) : null;
+      const fields = { merchant, amount: Math.round(parseFloat(amount) * 100) / 100, currency, category, payment_method, notes, day_of_month: dayVal };
+
       btn.disabled = false;
       spinner.classList.add('hidden');
       label.textContent = 'Add Recurring Expense';
-      resetForm();
-      showView('recurring');
+
+      if (state.recurringConfirmMode && state.recurringEditId) {
+        // Scope (just this time vs. this & future) was already picked via
+        // the toggle at the top of the form — no extra prompt needed here.
+        _finishRecurringSave(fields, state.recurringScope === 'all' ? 'all' : 'once');
+      } else {
+        _finishRecurringSave(fields, state.recurringEditId ? 'all' : 'create');
+      }
       return;
     }
 
@@ -3972,6 +4089,15 @@ async function loadAiOverview(breakdown, defCur) {
   const el = document.getElementById("ai-overview-text");
   if (!el) return;
 
+  const cached = JSON.parse(localStorage.getItem('flo_ai_overview_cache') || 'null');
+  if (cached) {
+    document.getElementById("ai-overview-card").classList.remove("hidden");
+    el.textContent = cached.overview;
+    const basedOnEl = document.getElementById("ai-overview-based-on");
+    if (basedOnEl) basedOnEl.textContent = cached.basedOnText;
+    return;
+  }
+
   let envKeySet = false;
   try {
     const s = await (await fetch("/api/settings")).json();
@@ -4013,12 +4139,13 @@ async function loadAiOverview(breakdown, defCur) {
     el.textContent = data.overview;
 
     // Show which months it compared against, if any
+    const basedOnText = retrieved.length
+      ? `Compared to: ${retrieved.map(s => s.period).join(", ")}`
+      : "No historical data yet — keep tracking to unlock comparisons!";
     const basedOnEl = document.getElementById("ai-overview-based-on");
-    if (basedOnEl) {
-      basedOnEl.textContent = retrieved.length
-        ? `Compared to: ${retrieved.map(s => s.period).join(", ")}`
-        : "No historical data yet — keep tracking to unlock comparisons!";
-    }
+    if (basedOnEl) basedOnEl.textContent = basedOnText;
+
+    localStorage.setItem('flo_ai_overview_cache', JSON.stringify({ overview: data.overview, basedOnText }));
   } catch (e) {
     el.textContent = "Couldn't load insight: " + e.message;
   }
@@ -4917,46 +5044,102 @@ function onImportFile(event) {
 }
 
 // ── Recurring Expenses ────────────────────────────────────────────────────────
-function checkRecurringExpenses() {
-  const now = new Date();
-  const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const firstOfMonth = `${yearMonth}-01`;
+function clampDayOfMonth(yearMonth, day) {
+  const d = parseInt(day, 10);
+  const [y, m] = yearMonth.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  if (!d || isNaN(d) || d < 1) return 1;
+  return Math.min(d, daysInMonth);
+}
 
-  const recurring = getRecurring();
-  if (!recurring.length) return;
+// Recurring items awaiting user confirmation this month (due, not yet recorded, not snoozed).
+function getDueRecurring() {
+  const now         = new Date();
+  const yearMonth    = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const todayStr     = now.toISOString().split('T')[0];
+  const todayDay     = now.getDate();
+  return getRecurring().filter(r => {
+    if (r.enabled === false) return false;
+    if (r.last_generated === yearMonth) return false;
+    if (r.snoozed_until && r.snoozed_until > todayStr) return false;
+    return todayDay >= clampDayOfMonth(yearMonth, r.day_of_month);
+  });
+}
+
+// Records this month's expense from a recurring template (or a one-off
+// `overrideFields` set, for a "just this time" edit) and marks the template
+// generated for this month. Does NOT persist `r` itself — caller saves it.
+function _recordRecurringExpense(r, overrideFields = null) {
+  const fields    = overrideFields || r;
+  const now       = new Date();
+  const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const day       = clampDayOfMonth(yearMonth, fields.day_of_month);
+  const dateStr   = `${yearMonth}-${String(day).padStart(2, '0')}`;
 
   const expenses = getExpenses();
-  let added = 0;
+  expenses.push({
+    id:             generateId(),
+    date:           dateStr,
+    merchant:       fields.merchant,
+    amount:         fields.amount,
+    currency:       fields.currency,
+    rate:           null,
+    category:       fields.category,
+    confidence:     1.0,
+    payment_method: fields.payment_method || '',
+    notes:          fields.notes || '',
+    location:       '',
+    items:          [],
+    source:         'recurring',
+    type:           'expense',
+    created_at:     new Date().toISOString(),
+  });
+  saveExpenses(expenses);
+  r.last_generated = yearMonth;
+  delete r.snoozed_until;
+}
 
-  for (const r of recurring) {
-    if (r.last_generated === yearMonth) continue;
+// Due recurring expenses no longer auto-insert — they surface in the
+// notifications panel and only become real expenses once the user confirms.
+function checkRecurringExpenses() {
+  updateNotificationBadge();
+}
 
-    expenses.push({
-      id:             generateId(),
-      date:           firstOfMonth,
-      merchant:       r.merchant,
-      amount:         r.amount,
-      currency:       r.currency,
-      rate:           null,
-      category:       r.category,
-      confidence:     1.0,
-      payment_method: r.payment_method || '',
-      notes:          r.notes || '',
-      location:       '',
-      items:          [],
-      source:         'recurring',
-      type:           'expense',
-      created_at:     new Date().toISOString(),
-    });
-    r.last_generated = yearMonth;
-    added++;
+// Persists a recurring-form submission. `mode` is 'create' (new template),
+// 'all' (update template, and — in confirm mode — record this month using
+// the updated template), or 'once' (record this month with `fields` but
+// leave the stored template untouched).
+function _finishRecurringSave(fields, mode) {
+  const list = getRecurring();
+  let item, toastMsg;
+
+  if (mode === 'create') {
+    item = { id: generateId(), ...fields, enabled: true, last_generated: '' };
+    list.push(item);
+    toastMsg = 'Recurring expense added';
+  } else {
+    item = list.find(r => r.id === state.recurringEditId);
+    if (!item) { resetForm(); showView('recurring'); return; }
+
+    if (mode === 'once') {
+      _recordRecurringExpense(item, fields);
+      toastMsg = `${fields.merchant} added to this month's expenses (this time only)`;
+    } else {
+      Object.assign(item, fields);
+      if (state.recurringConfirmMode) {
+        _recordRecurringExpense(item);
+        toastMsg = `${item.merchant} added to this month's expenses`;
+      } else {
+        toastMsg = 'Recurring expense updated';
+      }
+    }
   }
 
-  if (added > 0) {
-    saveExpenses(expenses);
-    saveRecurring(recurring);
-    showToast(`${added} recurring expense${added > 1 ? 's' : ''} added for this month`);
-  }
+  saveRecurring(list);
+  updateNotificationBadge();
+  showToast(toastMsg);
+  resetForm();
+  showView('recurring');
 }
 
 function loadRecurringView() {
@@ -4979,7 +5162,7 @@ function loadRecurringView() {
               <span class="px-2 py-0.5 rounded-full text-[10px] font-bold text-white flex-shrink-0"
                     style="background:${col}">${catEmoji(r.category)} ${esc(r.category)}</span>
             </div>
-            <div class="text-xs text-[#44474a]">${fmtAmount(r.amount, r.currency)}${r.currency !== defCur ? ' · ' + r.currency : ''}${r.payment_method ? ' · ' + esc(r.payment_method) : ''}${r.notes ? ' · ' + esc(r.notes) : ''}</div>
+            <div class="text-xs text-[#44474a]">${fmtAmount(r.amount, r.currency)}${r.currency !== defCur ? ' · ' + r.currency : ''} · Day ${r.day_of_month || 1}${r.payment_method ? ' · ' + esc(r.payment_method) : ''}${r.notes ? ' · ' + esc(r.notes) : ''}</div>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             <button onclick="openRecurringForm('${r.id}')"
@@ -4995,7 +5178,7 @@ function loadRecurringView() {
 function deleteRecurringItem(id) {
   showConfirm({
     title:   'Delete recurring expense?',
-    message: 'This will stop future auto-adds. Past expenses are kept.',
+    message: 'This will stop future reminders. Past expenses are kept.',
     okLabel: 'Delete',
     okColor: 'bg-red-500 hover:bg-red-600',
     onOk:    () => { saveRecurring(getRecurring().filter(r => r.id !== id)); loadRecurringView(); },
@@ -5003,18 +5186,26 @@ function deleteRecurringItem(id) {
 }
 
 
-function openRecurringForm(id) {
+function openRecurringForm(id, confirmMode = false) {
   const item = id ? getRecurring().find(r => r.id === id) : null;
   showView('add');
-  setRecurringMode(item);
+  setRecurringMode(item, confirmMode);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function hydrateCentroids() {
-  if (getCentroids()) return;
+  const cached = getCentroids();
   try {
     const r = await fetch("/api/base_centroids");
-    if (r.ok) saveCentroids(await r.json());
+    if (!r.ok) return;
+    const base = await r.json();
+    // Cached centroids were built with a different embedding model or
+    // encoding version (e.g. after a server-side model swap or a
+    // preprocessing fix) — their vectors are incompatible with fresh
+    // embeddings, so drop them and start over from the base model.
+    if (!cached || cached.model !== base.model || cached.embedding_version !== base.embedding_version) {
+      saveCentroids(base);
+    }
   } catch (e) { console.warn("base centroid fetch failed:", e); }
 }
 
