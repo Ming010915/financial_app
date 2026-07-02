@@ -21,6 +21,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET = REPO_ROOT / "benchmarks" / "item_classification_benchmark.csv"
 DEFAULT_OUTPUT = REPO_ROOT / "reports" / "item_classification_benchmark_results.json"
+DEFAULT_TAXONOMY_SUMMARY = REPO_ROOT / "taxonomy" / "receipt_item_taxonomy_summary.json"
 ALLOWED_MAIN_CATEGORIES = {
     "groceries",
     "dining",
@@ -76,9 +77,18 @@ TAXONOMY_MAIN_DESCRIPTIONS = {
 }
 
 
-def load_cases(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
+def load_cases(path: Path, limit: int | None = None, sample_per_category: int | None = None) -> list[dict[str, Any]]:
     with path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
+    if sample_per_category is not None:
+        selected = []
+        counts: Counter[str] = Counter()
+        for row in rows:
+            category = row["gold_main_category"]
+            if counts[category] < sample_per_category:
+                selected.append(row)
+                counts[category] += 1
+        rows = selected
     if limit is not None:
         rows = rows[:limit]
     for row in rows:
@@ -87,12 +97,33 @@ def load_cases(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
     return rows
 
 
+def load_taxonomy_summary(path: Path = DEFAULT_TAXONOMY_SUMMARY) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def subcategories_by_main(taxonomy_summary: dict[str, Any]) -> dict[str, list[str]]:
+    return {
+        row["id"]: row["sub_categories"]
+        for row in taxonomy_summary["main_categories"]
+    }
+
+
+def benchmark_input_text(case: dict[str, Any], input_mode: str) -> str:
+    if input_mode == "merchant_item":
+        return f"{case['merchant']} {case['raw_name']}"
+    if input_mode == "merchant":
+        return case["merchant"]
+    raise ValueError(f"Unsupported input_mode: {input_mode}")
+
+
 def summarize_predictions(cases: list[dict[str, Any]], predictions: list[dict[str, Any]]) -> dict[str, Any]:
     by_id = {prediction["id"]: prediction for prediction in predictions}
     total = len(cases)
     correct = 0
     by_category: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "correct": 0})
     confusion: Counter[tuple[str, str]] = Counter()
+    sub_total = 0
+    sub_correct = 0
 
     rows = []
     for case in cases:
@@ -104,6 +135,9 @@ def summarize_predictions(cases: list[dict[str, Any]], predictions: list[dict[st
         by_category[gold_main]["total"] += 1
         by_category[gold_main]["correct"] += int(is_correct)
         confusion[(gold_main, pred_main)] += 1
+        if "pred_sub_category" in prediction:
+            sub_total += 1
+            sub_correct += int(prediction.get("pred_sub_category") == case["gold_sub_category"])
         rows.append(
             {
                 **case,
@@ -120,7 +154,7 @@ def summarize_predictions(cases: list[dict[str, Any]], predictions: list[dict[st
         }
         for category, values in sorted(by_category.items())
     }
-    return {
+    summary = {
         "total": total,
         "correct": correct,
         "accuracy": round(correct / total, 4) if total else 0.0,
@@ -131,6 +165,11 @@ def summarize_predictions(cases: list[dict[str, Any]], predictions: list[dict[st
         ],
         "predictions": rows,
     }
+    if sub_total:
+        summary["sub_category_total"] = sub_total
+        summary["sub_category_correct"] = sub_correct
+        summary["sub_category_accuracy"] = round(sub_correct / sub_total, 4)
+    return summary
 
 
 def run_embedding_baseline(cases: list[dict[str, Any]], input_mode: str) -> list[dict[str, Any]]:
@@ -145,10 +184,7 @@ def run_embedding_baseline(cases: list[dict[str, Any]], input_mode: str) -> list
         [np.array(centroid_payload["categories"][category]["centroid"]) for category in category_names]
     )
 
-    texts = [
-        f"{case['merchant']} {case['raw_name']}" if input_mode == "merchant_item" else case["merchant"]
-        for case in cases
-    ]
+    texts = [benchmark_input_text(case, input_mode) for case in cases]
     embeddings = model.encode(texts, normalize_embeddings=True, show_progress_bar=True)
     predictions = []
     for case, text, embedding in zip(cases, texts, embeddings):
@@ -164,7 +200,8 @@ def run_embedding_baseline(cases: list[dict[str, Any]], input_mode: str) -> list
         predictions.append(
             {
                 "id": case["id"],
-                "model": "embedding",
+                "model": "legacy_embedding",
+                "input_mode": input_mode,
                 "embedding_input": text,
                 "legacy_pred": legacy_pred,
                 "pred_main_category": LEGACY_TO_TAXONOMY_MAIN.get(legacy_pred, "other"),
@@ -175,15 +212,12 @@ def run_embedding_baseline(cases: list[dict[str, Any]], input_mode: str) -> list
     return predictions
 
 
-def item_text_for_embedding(case: dict[str, Any]) -> str:
-    return (
-        f"Merchant: {case['merchant']}. "
-        f"Receipt item: {case['raw_name']}. "
-        f"Amount: {case['amount']} {case['currency']}."
-    )
-
-
-def run_harrier_zero_shot(cases: list[dict[str, Any]], model_name: str, candidate_mode: str) -> list[dict[str, Any]]:
+def run_harrier_zero_shot(
+    cases: list[dict[str, Any]],
+    model_name: str,
+    candidate_mode: str,
+    input_mode: str,
+) -> list[dict[str, Any]]:
     sys.path.insert(0, str(REPO_ROOT))
     import numpy as np
     import torch
@@ -197,7 +231,7 @@ def run_harrier_zero_shot(cases: list[dict[str, Any]], model_name: str, candidat
         f"Category: {label_id}. Definition: {TAXONOMY_MAIN_DESCRIPTIONS[label_id]}"
         for label_id in label_ids
     ]
-    item_texts = [item_text_for_embedding(case) for case in cases]
+    item_texts = [benchmark_input_text(case, input_mode) for case in cases]
 
     label_embeddings = model.encode(label_texts, normalize_embeddings=True, show_progress_bar=True)
     item_embeddings = model.encode(item_texts, normalize_embeddings=True, show_progress_bar=True)
@@ -222,6 +256,7 @@ def run_harrier_zero_shot(cases: list[dict[str, Any]], model_name: str, candidat
                 "model": "harrier_zero_shot",
                 "harrier_model": model_name,
                 "candidate_mode": candidate_mode,
+                "input_mode": input_mode,
                 "merchant_type": merchant_context["merchant_type"],
                 "candidate_main_categories": candidate_categories if candidate_mode == "merchant_focus" else [],
                 "embedding_input": text,
@@ -236,21 +271,22 @@ def run_harrier_zero_shot(cases: list[dict[str, Any]], model_name: str, candidat
     return predictions
 
 
-def qwen_prompt(batch: list[dict[str, Any]]) -> str:
+def qwen_prompt(batch: list[dict[str, Any]], taxonomy: dict[str, list[str]]) -> str:
     return f"""
-Classify receipt line items into item taxonomy main_category IDs.
+Classify receipt line items into item taxonomy main_category and sub_category IDs.
 Return strict JSON only. Do not include markdown or explanations.
 
-Allowed main_category values:
-{json.dumps(sorted(ALLOWED_MAIN_CATEGORIES), ensure_ascii=False)}
+Allowed taxonomy:
+{json.dumps(taxonomy, ensure_ascii=False, indent=2)}
 
 Rules:
 - Use merchant only as context.
 - Use item raw_name as the strongest signal.
 - Do not classify all items from the same merchant into one category.
 - Return exactly one prediction for every input id.
-- main_category must be exactly one allowed value.
-- If unclear, use "other".
+- main_category must be exactly one key from the allowed taxonomy.
+- sub_category must be exactly one value under the selected main_category.
+- If unclear, use main_category "other" and sub_category "other.unknown".
 
 Input:
 {json.dumps(batch, ensure_ascii=False, indent=2)}
@@ -261,6 +297,7 @@ Output schema:
     {{
       "id": "string",
       "main_category": "string",
+      "sub_category": "string",
       "confidence": 0.0
     }}
   ]
@@ -268,7 +305,21 @@ Output schema:
 """.strip()
 
 
-def parse_qwen_predictions(raw_text: str, batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def focused_taxonomy_for_qwen_batch(batch: list[dict[str, Any]], taxonomy: dict[str, list[str]]) -> dict[str, list[str]]:
+    focused = []
+    for item in batch:
+        for category in item.get("candidate_main_categories", []):
+            if category in taxonomy:
+                focused.append(category)
+    focused = list(dict.fromkeys([*focused, "other"])) if focused else list(taxonomy)
+    return {category: taxonomy[category] for category in focused}
+
+
+def parse_qwen_predictions(
+    raw_text: str,
+    batch: list[dict[str, Any]],
+    taxonomy: dict[str, list[str]],
+) -> list[dict[str, Any]]:
     sys.path.insert(0, str(REPO_ROOT))
     from scripts.qwen_item_classifier_demo import extract_json
 
@@ -279,8 +330,12 @@ def parse_qwen_predictions(raw_text: str, batch: list[dict[str, Any]]) -> list[d
     for item in batch:
         raw = by_id.get(item["id"], {})
         pred = raw.get("main_category", "other")
-        if pred not in ALLOWED_MAIN_CATEGORIES:
+        if pred not in taxonomy:
             pred = "other"
+        pred_sub = raw.get("sub_category", "other.unknown")
+        if pred_sub not in taxonomy.get(pred, []):
+            pred = "other"
+            pred_sub = "other.unknown"
         confidence = raw.get("confidence", 0.0)
         confidence = confidence if isinstance(confidence, (int, float)) else 0.0
         predictions.append(
@@ -288,18 +343,25 @@ def parse_qwen_predictions(raw_text: str, batch: list[dict[str, Any]]) -> list[d
                 "id": item["id"],
                 "model": "qwen",
                 "pred_main_category": pred,
+                "pred_sub_category": pred_sub,
                 "confidence": round(max(0.0, min(1.0, float(confidence))), 4),
             }
         )
     return predictions
 
 
-def run_qwen(cases: list[dict[str, Any]], model_name: str, batch_size: int, max_new_tokens: int) -> list[dict[str, Any]]:
+def run_qwen(
+    cases: list[dict[str, Any]],
+    model_name: str,
+    batch_size: int,
+    max_new_tokens: int,
+) -> list[dict[str, Any]]:
     sys.path.insert(0, str(REPO_ROOT))
     import torch
     from transformers import AutoModelForMultimodalLM, AutoProcessor
     from scripts.qwen_item_classifier_demo import infer_merchant_context, tensor_dict_to_device
 
+    taxonomy = subcategories_by_main(load_taxonomy_summary())
     device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
     dtype = torch.float16 if device.type == "mps" else torch.float32
     print(f"Loading {model_name} on {device} with {dtype}...", flush=True)
@@ -342,7 +404,7 @@ def run_qwen(cases: list[dict[str, Any]], model_name: str, batch_size: int, max_
                     }
                 ],
             },
-            {"role": "user", "content": [{"type": "text", "text": qwen_prompt(batch)}]},
+            {"role": "user", "content": [{"type": "text", "text": qwen_prompt(batch, focused_taxonomy_for_qwen_batch(batch, taxonomy))}]},
         ]
         kwargs = {
             "add_generation_prompt": True,
@@ -364,7 +426,7 @@ def run_qwen(cases: list[dict[str, Any]], model_name: str, batch_size: int, max_
             )
         prompt_tokens = inputs["input_ids"].shape[-1]
         raw_text = processor.decode(outputs[0][prompt_tokens:], skip_special_tokens=True).strip()
-        all_predictions.extend(parse_qwen_predictions(raw_text, batch))
+        all_predictions.extend(parse_qwen_predictions(raw_text, batch, taxonomy))
 
     return all_predictions
 
@@ -373,8 +435,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run item classification benchmark.")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--models", default="embedding", help="Comma-separated: embedding,harrier,qwen")
+    parser.add_argument(
+        "--models",
+        default="embedding",
+        help=(
+            "Comma-separated: embedding,harrier,qwen,legacy_merchant,legacy_merchant_item,"
+            "harrier_merchant,harrier_merchant_item,five_way"
+        ),
+    )
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--sample-per-category", type=int)
     parser.add_argument("--embedding-input", choices=["merchant", "merchant_item"], default="merchant")
     parser.add_argument("--harrier-model", default="microsoft/harrier-oss-v1-0.6b")
     parser.add_argument("--harrier-candidate-mode", choices=["merchant_focus", "all"], default="merchant_focus")
@@ -384,8 +454,23 @@ def main() -> None:
     args = parser.parse_args()
 
     started_at = time.time()
-    cases = load_cases(args.dataset, args.limit)
+    cases = load_cases(args.dataset, args.limit, args.sample_per_category)
     requested_models = [model.strip() for model in args.models.split(",") if model.strip()]
+    if "five_way" in requested_models:
+        requested_models = [
+            "legacy_merchant",
+            "legacy_merchant_item",
+            "harrier_merchant",
+            "harrier_merchant_item",
+            "qwen",
+        ]
+    elif "embedding_four_way" in requested_models:
+        requested_models = [
+            "legacy_merchant",
+            "legacy_merchant_item",
+            "harrier_merchant",
+            "harrier_merchant_item",
+        ]
     results: dict[str, Any] = {
         "dataset": str(args.dataset.relative_to(REPO_ROOT) if args.dataset.is_relative_to(REPO_ROOT) else args.dataset),
         "scope": "item main_category accuracy",
@@ -402,14 +487,50 @@ def main() -> None:
             **summarize_predictions(cases, embedding_predictions),
         }
 
+    if "legacy_merchant" in requested_models:
+        predictions = run_embedding_baseline(cases, "merchant")
+        results["models"]["legacy_embedding_merchant"] = {
+            "description": "Legacy SentenceTransformer nearest-centroid classifier with merchant-only input.",
+            "input_mode": "merchant",
+            **summarize_predictions(cases, predictions),
+        }
+
+    if "legacy_merchant_item" in requested_models:
+        predictions = run_embedding_baseline(cases, "merchant_item")
+        results["models"]["legacy_embedding_merchant_item"] = {
+            "description": "Legacy SentenceTransformer nearest-centroid classifier with merchant and item text input.",
+            "input_mode": "merchant_item",
+            **summarize_predictions(cases, predictions),
+        }
+
     if "harrier" in requested_models:
-        harrier_predictions = run_harrier_zero_shot(cases, args.harrier_model, args.harrier_candidate_mode)
+        harrier_predictions = run_harrier_zero_shot(cases, args.harrier_model, args.harrier_candidate_mode, "merchant_item")
         results["models"]["harrier"] = {
             "description": "Microsoft Harrier embedding model used as a zero-shot classifier against taxonomy main-category descriptions.",
             "harrier_model": args.harrier_model,
-            "input_mode": "merchant_item_to_label_description_similarity",
+            "input_mode": "merchant_item",
             "candidate_mode": args.harrier_candidate_mode,
             **summarize_predictions(cases, harrier_predictions),
+        }
+
+    if "harrier_merchant" in requested_models:
+        predictions = run_harrier_zero_shot(cases, args.harrier_model, args.harrier_candidate_mode, "merchant")
+        results["models"]["harrier_merchant"] = {
+            "description": "Microsoft Harrier zero-shot classifier with merchant-only input.",
+            "harrier_model": args.harrier_model,
+            "input_mode": "merchant",
+            "candidate_mode": args.harrier_candidate_mode,
+            **summarize_predictions(cases, predictions),
+        }
+
+    if "harrier_merchant_item" in requested_models:
+        predictions = run_harrier_zero_shot(cases, args.harrier_model, args.harrier_candidate_mode, "merchant_item")
+        results["models"]["harrier_merchant_item"] = {
+            "description": "Microsoft Harrier zero-shot classifier with merchant and item text input.",
+            "harrier_model": args.harrier_model,
+            "input_mode": "merchant_item",
+            "candidate_mode": args.harrier_candidate_mode,
+            **summarize_predictions(cases, predictions),
         }
 
     if "qwen" in requested_models:

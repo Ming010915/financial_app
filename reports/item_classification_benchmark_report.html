@@ -325,27 +325,21 @@
         <tbody>
           <tr>
             <td>Legacy embedding</td>
-            <td><code>merchant</code> only</td>
+            <td><code>merchant</code> and <code>merchant raw_name</code></td>
             <td>Existing SentenceTransformer nearest-centroid classifier from <code>dataset/centroids.json</code>, then mapped from old transaction categories to taxonomy main categories.</td>
             <td><code>main_category</code></td>
           </tr>
           <tr>
             <td>Harrier 0.6B</td>
-            <td><code>merchant + raw_name + amount</code></td>
+            <td><code>merchant</code> and <code>merchant raw_name</code></td>
             <td><code>microsoft/harrier-oss-v1-0.6b</code> as zero-shot embedding classifier against taxonomy main-category descriptions, with merchant-focused candidate narrowing.</td>
-            <td><code>main_category</code></td>
-          </tr>
-          <tr>
-            <td>Legacy embedding auxiliary</td>
-            <td><code>merchant + raw_name</code></td>
-            <td>Same old centroids, but item text is appended. This is not the current production path; it is only a diagnostic comparison.</td>
             <td><code>main_category</code></td>
           </tr>
           <tr>
             <td>Qwen local LLM</td>
             <td><code>merchant + raw_name + amount</code></td>
-            <td>Runner exists, but full 120-row benchmark was not completed because local Transformers/MPS generation was too slow in this workflow.</td>
-            <td>Not included in final accuracy yet</td>
+            <td>Prompted local Qwen 4B with focused taxonomy. Full 120-row run is still too slow, so the current report includes a 12-row stratified probe.</td>
+            <td><code>main_category</code> and <code>sub_category</code> on the probe</td>
           </tr>
         </tbody>
       </table>
@@ -356,62 +350,128 @@
       <table>
         <thead>
           <tr>
-            <th>Model</th>
-            <th>Correct</th>
-            <th>Total</th>
-            <th>Accuracy</th>
-            <th>Notes</th>
+            <th>Metric</th>
+            <th>Legacy Embedding<br>merchant</th>
+            <th>Legacy Embedding<br>merchant item</th>
+            <th>Harrier 0.6B<br>merchant</th>
+            <th>Harrier 0.6B<br>merchant item</th>
+            <th>Qwen 4B<br>probe</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>Legacy embedding, merchant-only</td>
-            <td>43</td>
-            <td>120</td>
-            <td>35.83%</td>
-            <td>This reflects the old app path: classify merchant name, not item.</td>
+            <td><code>merchant</code></td>
+            <td>Used</td>
+            <td>Used</td>
+            <td>Used</td>
+            <td>Used</td>
+            <td>Used</td>
           </tr>
           <tr>
-            <td>Harrier 0.6B zero-shot, merchant-focus</td>
-            <td>43</td>
-            <td>120</td>
-            <td>35.83%</td>
-            <td>Same overall accuracy as legacy embedding, but different strengths and failures.</td>
+            <td><code>raw_name</code></td>
+            <td>Not used</td>
+            <td>Used</td>
+            <td>Not used</td>
+            <td>Used</td>
+            <td>Used</td>
           </tr>
           <tr>
-            <td>Legacy embedding auxiliary, merchant + item</td>
-            <td>46</td>
-            <td>120</td>
-            <td>38.33%</td>
-            <td>Diagnostic only; not the old app production path.</td>
+            <td><code>amount</code></td>
+            <td>Not used</td>
+            <td>Not used</td>
+            <td>Not used</td>
+            <td>Not used</td>
+            <td>Used</td>
           </tr>
+          <tr>
+            <td>Coverage</td>
+            <td>120/120</td>
+            <td>120/120</td>
+            <td>120/120</td>
+            <td>120/120</td>
+            <td>12-row stratified probe</td>
+          </tr>
+          <tr>
+            <td>Main accuracy</td>
+            <td>43/120 = 35.83%</td>
+            <td>46/120 = 38.33%</td>
+            <td>56/120 = 46.67%</td>
+            <td>83/120 = 69.17%</td>
+            <td>12/12 = 100.00%</td>
+          </tr>
+          <tr>
+            <td>Subcategory accuracy</td>
+            <td>Not evaluated</td>
+            <td>Not evaluated</td>
+            <td>Not evaluated</td>
+            <td>Not evaluated</td>
+            <td>11/12 = 91.67%</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warning">
+        <p>
+          Qwen 的 12/12 不是 full 120 benchmark。它是每个已覆盖大类抽 1 条的 stratified probe，用来观察 Qwen 4B 是否能做大类和小类。Full 120 条在当前 Transformers/MPS 路径下预计耗时过长。
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Per-Category Accuracy: Full 120 Embedding Runs</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Main Category</th>
+            <th>Legacy: merchant</th>
+            <th>Legacy: merchant item</th>
+            <th>Harrier: merchant</th>
+            <th>Harrier: merchant item</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>digital_subscriptions</code></td><td>4/10</td><td>5/10</td><td>6/10</td><td>9/10</td></tr>
+          <tr><td><code>dining</code></td><td>9/10</td><td>9/10</td><td>9/10</td><td>10/10</td></tr>
+          <tr><td><code>education_work</code></td><td>0/10</td><td>0/10</td><td>3/10</td><td>5/10</td></tr>
+          <tr><td><code>entertainment_leisure</code></td><td>0/10</td><td>0/10</td><td>4/10</td><td>6/10</td></tr>
+          <tr><td><code>financial_admin</code></td><td>2/10</td><td>2/10</td><td>3/10</td><td>6/10</td></tr>
+          <tr><td><code>groceries</code></td><td>3/10</td><td>2/10</td><td>7/10</td><td>6/10</td></tr>
+          <tr><td><code>health</code></td><td>10/10</td><td>9/10</td><td>8/10</td><td>9/10</td></tr>
+          <tr><td><code>household</code></td><td>0/10</td><td>1/10</td><td>0/10</td><td>2/10</td></tr>
+          <tr><td><code>personal_care</code></td><td>1/10</td><td>1/10</td><td>3/10</td><td>9/10</td></tr>
+          <tr><td><code>pets</code></td><td>2/10</td><td>7/10</td><td>7/10</td><td>9/10</td></tr>
+          <tr><td><code>retail_goods</code></td><td>6/10</td><td>3/10</td><td>1/10</td><td>2/10</td></tr>
+          <tr><td><code>transport</code></td><td>6/10</td><td>7/10</td><td>5/10</td><td>10/10</td></tr>
         </tbody>
       </table>
     </section>
 
     <section class="section">
-      <h2>Per-Category Accuracy</h2>
+      <h2>Qwen 4B Subcategory Probe</h2>
+      <p>
+        Qwen was run on 12 stratified examples, one from each covered main category. It got all 12 main categories right and 11 of 12 subcategories right.
+      </p>
       <table>
         <thead>
           <tr>
-            <th>Main Category</th>
-            <th>Legacy Embedding</th>
-            <th>Harrier 0.6B</th>
+            <th>Item</th>
+            <th>Gold</th>
+            <th>Qwen Prediction</th>
+            <th>Result</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td><code>digital_subscriptions</code></td><td>4/10</td><td>8/10</td></tr>
-          <tr><td><code>dining</code></td><td>9/10</td><td>1/10</td></tr>
-          <tr><td><code>education_work</code></td><td>0/10</td><td>2/10</td></tr>
-          <tr><td><code>entertainment_leisure</code></td><td>0/10</td><td>0/10</td></tr>
-          <tr><td><code>financial_admin</code></td><td>2/10</td><td>5/10</td></tr>
-          <tr><td><code>groceries</code></td><td>3/10</td><td>5/10</td></tr>
-          <tr><td><code>health</code></td><td>10/10</td><td>10/10</td></tr>
-          <tr><td><code>household</code></td><td>0/10</td><td>0/10</td></tr>
-          <tr><td><code>personal_care</code></td><td>1/10</td><td>0/10</td></tr>
-          <tr><td><code>pets</code></td><td>2/10</td><td>8/10</td></tr>
-          <tr><td><code>retail_goods</code></td><td>6/10</td><td>3/10</td></tr>
-          <tr><td><code>transport</code></td><td>6/10</td><td>1/10</td></tr>
+          <tr><td><code>MILCH 1.5%</code></td><td><code>groceries / groceries.dairy</code></td><td><code>groceries / groceries.dairy</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>LATTE GRANDE</code></td><td><code>dining / dining.cafe_coffee</code></td><td><code>dining / dining.cafe_coffee</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>WASCHMITTEL</code></td><td><code>household / household.laundry</code></td><td><code>household / household.cleaning</code></td><td>Main correct, sub wrong</td></tr>
+          <tr><td><code>ZAHNCREME</code></td><td><code>personal_care / personal_care.dental_care</code></td><td><code>personal_care / personal_care.dental_care</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>IBUPROFEN</code></td><td><code>health / health.medicine</code></td><td><code>health / health.medicine</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>SUBWAY TICKET</code></td><td><code>transport / transport.public_transport</code></td><td><code>transport / transport.public_transport</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>JACKET</code></td><td><code>retail_goods / retail_goods.clothing</code></td><td><code>retail_goods / retail_goods.clothing</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>MONTHLY SUBSCRIPTION</code></td><td><code>digital_subscriptions / digital_subscriptions.streaming</code></td><td><code>digital_subscriptions / digital_subscriptions.streaming</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>CINEMA TICKET</code></td><td><code>entertainment_leisure / entertainment_leisure.cinema_events</code></td><td><code>entertainment_leisure / entertainment_leisure.cinema_events</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>TUITION FEE</code></td><td><code>education_work / education_work.tuition_courses</code></td><td><code>education_work / education_work.tuition_courses</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>CAT FOOD</code></td><td><code>pets / pets.pet_food</code></td><td><code>pets / pets.pet_food</code></td><td>Main + sub correct</td></tr>
+          <tr><td><code>ACCOUNT FEE</code></td><td><code>financial_admin / financial_admin.bank_fee</code></td><td><code>financial_admin / financial_admin.bank_fee</code></td><td>Main + sub correct</td></tr>
         </tbody>
       </table>
     </section>
@@ -419,11 +479,11 @@
     <section class="section">
       <h2>What This Means</h2>
       <ul>
-        <li>The current benchmark is an item-level benchmark, but it only scores main-category accuracy for now.</li>
-        <li>The gold dataset already contains subcategory labels, so subcategory evaluation can be added later without rewriting the dataset.</li>
-        <li>Legacy embedding performs well on merchant-driven categories such as <code>dining</code>, <code>health</code>, and <code>transport</code>, but fails on item-purpose distinctions like household vs health or personal care vs health.</li>
-        <li>Harrier zero-shot is stronger on <code>digital_subscriptions</code>, <code>pets</code>, <code>financial_admin</code>, and <code>groceries</code>, but it over-predicts <code>health</code> for many unrelated categories.</li>
-        <li>Neither current embedding approach is enough for robust item-level classification. The next meaningful comparison should be Harrier trained into taxonomy centroids, or Qwen running as a stable local service.</li>
+        <li>The full 120-row benchmark currently scores main-category accuracy for embedding models.</li>
+        <li>Using the same input modes matters: Harrier improves from 46.67% with merchant-only input to 69.17% with <code>merchant raw_name</code>.</li>
+        <li>The old legacy centroids barely improve when item text is appended: 35.83% to 38.33%.</li>
+        <li>Qwen looks promising on a small stratified probe: 100% main-category and 91.67% subcategory accuracy, but it is not yet a full benchmark result.</li>
+        <li>The practical blocker for Qwen is runtime, not benchmark design. It needs a warm local service or faster inference path before running all 120 rows comfortably.</li>
       </ul>
     </section>
 
@@ -432,9 +492,9 @@
       <ul>
         <li>The benchmark is hand-authored and balanced. It is useful for model comparison, but it is not yet a production distribution.</li>
         <li>It covers 12 of the 18 main taxonomy categories.</li>
-        <li>It does not yet score subcategory accuracy.</li>
+        <li>Full 120-row scoring does not yet include subcategory accuracy for all models.</li>
         <li>It evaluates each item row independently, not full multi-item receipt context.</li>
-        <li>Qwen full benchmark is not included because the current local generation path is too slow for a 120-row interactive run.</li>
+        <li>Qwen full benchmark is not included because the current local generation path is too slow for a 120-row interactive run; only a 12-row stratified probe is included.</li>
       </ul>
     </section>
 
@@ -442,9 +502,10 @@
       <h2>Recommended Next Step</h2>
       <div class="answer">
         <p>
-          The most useful next benchmark is not another zero-shot similarity test. It should be:
-          <strong>train taxonomy centroids using Harrier embeddings on labeled item examples</strong>,
-          then evaluate both <code>main_category</code> and <code>sub_category</code>.
+          The most useful next benchmark is:
+          <strong>train taxonomy centroids using Harrier embeddings on labeled item examples</strong>
+          and run Qwen through a warm local service. Then evaluate both <code>main_category</code>
+          and <code>sub_category</code> on the same full 120-row dataset.
         </p>
         <p>
           That would be a fairer embedding-model comparison against the current centroid approach, and it would also be fast enough to run locally.

@@ -1,0 +1,339 @@
+{
+  "dataset": "benchmarks/item_classification_benchmark.csv",
+  "scope": "item main_category accuracy",
+  "gold_count": 12,
+  "gold_distribution": {
+    "groceries": 1,
+    "dining": 1,
+    "household": 1,
+    "personal_care": 1,
+    "health": 1,
+    "transport": 1,
+    "retail_goods": 1,
+    "digital_subscriptions": 1,
+    "entertainment_leisure": 1,
+    "education_work": 1,
+    "pets": 1,
+    "financial_admin": 1
+  },
+  "models": {
+    "qwen": {
+      "description": "Local Qwen classifier prompted on merchant and item text.",
+      "qwen_model": "Qwen/Qwen3.5-4B",
+      "batch_size": 1,
+      "total": 12,
+      "correct": 12,
+      "accuracy": 1.0,
+      "per_category": {
+        "digital_subscriptions": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "dining": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "education_work": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "entertainment_leisure": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "financial_admin": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "groceries": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "health": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "household": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "personal_care": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "pets": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "retail_goods": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        },
+        "transport": {
+          "total": 1,
+          "correct": 1,
+          "accuracy": 1.0
+        }
+      },
+      "confusion": [
+        {
+          "gold": "digital_subscriptions",
+          "pred": "digital_subscriptions",
+          "count": 1
+        },
+        {
+          "gold": "dining",
+          "pred": "dining",
+          "count": 1
+        },
+        {
+          "gold": "education_work",
+          "pred": "education_work",
+          "count": 1
+        },
+        {
+          "gold": "entertainment_leisure",
+          "pred": "entertainment_leisure",
+          "count": 1
+        },
+        {
+          "gold": "financial_admin",
+          "pred": "financial_admin",
+          "count": 1
+        },
+        {
+          "gold": "groceries",
+          "pred": "groceries",
+          "count": 1
+        },
+        {
+          "gold": "health",
+          "pred": "health",
+          "count": 1
+        },
+        {
+          "gold": "household",
+          "pred": "household",
+          "count": 1
+        },
+        {
+          "gold": "personal_care",
+          "pred": "personal_care",
+          "count": 1
+        },
+        {
+          "gold": "pets",
+          "pred": "pets",
+          "count": 1
+        },
+        {
+          "gold": "retail_goods",
+          "pred": "retail_goods",
+          "count": 1
+        },
+        {
+          "gold": "transport",
+          "pred": "transport",
+          "count": 1
+        }
+      ],
+      "predictions": [
+        {
+          "id": "groceries_001",
+          "merchant": "REWE",
+          "raw_name": "MILCH 1.5%",
+          "quantity": 1.0,
+          "amount": 1.29,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.dairy",
+          "model": "qwen",
+          "pred_main_category": "groceries",
+          "pred_sub_category": "groceries.dairy",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "dining_001",
+          "merchant": "Starbucks",
+          "raw_name": "LATTE GRANDE",
+          "quantity": 1.0,
+          "amount": 4.8,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.cafe_coffee",
+          "model": "qwen",
+          "pred_main_category": "dining",
+          "pred_sub_category": "dining.cafe_coffee",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "household_001",
+          "merchant": "REWE",
+          "raw_name": "WASCHMITTEL",
+          "quantity": 1.0,
+          "amount": 5.99,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.laundry",
+          "model": "qwen",
+          "pred_main_category": "household",
+          "pred_sub_category": "household.cleaning",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "personal_care_001",
+          "merchant": "REWE",
+          "raw_name": "ZAHNCREME",
+          "quantity": 1.0,
+          "amount": 2.49,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.dental_care",
+          "model": "qwen",
+          "pred_main_category": "personal_care",
+          "pred_sub_category": "personal_care.dental_care",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "health_001",
+          "merchant": "Apotheke",
+          "raw_name": "IBUPROFEN",
+          "quantity": 1.0,
+          "amount": 4.99,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.medicine",
+          "model": "qwen",
+          "pred_main_category": "health",
+          "pred_sub_category": "health.medicine",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "transport_001",
+          "merchant": "MVG",
+          "raw_name": "SUBWAY TICKET",
+          "quantity": 1.0,
+          "amount": 3.7,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.public_transport",
+          "model": "qwen",
+          "pred_main_category": "transport",
+          "pred_sub_category": "transport.public_transport",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "retail_goods_001",
+          "merchant": "Zara",
+          "raw_name": "JACKET",
+          "quantity": 1.0,
+          "amount": 49.99,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.clothing",
+          "model": "qwen",
+          "pred_main_category": "retail_goods",
+          "pred_sub_category": "retail_goods.clothing",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "digital_subscriptions_001",
+          "merchant": "Netflix",
+          "raw_name": "MONTHLY SUBSCRIPTION",
+          "quantity": 1.0,
+          "amount": 12.99,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.streaming",
+          "model": "qwen",
+          "pred_main_category": "digital_subscriptions",
+          "pred_sub_category": "digital_subscriptions.streaming",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "entertainment_leisure_001",
+          "merchant": "CinemaxX",
+          "raw_name": "CINEMA TICKET",
+          "quantity": 1.0,
+          "amount": 12.5,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.cinema_events",
+          "model": "qwen",
+          "pred_main_category": "entertainment_leisure",
+          "pred_sub_category": "entertainment_leisure.cinema_events",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "education_work_001",
+          "merchant": "LMU Munich",
+          "raw_name": "TUITION FEE",
+          "quantity": 1.0,
+          "amount": 85.0,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.tuition_courses",
+          "model": "qwen",
+          "pred_main_category": "education_work",
+          "pred_sub_category": "education_work.tuition_courses",
+          "confidence": 1.0,
+          "correct": true
+        },
+        {
+          "id": "pets_001",
+          "merchant": "Fressnapf",
+          "raw_name": "CAT FOOD",
+          "quantity": 1.0,
+          "amount": 12.49,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_food",
+          "model": "qwen",
+          "pred_main_category": "pets",
+          "pred_sub_category": "pets.pet_food",
+          "confidence": 0.95,
+          "correct": true
+        },
+        {
+          "id": "financial_admin_001",
+          "merchant": "Commerzbank",
+          "raw_name": "ACCOUNT FEE",
+          "quantity": 1.0,
+          "amount": 4.9,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.bank_fee",
+          "model": "qwen",
+          "pred_main_category": "financial_admin",
+          "pred_sub_category": "financial_admin.bank_fee",
+          "confidence": 0.95,
+          "correct": true
+        }
+      ],
+      "sub_category_total": 12,
+      "sub_category_correct": 11,
+      "sub_category_accuracy": 0.9167
+    }
+  },
+  "duration_seconds": 640.4
+}
