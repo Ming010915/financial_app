@@ -31,7 +31,7 @@
       "qwen_batch_size": 1,
       "qwen_max_new_tokens": 96,
       "result": "interrupted",
-      "reason": "Local MPS generation stalled during the 18-row v2 probe after reaching batch 10."
+      "reason": "Local MPS generation stalled during the 18-row probe after reaching batch 10."
     },
     {
       "model": "Qwen/Qwen3.5-4B",
@@ -42,7 +42,7 @@
       "reason": "Single-row smoke test did not return within the interactive time budget after prompt compaction."
     }
   ],
-  "note": "The previous 12-row v1 Qwen probe was intentionally replaced so it is not confused with the v2 taxonomy and benchmark.",
+  "note": "The previous 12-row Qwen probe was intentionally replaced so it is not confused with the current taxonomy and benchmark.",
   "probe_cases": [
     {
       "id": "groceries_001",

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Item Classification Benchmark Report v2</title>
+  <title>Item Classification Benchmark Report</title>
   <style>
     :root {
       --bg: #f6f7f9;
@@ -48,9 +48,9 @@
 <body>
   <main>
     <header>
-      <h1>Item Classification Benchmark Report v2</h1>
+      <h1>Item Classification Benchmark Report</h1>
       <p class="subtitle">
-        This report documents the updated receipt item taxonomy and benchmark after replacing the old dataset with the v2 files. It compares the legacy centroid classifier and Harrier on the same 180 item rows, and records the current Qwen local-run status.
+        This report documents the current receipt item taxonomy and benchmark after replacing the old dataset. It compares the legacy centroid classifier and Harrier on the same 180 item rows, and records the current Qwen local-run status.
       </p>
       <div class="meta">
         <span class="pill">Branch: llm-memory</span>
@@ -63,7 +63,7 @@
     <section class="section">
       <h2>Short Answer</h2>
       <div class="answer">
-        <p>The benchmark has been replaced with v2: <strong>180 item rows</strong>, <strong>18 main categories</strong>, and <strong>146 subcategories</strong>.</p>
+        <p>The benchmark has replaced the previous dataset: <strong>180 item rows</strong>, <strong>18 main categories</strong>, and <strong>146 subcategories</strong>.</p>
         <p>The full scored comparison currently evaluates <code>main_category</code> only for the two embedding-style approaches. Qwen is still the candidate for item-level <code>main_category</code> plus <code>sub_category</code>, but the local Qwen 4B CLI run did not complete reliably in this interactive run.</p>
       </div>
     </section>
@@ -76,7 +76,7 @@
         <div class="stat"><strong>10</strong><span>items per main category</span></div>
         <div class="stat"><strong>146</strong><span>taxonomy subcategories</span></div>
       </div>
-      <p style="margin-top:16px;">Each benchmark row represents one receipt line item after OCR/extraction. The v2 CSV fields are:</p>
+      <p style="margin-top:16px;">Each benchmark row represents one receipt line item after OCR/extraction. The CSV fields are:</p>
       <pre>id, merchant, raw_name, quantity, amount, currency, gold_main_category, gold_sub_category, decision_note</pre>
       <p style="margin-top:12px;">Gold main-category distribution:</p>
       <pre>{
@@ -102,8 +102,8 @@
     </section>
 
     <section class="section">
-      <h2>Taxonomy v2</h2>
-      <p>The executable taxonomy used by the benchmark runner is the compact JSON file <code>taxonomy/receipt_item_taxonomy_summary.json</code>. It has the v2 shape <code>counts</code> plus <code>sub_categories_by_main</code>.</p>
+      <h2>Taxonomy</h2>
+      <p>The executable taxonomy used by the benchmark runner is the compact JSON file <code>taxonomy/receipt_item_taxonomy_summary.json</code>. It uses <code>counts</code> plus <code>sub_categories_by_main</code>.</p>
       <table>
         <thead><tr><th>Main Category</th><th>Subcategory Count</th><th>Example Subcategories</th></tr></thead>
         <tbody><tr><td><code>groceries</code></td><td>12</td><td><code>groceries.dairy, groceries.bread_bakery, groceries.produce, groceries.meat_seafood, groceries.frozen_food ...</code></td></tr>
@@ -145,10 +145,10 @@
       <h2>Current Results</h2>
       <table>
         <thead><tr><th>Model</th><th>Input</th><th>Correct / Total</th><th>Main Accuracy</th><th>Notes</th></tr></thead>
-        <tbody><tr><td>Legacy embedding</td><td><code>merchant</code></td><td>43/180</td><td>23.89%</td><td>Legacy SentenceTransformer nearest-centroid classifier with merchant-only input.</td></tr><tr><td>Legacy embedding</td><td><code>merchant raw_name</code></td><td>49/180</td><td>27.22%</td><td>Legacy SentenceTransformer nearest-centroid classifier with merchant and item text input.</td></tr><tr><td>Harrier 0.6B</td><td><code>merchant</code></td><td>85/180</td><td>47.22%</td><td>Microsoft Harrier zero-shot classifier with merchant-only input.</td></tr><tr><td>Harrier 0.6B</td><td><code>merchant raw_name</code></td><td>127/180</td><td>70.56%</td><td>Microsoft Harrier zero-shot classifier with merchant and item text input.</td></tr><tr><td>Qwen 4B local LLM</td><td><code>merchant raw_name quantity amount currency</code></td><td>not scored</td><td>not scored</td><td>v2 probe attempted but local MPS generation did not return within the interactive time budget.</td></tr></tbody>
+        <tbody><tr><td>Legacy embedding</td><td><code>merchant</code></td><td>43/180</td><td>23.89%</td><td>Legacy SentenceTransformer nearest-centroid classifier with merchant-only input.</td></tr><tr><td>Legacy embedding</td><td><code>merchant raw_name</code></td><td>49/180</td><td>27.22%</td><td>Legacy SentenceTransformer nearest-centroid classifier with merchant and item text input.</td></tr><tr><td>Harrier 0.6B</td><td><code>merchant</code></td><td>85/180</td><td>47.22%</td><td>Microsoft Harrier zero-shot classifier with merchant-only input.</td></tr><tr><td>Harrier 0.6B</td><td><code>merchant raw_name</code></td><td>127/180</td><td>70.56%</td><td>Microsoft Harrier zero-shot classifier with merchant and item text input.</td></tr><tr><td>Qwen 4B local LLM</td><td><code>merchant raw_name quantity amount currency</code></td><td>not scored</td><td>not scored</td><td>The probe was attempted, but local MPS generation did not return within the interactive time budget.</td></tr></tbody>
       </table>
       <div class="warning">
-        <p>The legacy centroid model was trained on older transaction-level categories. Its old <code>Entertainment &amp; Subscriptions</code> label is mapped to v2 <code>digital_services</code>, so it cannot fairly separate <code>digital_services</code> from <code>entertainment_leisure</code>.</p>
+        <p>The legacy centroid model was trained on older transaction-level categories. Its old <code>Entertainment &amp; Subscriptions</code> label is mapped to <code>digital_services</code>, so it cannot fairly separate <code>digital_services</code> from <code>entertainment_leisure</code>.</p>
       </div>
     </section>
 
@@ -188,10 +188,10 @@
     <section class="section">
       <h2>Qwen 4B Probe Status</h2>
       <div class="warning">
-        <p>The v2 Qwen probe was attempted but is <strong>not scored</strong>. The 18-row run stalled during local MPS generation, and a single-row smoke test also failed to return within the interactive time budget after prompt compaction.</p>
-        <p>The old 12-row v1 Qwen result has been replaced with a status JSON so it cannot be mistaken for v2 accuracy.</p>
+        <p>The Qwen probe was attempted but is <strong>not scored</strong>. The 18-row run stalled during local MPS generation, and a single-row smoke test also failed to return within the interactive time budget after prompt compaction.</p>
+        <p>The previous 12-row Qwen result has been replaced with a status JSON so it cannot be mistaken for current benchmark accuracy.</p>
       </div>
-      <p>The intended v2 probe cases are listed below, one per main category:</p>
+      <p>The intended probe cases are listed below, one per main category:</p>
       <table>
         <thead><tr><th>ID</th><th>Merchant</th><th>Raw Name</th><th>Gold Main</th><th>Gold Sub</th></tr></thead>
         <tbody><tr><td><code>groceries_001</code></td><td>REWE</td><td><code>MILCH 1.5%</code></td><td><code>groceries</code></td><td><code>groceries.dairy</code></td></tr>
@@ -218,9 +218,9 @@
     <section class="section">
       <h2>Implementation Notes</h2>
       <ul>
-        <li>The benchmark runner now supports the v2 compact taxonomy JSON format through <code>sub_categories_by_main</code>.</li>
+        <li>The benchmark runner now supports the compact taxonomy JSON format through <code>sub_categories_by_main</code>.</li>
         <li>The old taxonomy label <code>digital_subscriptions</code> was replaced with <code>digital_services</code> in executable code paths.</li>
-        <li>Qwen merchant pre-filtering was expanded for v2 categories such as <code>travel</code>, <code>housing_utilities</code>, <code>digital_services</code>, <code>insurance</code>, and <code>children_family</code>.</li>
+        <li>Qwen merchant pre-filtering was expanded for current categories such as <code>travel</code>, <code>housing_utilities</code>, <code>digital_services</code>, <code>insurance</code>, and <code>children_family</code>.</li>
         <li>The Qwen benchmark prompt was compacted to reduce token count, but local generation is still too slow in the current CLI/MPS path.</li>
       </ul>
     </section>
