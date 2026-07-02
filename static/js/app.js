@@ -64,7 +64,6 @@ const HOME_WIDGET_DEFS = [
   { id: 'income',     label: 'Monthly Balance', icon: '📈' },
   { id: 'chart',      label: '7-Day Chart',     icon: '📉' },
   { id: 'categories', label: 'Categories',      icon: '🏷' },
-  { id: 'pending',    label: 'Pending Scans',   icon: '⏳' },
   { id: 'recent',         label: 'Recent',          icon: '🕐' },
   { id: 'custom_budgets', label: 'Custom Budgets',  icon: '🎯' },
 ];
@@ -255,7 +254,8 @@ function generateId() {
 function mergeItems(items) {
   const map = new Map();
   for (const item of items) {
-    const key = (item.name || "").trim().toLowerCase();
+    const name = (item.name || "").trim().toLowerCase();
+    const key = name ? `${name}|${item.price ?? ""}` : "";
     if (!key) { map.set(Symbol(), { ...item, quantity: item.quantity || 1 }); continue; }
     if (map.has(key)) {
       const ex = map.get(key);
@@ -609,6 +609,16 @@ function fmtDateLabel(dateStr) {
   if (dateStr === yesterday) return "Yesterday";
   const d = new Date(dateStr + "T12:00:00");
   return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+function timeAgo(dateStr) {
+  const min = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (min < 1)  return 'Just now';
+  if (min < 60) return `${min} minute${min === 1 ? '' : 's'} ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24)  return `${hr} hour${hr === 1 ? '' : 's'} ago`;
+  const day = Math.floor(hr / 24);
+  return `${day} day${day === 1 ? '' : 's'} ago`;
 }
 
 function esc(s) {
@@ -1186,7 +1196,6 @@ async function loadHome() {
   renderDailyChart(data.daily_chart, defCur);
   renderCategoryBreakdown(data.category_breakdown, data.month_total, defCur);
   renderRecentExpenses(data.recent);
-  renderPendingScans();
   renderCustomBudgetsHome();
 }
 
@@ -1583,61 +1592,93 @@ function cancelScanView() {
   showView("add-method");
 }
 
-// ── Receipt preview zoom/pan ─────────────────────────────────────────────────
-const _rz = { s: 1, tx: 0, ty: 0, px: 0, py: 0, d0: 0, lastTap: 0 };
+// ── Pinch-to-zoom/pan for receipt image previews ─────────────────────────────
+// Shared by the scan preview, the verify screen, and the add-expense reference
+// image. Uses touch-action:none on the container so JS has sole control of the
+// gesture from the first touch (relying on native scroll + preventDefault mid-
+// gesture is unreliable on iOS Safari once it has committed to a default
+// action).
+function _makeImageZoom(imgId) {
+  const z = { s: 1, tx: 0, ty: 0, px: 0, py: 0, d0: 0, lastTap: 0 };
 
-function _rzApply() {
-  const img = document.getElementById('preview-img');
-  if (img) img.style.transform = `translate(${_rz.tx}px,${_rz.ty}px) scale(${_rz.s})`;
+  function apply() {
+    const img = document.getElementById(imgId);
+    if (img) img.style.transform = `translate(${z.tx}px,${z.ty}px) scale(${z.s})`;
+  }
+
+  function reset() {
+    z.s = 1; z.tx = 0; z.ty = 0;
+    apply();
+  }
+
+  // Toggles between 1x and targetScale (for a tap-to-zoom button). Returns
+  // whether the image is now zoomed in.
+  function toggle(targetScale) {
+    if (z.s > 1) { reset(); return false; }
+    z.s = targetScale; z.tx = 0; z.ty = 0;
+    apply();
+    return true;
+  }
+
+  function attach(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.addEventListener('touchstart', event => {
+      if (event.target.closest('button')) return;
+      if (event.touches.length === 2) {
+        z.d0 = Math.hypot(
+          event.touches[0].clientX - event.touches[1].clientX,
+          event.touches[0].clientY - event.touches[1].clientY
+        );
+      } else {
+        z.px = event.touches[0].clientX;
+        z.py = event.touches[0].clientY;
+        const now = Date.now();
+        if (now - z.lastTap < 280) reset();
+        z.lastTap = now;
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', event => {
+      if (event.target.closest('button')) return;
+      event.preventDefault();
+      if (event.touches.length === 2) {
+        const d = Math.hypot(
+          event.touches[0].clientX - event.touches[1].clientX,
+          event.touches[0].clientY - event.touches[1].clientY
+        );
+        z.s = Math.min(5, Math.max(1, z.s * d / z.d0));
+        z.d0 = d;
+      } else if (event.touches.length === 1 && z.s > 1) {
+        z.tx += event.touches[0].clientX - z.px;
+        z.ty += event.touches[0].clientY - z.py;
+        z.px = event.touches[0].clientX;
+        z.py = event.touches[0].clientY;
+      }
+      apply();
+    }, { passive: false });
+
+    container.addEventListener('touchend', () => {
+      if (z.s < 1.05) reset();
+    }, { passive: true });
+  }
+
+  return { apply, reset, toggle, attach };
 }
 
-function _rzReset() {
-  _rz.s = 1; _rz.tx = 0; _rz.ty = 0;
-  _rzApply();
-}
+const _scanZoom   = _makeImageZoom('preview-img');
+const _verifyZoom = _makeImageZoom('verify-img');
+const _refZoom    = _makeImageZoom('receipt-ref-img');
 
-function _initReceiptZoom() {
-  const receipt = document.getElementById('receipt-zoom-container');
-  if (!receipt) return;
+function _initReceiptZoom() { _scanZoom.attach('receipt-zoom-container'); }
+function _initVerifyZoom()  { _verifyZoom.attach('verify-img-panel'); }
+function _initRefZoom()     { _refZoom.attach('receipt-ref-panel'); }
 
-  receipt.addEventListener('touchstart', event => {
-    if (event.target.closest('button')) return;
-    if (event.touches.length === 2) {
-      _rz.d0 = Math.hypot(
-        event.touches[0].clientX - event.touches[1].clientX,
-        event.touches[0].clientY - event.touches[1].clientY
-      );
-    } else {
-      _rz.px = event.touches[0].clientX;
-      _rz.py = event.touches[0].clientY;
-      const now = Date.now();
-      if (now - _rz.lastTap < 280) _rzReset();
-      _rz.lastTap = now;
-    }
-  }, { passive: true });
-
-  receipt.addEventListener('touchmove', event => {
-    if (event.target.closest('button')) return;
-    event.preventDefault();
-    if (event.touches.length === 2) {
-      const d = Math.hypot(
-        event.touches[0].clientX - event.touches[1].clientX,
-        event.touches[0].clientY - event.touches[1].clientY
-      );
-      _rz.s = Math.min(5, Math.max(1, _rz.s * d / _rz.d0));
-      _rz.d0 = d;
-    } else if (event.touches.length === 1 && _rz.s > 1) {
-      _rz.tx += event.touches[0].clientX - _rz.px;
-      _rz.ty += event.touches[0].clientY - _rz.py;
-      _rz.px = event.touches[0].clientX;
-      _rz.py = event.touches[0].clientY;
-    }
-    _rzApply();
-  }, { passive: false });
-
-  receipt.addEventListener('touchend', () => {
-    if (_rz.s < 1.05) _rzReset();
-  }, { passive: true });
+function _verifyZoomFullReset() {
+  _verifyZoom.reset();
+  document.getElementById('verify-zoom-icon-in')?.classList.remove('hidden');
+  document.getElementById('verify-zoom-icon-out')?.classList.add('hidden');
 }
 
 // Reset scan view UI to initial upload state
@@ -1651,7 +1692,7 @@ function clearScanView() {
   ["receipt-file-camera", "receipt-file-gallery"].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = "";
   });
-  _rzReset();
+  _scanZoom.reset();
   const img = document.getElementById("preview-img");
   if (img) { img.src = ""; img.classList.remove("hidden"); }
   const pdfEl = document.getElementById("preview-pdf");
@@ -1719,6 +1760,7 @@ async function queueBackgroundScan(file) {
     createdAt:        new Date().toISOString(),
   });
   savePendingScans(scans);
+  updateNotificationBadge();
   _runBackgroundScan(id, file, _pendingScansAborts[id]);
 }
 
@@ -1736,7 +1778,7 @@ async function _runBackgroundScan(id, file, abort) {
     if (scan) { scan.status = 'ready'; scan.extractedData = resp.data; savePendingScans(scans); }
     delete _pendingScansAborts[id];
 
-    _refreshHomePendingScans();
+    updateNotificationBadge();
     showToast('Receipt ready — tap to review!');
   } catch (e) {
     if (e.name === 'AbortError' || abort.signal.aborted) return;
@@ -1755,110 +1797,13 @@ async function _runBackgroundScan(id, file, abort) {
     }
     delete _pendingScansAborts[id];
 
-    _refreshHomePendingScans();
+    updateNotificationBadge();
     if (e.errorCode === 'not_a_receipt') {
       showToast('Not a receipt — tap to view', true);
     } else {
       showToast('Scan failed: ' + (e.message || 'unknown error'), true);
     }
   }
-}
-
-function _refreshHomePendingScans() {
-  if (document.getElementById('home-pending-scans')) renderPendingScans();
-  updateNotificationBadge();
-}
-
-function renderPendingScans() {
-  const section = document.getElementById('home-pending-scans');
-  const list    = document.getElementById('pending-scans-list');
-  if (!section || !list) return;
-  const scans = getPendingScans();
-  if (scans.length === 0) { section.classList.add('hidden'); updateNotificationBadge(); return; }
-  section.classList.remove('hidden');
-  list.innerHTML = scans.map(pendingScanCard).join('');
-  updateNotificationBadge();
-}
-
-function pendingScanCard(scan) {
-  const isVoice = scan.type === 'voice';
-  const thumb = isVoice
-    ? `<div class="w-10 h-10 rounded-xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-xl">🎤</div>`
-    : scan.thumbnailDataUrl
-      ? `<img src="${scan.thumbnailDataUrl}" class="w-10 h-10 object-cover rounded-xl flex-shrink-0" />`
-      : `<div class="w-10 h-10 rounded-xl bg-[#f0fdf9] flex items-center justify-center flex-shrink-0 text-xl">${scan.isPdf ? '📄' : '🧾'}</div>`;
-  const closeBtn = `<button onclick="event.stopPropagation();dismissPendingScan('${scan.id}')"
-    class="w-7 h-7 flex items-center justify-center text-[#44474a] hover:text-red-500 flex-shrink-0 transition-colors ml-1">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-  </button>`;
-
-  if (scan.status === 'processing') {
-    const title = isVoice
-      ? (scan.transcript ? `"${esc(scan.transcript.slice(0, 40))}${scan.transcript.length > 40 ? '…' : ''}"` : 'Voice input')
-      : esc(scan.fileName || 'Receipt');
-    return `<div class="flex items-center gap-3 py-0.5">${thumb}
-      <div class="flex-1 min-w-0">
-        <div class="text-sm font-semibold text-[#191c1d] truncate">${title}</div>
-        <div class="text-xs text-[#44474a]">${isVoice ? 'Extracting with AI…' : 'Analyzing with AI…'}</div>
-      </div>
-      <span class="loader flex-shrink-0 ml-1" style="width:18px;height:18px;border-width:2px;border-color:rgba(0,107,85,0.25);border-top-color:#006b55;"></span>
-      ${closeBtn}</div>`;
-  }
-  if (scan.status === 'ready') {
-    if (isVoice) {
-      const merchant = scan.extractedData?.merchant || 'Voice input';
-      const total    = scan.extractedData?.total != null
-        ? ' · ' + fmtAmount(scan.extractedData.total, scan.extractedData.currency || (localStorage.getItem('defaultCurrency') || 'EUR'))
-        : '';
-      return `<div onclick="resumePendingScan('${scan.id}')"
-        class="flex items-center gap-3 cursor-pointer active:opacity-70 py-0.5 rounded-xl transition-opacity">${thumb}
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5">
-            <span class="text-sm font-semibold text-[#191c1d] truncate">${esc(merchant)}</span>
-            <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
-          </div>
-          <div class="text-xs font-medium text-emerald-600">Tap to add${total}</div>
-        </div>${closeBtn}</div>`;
-    }
-    const merchant = scan.extractedData?.merchant || scan.fileName || 'Receipt';
-    const total    = scan.extractedData?.total != null
-      ? ' · ' + fmtAmount(scan.extractedData.total, scan.extractedData.currency || (localStorage.getItem('defaultCurrency') || 'EUR'))
-      : '';
-    return `<div onclick="resumePendingScan('${scan.id}')"
-      class="flex items-center gap-3 cursor-pointer active:opacity-70 py-0.5 rounded-xl transition-opacity">${thumb}
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          <span class="text-sm font-semibold text-[#191c1d] truncate">${esc(merchant)}</span>
-          <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
-        </div>
-        <div class="text-xs font-medium text-emerald-600">Tap to review${total}</div>
-      </div>${closeBtn}</div>`;
-  }
-  if (scan.status === 'not_receipt') {
-    return `<div onclick="resumePendingScan('${scan.id}')"
-      class="flex items-center gap-3 cursor-pointer active:opacity-70 py-0.5 rounded-xl transition-opacity">${thumb}
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          <span class="text-sm font-semibold text-[#191c1d] truncate">${esc(scan.fileName || 'Receipt')}</span>
-          <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
-        </div>
-        <div class="text-xs font-medium text-amber-600">Not a receipt — tap to view</div>
-      </div>${closeBtn}</div>`;
-  }
-  if (scan.status === 'error') {
-    const title = isVoice
-      ? (scan.transcript ? `"${esc(scan.transcript.slice(0, 40))}${scan.transcript.length > 40 ? '…' : ''}"` : 'Voice input')
-      : esc(scan.fileName || 'Receipt');
-    return `<div class="flex items-center gap-3 py-0.5">${thumb}
-      <div class="flex-1 min-w-0">
-        <div class="text-sm font-semibold text-[#191c1d] truncate">${title}</div>
-        <div class="text-xs text-red-500 truncate">${esc(scan.errorMessage || 'Extraction failed')}</div>
-      </div>
-      <button onclick="retryPendingScan('${scan.id}')"
-        class="text-xs font-bold text-[#006b55] px-2 py-1 rounded-xl border border-[#006b55] flex-shrink-0 whitespace-nowrap">Retry</button>
-      ${closeBtn}</div>`;
-  }
-  return '';
 }
 
 function resumePendingScan(id) {
@@ -1896,6 +1841,7 @@ function showVerifyErrorView(scan) {
       imgEl.classList.add("hidden");
       pdfEl.classList.remove("hidden");
       if (zoomBtn) zoomBtn.classList.add("hidden");
+      document.getElementById("verify-zoom-hint")?.classList.add("hidden");
       panel.style.height = "55%";
       renderPdfPages(state.receiptFile);
     } else {
@@ -1903,14 +1849,12 @@ function showVerifyErrorView(scan) {
       imgEl.classList.remove("hidden");
       pdfEl.classList.add("hidden");
       if (zoomBtn) zoomBtn.classList.remove("hidden");
+      document.getElementById("verify-zoom-hint")?.classList.remove("hidden");
       panel.style.height = "42%";
     }
   }
 
-  _verifyZoomed = false;
-  imgEl.style.width = "100%";
-  document.getElementById("verify-zoom-icon-in").classList.remove("hidden");
-  document.getElementById("verify-zoom-icon-out").classList.add("hidden");
+  _verifyZoomFullReset();
   panel.scrollTop = 0;
   panel.scrollLeft = 0;
 
@@ -1941,7 +1885,7 @@ function dismissPendingScan(id) {
   _pendingVoiceAborts[id]?.abort();
   delete _pendingVoiceAborts[id];
   savePendingScans(getPendingScans().filter(s => s.id !== id));
-  renderPendingScans();
+  updateNotificationBadge();
 }
 
 async function retryPendingScan(id) {
@@ -1952,7 +1896,7 @@ async function retryPendingScan(id) {
   if (scan.type === 'voice') {
     scan.status = 'processing'; scan.errorMessage = null;
     savePendingScans(scans);
-    renderPendingScans();
+    updateNotificationBadge();
     const abort = new AbortController();
     _pendingVoiceAborts[id] = abort;
     _runBackgroundVoice(id, scan.transcript, abort);
@@ -1963,7 +1907,7 @@ async function retryPendingScan(id) {
   if (!file) { showToast('Original file no longer available — please re-upload', true); dismissPendingScan(id); return; }
   scan.status = 'processing'; scan.errorMessage = null;
   savePendingScans(scans);
-  renderPendingScans();
+  updateNotificationBadge();
   const abort = new AbortController();
   _pendingScansAborts[id] = abort;
   _runBackgroundScan(id, file, abort);
@@ -1974,13 +1918,16 @@ async function retryPendingScan(id) {
 const NOTIF_BELL_HIGHLIGHT_CLASSES = ['bg-[#f0fdf9]', 'text-[#006b55]'];
 
 function updateNotificationBadge() {
-  const badge   = document.getElementById('notif-badge');
-  const bellBtn = document.getElementById('notif-bell-btn');
+  const badge    = document.getElementById('notif-badge');
+  const spinner  = document.getElementById('notif-processing-spinner');
+  const bellBtn  = document.getElementById('notif-bell-btn');
   const bellIcon = document.getElementById('notif-bell-icon');
   if (!badge) return;
-  const readyCount = getPendingScans().filter(s => s.status === 'ready').length;
-  const dueCount   = getDueRecurring().length;
-  const total      = readyCount + dueCount;
+  const scans          = getPendingScans();
+  const readyCount     = scans.filter(s => s.status === 'ready').length;
+  const processingCount = scans.filter(s => s.status === 'processing').length;
+  const dueCount       = getDueRecurring().length;
+  const total          = readyCount + dueCount;
   if (total > 0) {
     badge.textContent = total > 9 ? '9+' : String(total);
     badge.classList.remove('hidden');
@@ -1990,6 +1937,11 @@ function updateNotificationBadge() {
     badge.classList.add('hidden');
     bellIcon?.classList.remove('bell-shake');
     bellBtn?.classList.remove(...NOTIF_BELL_HIGHLIGHT_CLASSES);
+  }
+  spinner?.classList.toggle('hidden', processingCount === 0);
+
+  if (!document.getElementById('notifications-overlay')?.classList.contains('hidden')) {
+    renderNotifications();
   }
 }
 
@@ -2084,7 +2036,7 @@ function notifCard(scan) {
           <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
         </div>
         ${total ? `<div class="text-base font-bold text-[#006b55]">${total}</div>` : ''}
-        <div class="text-xs text-emerald-600 font-medium mt-0.5">${isVoice ? 'Tap to add' : 'Tap to review &amp; add'}</div>
+        <div class="text-xs text-emerald-600 font-medium mt-0.5">${isVoice ? 'Tap to add' : 'Tap to review &amp; add'} · ${timeAgo(scan.createdAt)}</div>
       </div>${dismissBtn}
     </div>`;
   }
@@ -2097,7 +2049,7 @@ function notifCard(scan) {
       ${thumb}
       <div class="flex-1 min-w-0">
         <div class="text-sm font-semibold text-[#191c1d] truncate mb-0.5">${title}</div>
-        <div class="text-xs text-[#44474a]">${isVoice ? 'Extracting with AI…' : 'Analyzing with AI…'}</div>
+        <div class="text-xs text-[#44474a]">${isVoice ? 'Extracting with AI…' : 'Analyzing with AI…'} · ${timeAgo(scan.createdAt)}</div>
       </div>
       <span class="loader flex-shrink-0" style="width:18px;height:18px;border-width:2px;border-color:rgba(0,107,85,0.25);border-top-color:#006b55;"></span>
       ${dismissBtn}
@@ -2113,6 +2065,7 @@ function notifCard(scan) {
       <div class="flex-1 min-w-0">
         <div class="text-sm font-semibold text-[#191c1d] truncate mb-0.5">${title}</div>
         <div class="text-xs text-red-500 truncate">${esc(scan.errorMessage || 'Extraction failed')}</div>
+        <div class="text-[10px] text-[#8a8d91] mt-0.5">${timeAgo(scan.createdAt)}</div>
       </div>
       <button onclick="event.stopPropagation();notifRetry('${scan.id}')"
         class="text-xs font-bold text-[#006b55] px-2.5 py-1 rounded-xl border border-[#006b55] flex-shrink-0 whitespace-nowrap mr-1">Retry</button>
@@ -2226,7 +2179,6 @@ function clearAllNotifications() {
     delete _pendingVoiceAborts[s.id];
   });
   savePendingScans([]);
-  renderPendingScans();
   updateNotificationBadge();
   renderNotifications();
 }
@@ -2288,19 +2240,23 @@ function showReceiptRef(file) {
   const imgEl = document.getElementById("receipt-ref-img");
   const pdfEl = document.getElementById("receipt-ref-pdf");
   const pdfName = document.getElementById("receipt-ref-pdf-name");
+  const hintEl = document.getElementById("receipt-ref-hint");
   if (isPdf) {
     imgEl.classList.add("hidden");
     pdfEl.classList.remove("hidden");
     if (pdfName) pdfName.textContent = file.name;
+    if (hintEl) hintEl.classList.add("hidden");
   } else {
     _receiptRefBlobUrl = URL.createObjectURL(file);
     imgEl.src = _receiptRefBlobUrl;
     imgEl.classList.remove("hidden");
     pdfEl.classList.add("hidden");
+    if (hintEl) hintEl.classList.remove("hidden");
   }
   document.getElementById("receipt-ref-panel").classList.add("hidden");
   document.getElementById("receipt-ref-chevron").style.transform = "";
   strip.classList.remove("hidden");
+  _refZoom.reset();
 }
 
 function hideReceiptRef() {
@@ -2360,7 +2316,6 @@ function resetForm() {
 
 // ── Receipt verify view ───────────────────────────────────────────────────────
 let _verifyBlobUrl = null;
-let _verifyZoomed  = false;
 
 function showVerifyView(data) {
   state.pendingReceiptData = JSON.parse(JSON.stringify(data));
@@ -2380,6 +2335,7 @@ function showVerifyView(data) {
       imgEl.classList.add("hidden");
       pdfEl.classList.remove("hidden");
       if (zoomBtn) zoomBtn.classList.add("hidden");
+      document.getElementById("verify-zoom-hint")?.classList.add("hidden");
       panel.style.height = "55%";
       renderPdfPages(state.receiptFile);
     } else {
@@ -2387,14 +2343,12 @@ function showVerifyView(data) {
       imgEl.classList.remove("hidden");
       pdfEl.classList.add("hidden");
       if (zoomBtn) zoomBtn.classList.remove("hidden");
+      document.getElementById("verify-zoom-hint")?.classList.remove("hidden");
       panel.style.height = "42%";
     }
   }
 
-  _verifyZoomed = false;
-  imgEl.style.width = "100%";
-  document.getElementById("verify-zoom-icon-in").classList.remove("hidden");
-  document.getElementById("verify-zoom-icon-out").classList.add("hidden");
+  _verifyZoomFullReset();
   panel.scrollTop = 0;
   panel.scrollLeft = 0;
 
@@ -2449,8 +2403,7 @@ function removeVerifyItem(idx) {
 function syncItemsTotal() {
   const total = (state.receiptItems || []).reduce((sum, it) => {
     const price = parseFloat(it.price);
-    const qty   = parseInt(it.quantity) || 1;
-    return sum + (isNaN(price) ? 0 : price * qty);
+    return sum + (isNaN(price) ? 0 : price);
   }, 0);
   const amountEl = document.getElementById("f-amount");
   if (amountEl) amountEl.value = total > 0 ? (Math.round(total * 100) / 100).toFixed(2) : "";
@@ -2465,8 +2418,7 @@ function checkAmountMismatch() {
   if (items.length === 0) { warn.classList.add("hidden"); return; }
   const itemsTotal = Math.round(items.reduce((sum, it) => {
     const price = parseFloat(it.price);
-    const qty   = parseInt(it.quantity) || 1;
-    return sum + (isNaN(price) ? 0 : price * qty);
+    return sum + (isNaN(price) ? 0 : price);
   }, 0) * 100) / 100;
   const amountEl = document.getElementById("f-amount");
   const entered  = Math.round(parseFloat(amountEl?.value || "0") * 100) / 100;
@@ -2520,13 +2472,9 @@ function removeFormItem(idx) {
 }
 
 function toggleVerifyZoom() {
-  _verifyZoomed = !_verifyZoomed;
-  const imgEl = document.getElementById("verify-img");
-  if (imgEl) imgEl.style.width = _verifyZoomed ? "200%" : "100%";
-  const panel = document.getElementById("verify-img-panel");
-  if (!_verifyZoomed && panel) { panel.scrollLeft = 0; }
-  document.getElementById("verify-zoom-icon-in").classList.toggle("hidden", _verifyZoomed);
-  document.getElementById("verify-zoom-icon-out").classList.toggle("hidden", !_verifyZoomed);
+  const zoomedIn = _verifyZoom.toggle(2.5);
+  document.getElementById("verify-zoom-icon-in").classList.toggle("hidden", zoomedIn);
+  document.getElementById("verify-zoom-icon-out").classList.toggle("hidden", !zoomedIn);
 }
 
 async function renderPdfPages(file) {
@@ -2617,6 +2565,7 @@ function populateFormFromReceipt(data) {
   }
   if (data.date)     document.getElementById("f-date").value     = data.date;
   if (data.location) document.getElementById("f-location").value = data.location;
+  if (data.notes)    document.getElementById("f-notes").value    = data.notes;
 
   const pm = data.payment_method && getPaymentMethods().includes(data.payment_method) ? data.payment_method : null;
   state.selectedPayment = pm;
@@ -2913,7 +2862,7 @@ function queueBackgroundVoice(transcript) {
     createdAt:     new Date().toISOString(),
   });
   savePendingScans(scans);
-  _refreshHomePendingScans();
+  updateNotificationBadge();
   _runBackgroundVoice(id, transcript, _pendingVoiceAborts[id]);
 }
 
@@ -2932,7 +2881,7 @@ async function _runBackgroundVoice(id, transcript, abort) {
     if (item) { item.status = 'ready'; item.extractedData = resp.data; savePendingScans(scans); }
     delete _pendingVoiceAborts[id];
 
-    _refreshHomePendingScans();
+    updateNotificationBadge();
     showToast('Voice ready — tap to add!');
   } catch (e) {
     if (e.name === 'AbortError' || abort.signal.aborted) return;
@@ -2942,7 +2891,7 @@ async function _runBackgroundVoice(id, transcript, abort) {
     if (item) { item.status = 'error'; item.errorMessage = e.message || 'Extraction failed'; savePendingScans(scans); }
     delete _pendingVoiceAborts[id];
 
-    _refreshHomePendingScans();
+    updateNotificationBadge();
     showToast('Voice extraction failed: ' + (e.message || 'unknown error'), true);
   }
 }
@@ -3068,8 +3017,7 @@ async function saveExpense() {
   if ((state.receiptItems || []).length > 0) {
     const itemsTotal = (state.receiptItems).reduce((sum, it) => {
       const price = parseFloat(it.price);
-      const qty   = parseInt(it.quantity) || 1;
-      return sum + (isNaN(price) ? 0 : price * qty);
+      return sum + (isNaN(price) ? 0 : price);
     }, 0);
     const enteredAmount = Math.round(parseFloat(amount) * 100) / 100;
     if (Math.abs(Math.round(itemsTotal * 100) / 100 - enteredAmount) > 0.01) {
@@ -5251,6 +5199,8 @@ function init() {
     btn.classList.toggle('hidden', !onScrollable || scroller.scrollTop < 200);
   });
   _initReceiptZoom();
+  _initVerifyZoom();
+  _initRefZoom();
   loadCategoriesIntoButtons();
   const defaultCurrency = localStorage.getItem("defaultCurrency") || "EUR";
   populateCurrencySelect("f-currency", defaultCurrency);

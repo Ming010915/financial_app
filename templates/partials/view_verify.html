@@ -10,9 +10,10 @@
     <h2 class="text-xl font-bold text-[#191c1d]">Verify Receipt</h2>
   </div>
 
-  <!-- Image panel (fixed height, scrollable) -->
-  <div id="verify-img-panel" class="flex-shrink-0 overflow-auto bg-[#edeeef] relative" style="height:42%">
-    <img id="verify-img" src="" alt="Receipt" class="w-full h-auto block" />
+  <!-- Image panel (fixed height, pinch/drag to zoom) -->
+  <div id="verify-img-panel" class="flex-shrink-0 overflow-hidden bg-[#edeeef] relative" style="height:42%; touch-action:none;">
+    <img id="verify-img" src="" alt="Receipt" class="w-full h-full object-contain block"
+         style="transform-origin:center center; will-change:transform; user-select:none; -webkit-user-drag:none;" />
     <div id="verify-pdf" class="hidden w-full h-full overflow-y-auto">
       <div id="verify-pdf-canvas-wrap" class="space-y-1"></div>
     </div>
@@ -22,6 +23,7 @@
       <svg id="verify-zoom-icon-in"  class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0zm-6-3v6m-3-3h6"/></svg>
       <svg id="verify-zoom-icon-out" class="w-4 h-4 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0zm-3-3H8"/></svg>
     </button>
+    <span id="verify-zoom-hint" class="absolute bottom-2 left-2 text-[10px] text-white/90 bg-black/40 px-2 py-0.5 rounded-full pointer-events-none">Pinch to zoom</span>
   </div>
 
   <!-- Divider label -->

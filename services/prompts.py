@@ -86,6 +86,15 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
         "emit them once with the combined quantity and total price.\n"
         "- If the same item name appears with a DIFFERENT unit price, keep them as separate entries "
         "(do NOT merge them), since they are priced differently.\n"
+        "- DISCOUNTS: Do NOT create a separate item for a discount, coupon, markdown, or price "
+        "reduction line (e.g. 'Rabatt', 'Discount', 'Coupon', a lone negative amount right after an "
+        "item). If it clearly applies to the item directly above it, subtract it from that item's "
+        "'price' instead (so 'price' is what was actually paid for it), and append a short tag to "
+        "'notes' with JUST the item name and discount amount, nothing else — e.g. 'Milk -€0.50'. "
+        "If a discount applies to the whole receipt rather than one item, append a short tag like "
+        "'Discount -€2.00' instead; 'total' should already reflect the final amount paid. "
+        "Never explain HOW you computed a price or WHY a field has its value — 'notes' is for short "
+        "factual tags only, not reasoning or narration.\n"
         "\n"
         "GENERAL:\n"
         "- If any field is unclear, unreadable, or absent, use null (or an empty list for items) "
@@ -276,7 +285,13 @@ TRANSACTION_SCHEMA = {
         "notes": {
             "type": "string",
             "nullable": True,
-            "description": "Any extra context or notes",
+            "description": (
+                "Short factual tags only, comma-separated, e.g. 'Milk -€0.50, Eggs -€0.30'. "
+                "Used mainly to record per-item discount amounts (the discount itself must already "
+                "be subtracted into that item's price, not listed as its own item). Leave empty/null "
+                "if there is nothing unusual to flag. NEVER write full sentences, explanations of "
+                "how a value was calculated, or restate other fields (payment method, total, date, etc.)."
+            ),
         },
         "event_hint": {
             "type": "string",

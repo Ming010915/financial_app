@@ -12,7 +12,7 @@ body { font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: n
 .sheet-up { animation: sheetUp 0.32s cubic-bezier(0.32,0.72,0,1); }
 
 @keyframes fadeIn  { from { opacity:0; transform:translateY(6px);  } to { opacity:1; transform:translateY(0); } }
-@keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 @keyframes sheetUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
 
 .bar-fill { transition: height 0.7s cubic-bezier(0.4,0,0.2,1), width 0.7s cubic-bezier(0.4,0,0.2,1); }
@@ -44,6 +44,17 @@ body { font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: n
 
 .loader { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; }
 @keyframes spin { to { transform:rotate(360deg); } }
+
+/* Ring spinner around the notif bell while a scan is still processing */
+.notif-spinner {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid rgba(0,107,85,0.18);
+  border-top-color: #006b55;
+  animation: spin 0.8s linear infinite;
+  pointer-events: none;
+}
 
 #drop-zone.drag-over { border-color: #006b55; background-color: #f0fdf9; }
 
