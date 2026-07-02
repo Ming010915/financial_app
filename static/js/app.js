@@ -4789,6 +4789,61 @@ async function resetCentroids() {
   });
 }
 
+// ── Reset Everything ──────────────────────────────────────────────────────────
+const RESET_EVERYTHING_PHRASE = "RESET";
+
+function confirmResetEverything() {
+  showConfirm({
+    title:   "Reset everything?",
+    message: "This will permanently delete all expenses, budgets, categories, receipts and preferences stored in this browser. This cannot be undone.",
+    okLabel: "Continue",
+    onOk:    openResetEverythingDialog,
+  });
+}
+
+function openResetEverythingDialog() {
+  const input = document.getElementById("reset-everything-input");
+  input.value = "";
+  onResetEverythingInput();
+  document.getElementById("reset-everything-overlay").classList.remove("hidden");
+  input.focus();
+}
+
+function cancelResetEverything() {
+  document.getElementById("reset-everything-overlay").classList.add("hidden");
+}
+
+function onResetEverythingInput() {
+  const input  = document.getElementById("reset-everything-input");
+  const okBtn  = document.getElementById("reset-everything-ok");
+  const match  = input.value === RESET_EVERYTHING_PHRASE;
+  okBtn.disabled  = !match;
+  okBtn.className = `py-2.5 rounded-2xl text-sm font-semibold text-white transition-colors ${match ? "bg-red-600 hover:bg-red-700" : "bg-red-300 cursor-not-allowed"}`;
+}
+
+async function executeResetEverything() {
+  const input = document.getElementById("reset-everything-input");
+  if (input.value !== RESET_EVERYTHING_PHRASE) return;
+
+  cancelResetEverything();
+  try {
+    // Close our own connection first so deleteDatabase isn't blocked by it.
+    try { (await _openIdb()).close(); } catch {}
+    // Wipe all IndexedDB-backed app data (kv_store, pending scans, receipts).
+    await new Promise((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(IDB_NAME);
+      req.onsuccess   = resolve;
+      req.onerror     = () => reject(req.error);
+      req.onblocked   = resolve; // other tabs holding it open shouldn't block the reset
+    });
+    // Wipe any leftover data from older versions that stored directly in localStorage.
+    localStorage.clear();
+  } catch (e) {
+    console.warn("resetEverything failed:", e);
+  }
+  location.reload();
+}
+
 function saveCurrency() {
   const currency = document.getElementById("s-currency").value;
   if (!currency) return;
