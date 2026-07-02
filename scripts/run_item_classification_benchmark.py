@@ -54,6 +54,26 @@ LEGACY_TO_TAXONOMY_MAIN = {
     "Transport": "transport",
     "Others": "other",
 }
+TAXONOMY_MAIN_DESCRIPTIONS = {
+    "groceries": "Food and drink items bought for home or later consumption, such as milk, bread, produce, meat, pantry staples, snacks, bottled drinks, supermarket alcohol, frozen food, and ready meals.",
+    "dining": "Prepared food and drinks consumed in restaurants, cafes, bars, canteens, bakeries, takeaway, or delivery, including coffee, fast food, restaurant meals, desserts, and tips for food service.",
+    "household": "Non-food household consumables and home supplies, including cleaning products, laundry detergent, paper goods, trash bags, kitchen supplies, light bulbs, batteries, tools, and garden supplies.",
+    "personal_care": "Personal hygiene, grooming, dental care, hair care, skin care, cosmetics, fragrance, deodorant, shower gel, and grooming services such as haircuts.",
+    "health": "Medicine, pharmacy items, supplements, medical devices, doctor or clinic fees, therapy, physiotherapy, fitness, wellness, and health-related services.",
+    "transport": "Daily mobility and local transportation, including public transport, commuter train, taxi, ride hailing, fuel, parking, car maintenance, bike rental, and e-scooter rides.",
+    "travel": "Trip-related spending, including flights, hotels, accommodation, long-distance train or bus, travel local transport, travel food, tours, luggage, and visa fees.",
+    "housing_utilities": "Rent, mortgage, electricity, gas, water, heating, internet, phone, property fees, housing repairs, and housing-related utility bills.",
+    "retail_goods": "Durable or discretionary retail goods such as clothing, shoes, accessories, electronics, books, stationery, sports equipment, toys, games, general merchandise, and luxury goods.",
+    "digital_subscriptions": "Digital platforms and recurring services, including streaming, music subscriptions, gaming, software, cloud storage, news subscriptions, mobile phone plans, and membership platforms.",
+    "entertainment_leisure": "One-off entertainment, cultural activities, hobbies, sports activities, nightlife, games, arcades, cinema, concerts, museums, bowling, escape rooms, and leisure services.",
+    "education_work": "Education and work expenses, including tuition, online courses, textbooks, study materials, office supplies, professional services, work equipment, conferences, and certifications.",
+    "pets": "Pet food, pet care supplies, cat litter, leashes, pet toys, veterinary bills, pet grooming, and pet boarding.",
+    "children_family": "Childcare, baby food, baby formula, diapers, baby wipes, kids clothing, kids toys, children's education activities, and family support.",
+    "gifts_donations": "Gifts, donations, charity payments, tips, celebrations, birthday gifts, wedding gifts, and social giving.",
+    "insurance": "Insurance payments including health insurance, car insurance, home insurance, travel insurance, life insurance, liability insurance, and other insurance.",
+    "financial_admin": "Bank fees, card fees, ATM fees, interest, loan payments, taxes, fines, legal fees, accounting fees, government services, deposits, refunds, discounts, delivery fees, and service fees.",
+    "other": "Unknown, unclear, uncategorizable, or insufficiently described items that do not fit any other category.",
+}
 
 
 def load_cases(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
@@ -150,6 +170,67 @@ def run_embedding_baseline(cases: list[dict[str, Any]], input_mode: str) -> list
                 "pred_main_category": LEGACY_TO_TAXONOMY_MAIN.get(legacy_pred, "other"),
                 "confidence": round(best_score, 3),
                 "top3": top3,
+            }
+        )
+    return predictions
+
+
+def item_text_for_embedding(case: dict[str, Any]) -> str:
+    return (
+        f"Merchant: {case['merchant']}. "
+        f"Receipt item: {case['raw_name']}. "
+        f"Amount: {case['amount']} {case['currency']}."
+    )
+
+
+def run_harrier_zero_shot(cases: list[dict[str, Any]], model_name: str, candidate_mode: str) -> list[dict[str, Any]]:
+    sys.path.insert(0, str(REPO_ROOT))
+    import numpy as np
+    import torch
+    from sentence_transformers import SentenceTransformer
+    from scripts.qwen_item_classifier_demo import infer_merchant_context
+
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    model = SentenceTransformer(model_name, device=device)
+    label_ids = sorted(TAXONOMY_MAIN_DESCRIPTIONS)
+    label_texts = [
+        f"Category: {label_id}. Definition: {TAXONOMY_MAIN_DESCRIPTIONS[label_id]}"
+        for label_id in label_ids
+    ]
+    item_texts = [item_text_for_embedding(case) for case in cases]
+
+    label_embeddings = model.encode(label_texts, normalize_embeddings=True, show_progress_bar=True)
+    item_embeddings = model.encode(item_texts, normalize_embeddings=True, show_progress_bar=True)
+    scores = item_embeddings @ label_embeddings.T
+    predictions = []
+    for case, text, row in zip(cases, item_texts, scores):
+        merchant_context = infer_merchant_context(case["merchant"])
+        raw_candidate_categories = [
+            category for category in merchant_context["candidate_main_categories"] if category in TAXONOMY_MAIN_DESCRIPTIONS
+        ]
+        candidate_categories = list(dict.fromkeys([*raw_candidate_categories, "other"])) if raw_candidate_categories else []
+        candidate_indices = [label_ids.index(category) for category in candidate_categories]
+        if candidate_mode == "merchant_focus" and raw_candidate_categories:
+            ranked_indices = sorted(candidate_indices, key=lambda index: float(row[index]), reverse=True)
+        else:
+            ranked_indices = list(np.argsort(row)[::-1])
+        order = ranked_indices
+        best_idx = int(order[0])
+        predictions.append(
+            {
+                "id": case["id"],
+                "model": "harrier_zero_shot",
+                "harrier_model": model_name,
+                "candidate_mode": candidate_mode,
+                "merchant_type": merchant_context["merchant_type"],
+                "candidate_main_categories": candidate_categories if candidate_mode == "merchant_focus" else [],
+                "embedding_input": text,
+                "pred_main_category": label_ids[best_idx],
+                "confidence": round(float(row[best_idx]), 4),
+                "top3": [
+                    {"category": label_ids[int(index)], "score": round(float(row[index]), 4)}
+                    for index in order[:3]
+                ],
             }
         )
     return predictions
@@ -292,9 +373,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run item classification benchmark.")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--models", default="embedding", help="Comma-separated: embedding,qwen")
+    parser.add_argument("--models", default="embedding", help="Comma-separated: embedding,harrier,qwen")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--embedding-input", choices=["merchant", "merchant_item"], default="merchant")
+    parser.add_argument("--harrier-model", default="microsoft/harrier-oss-v1-0.6b")
+    parser.add_argument("--harrier-candidate-mode", choices=["merchant_focus", "all"], default="merchant_focus")
     parser.add_argument("--qwen-model", default="Qwen/Qwen3.5-4B")
     parser.add_argument("--qwen-batch-size", type=int, default=10)
     parser.add_argument("--qwen-max-new-tokens", type=int, default=1536)
@@ -317,6 +400,16 @@ def main() -> None:
             "description": "Legacy SentenceTransformer nearest-centroid classifier, mapped from legacy transaction labels to taxonomy main categories.",
             "input_mode": args.embedding_input,
             **summarize_predictions(cases, embedding_predictions),
+        }
+
+    if "harrier" in requested_models:
+        harrier_predictions = run_harrier_zero_shot(cases, args.harrier_model, args.harrier_candidate_mode)
+        results["models"]["harrier"] = {
+            "description": "Microsoft Harrier embedding model used as a zero-shot classifier against taxonomy main-category descriptions.",
+            "harrier_model": args.harrier_model,
+            "input_mode": "merchant_item_to_label_description_similarity",
+            "candidate_mode": args.harrier_candidate_mode,
+            **summarize_predictions(cases, harrier_predictions),
         }
 
     if "qwen" in requested_models:
