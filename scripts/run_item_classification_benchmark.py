@@ -32,7 +32,7 @@ ALLOWED_MAIN_CATEGORIES = {
     "travel",
     "housing_utilities",
     "retail_goods",
-    "digital_subscriptions",
+    "digital_services",
     "entertainment_leisure",
     "education_work",
     "pets",
@@ -44,7 +44,7 @@ ALLOWED_MAIN_CATEGORIES = {
 }
 LEGACY_TO_TAXONOMY_MAIN = {
     "Banking & Fees": "financial_admin",
-    "Entertainment & Subscriptions": "digital_subscriptions",
+    "Entertainment & Subscriptions": "digital_services",
     "Food & Beverage": "dining",
     "Groceries": "groceries",
     "Health & Wellness": "health",
@@ -65,7 +65,7 @@ TAXONOMY_MAIN_DESCRIPTIONS = {
     "travel": "Trip-related spending, including flights, hotels, accommodation, long-distance train or bus, travel local transport, travel food, tours, luggage, and visa fees.",
     "housing_utilities": "Rent, mortgage, electricity, gas, water, heating, internet, phone, property fees, housing repairs, and housing-related utility bills.",
     "retail_goods": "Durable or discretionary retail goods such as clothing, shoes, accessories, electronics, books, stationery, sports equipment, toys, games, general merchandise, and luxury goods.",
-    "digital_subscriptions": "Digital platforms and recurring services, including streaming, music subscriptions, gaming, software, cloud storage, news subscriptions, mobile phone plans, and membership platforms.",
+    "digital_services": "Digital platforms and recurring services, including streaming, music subscriptions, gaming, software, cloud storage, news subscriptions, mobile phone plans, membership platforms, and online services.",
     "entertainment_leisure": "One-off entertainment, cultural activities, hobbies, sports activities, nightlife, games, arcades, cinema, concerts, museums, bowling, escape rooms, and leisure services.",
     "education_work": "Education and work expenses, including tuition, online courses, textbooks, study materials, office supplies, professional services, work equipment, conferences, and certifications.",
     "pets": "Pet food, pet care supplies, cat litter, leashes, pet toys, veterinary bills, pet grooming, and pet boarding.",
@@ -102,10 +102,21 @@ def load_taxonomy_summary(path: Path = DEFAULT_TAXONOMY_SUMMARY) -> dict[str, An
 
 
 def subcategories_by_main(taxonomy_summary: dict[str, Any]) -> dict[str, list[str]]:
+    compact = taxonomy_summary.get("sub_categories_by_main")
+    if isinstance(compact, dict):
+        return {str(main): list(subcategories) for main, subcategories in compact.items()}
+
     return {
         row["id"]: row["sub_categories"]
         for row in taxonomy_summary["main_categories"]
     }
+
+
+def taxonomy_description(label_id: str) -> str:
+    return TAXONOMY_MAIN_DESCRIPTIONS.get(
+        label_id,
+        label_id.replace("_", " "),
+    )
 
 
 def benchmark_input_text(case: dict[str, Any], input_mode: str) -> str:
@@ -226,9 +237,11 @@ def run_harrier_zero_shot(
 
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     model = SentenceTransformer(model_name, device=device)
-    label_ids = sorted(TAXONOMY_MAIN_DESCRIPTIONS)
+    taxonomy = subcategories_by_main(load_taxonomy_summary())
+    label_ids = list(taxonomy)
+    label_id_set = set(label_ids)
     label_texts = [
-        f"Category: {label_id}. Definition: {TAXONOMY_MAIN_DESCRIPTIONS[label_id]}"
+        f"Category: {label_id}. Definition: {taxonomy_description(label_id)}"
         for label_id in label_ids
     ]
     item_texts = [benchmark_input_text(case, input_mode) for case in cases]
@@ -240,7 +253,7 @@ def run_harrier_zero_shot(
     for case, text, row in zip(cases, item_texts, scores):
         merchant_context = infer_merchant_context(case["merchant"])
         raw_candidate_categories = [
-            category for category in merchant_context["candidate_main_categories"] if category in TAXONOMY_MAIN_DESCRIPTIONS
+            category for category in merchant_context["candidate_main_categories"] if category in label_id_set
         ]
         candidate_categories = list(dict.fromkeys([*raw_candidate_categories, "other"])) if raw_candidate_categories else []
         candidate_indices = [label_ids.index(category) for category in candidate_categories]
@@ -272,37 +285,17 @@ def run_harrier_zero_shot(
 
 
 def qwen_prompt(batch: list[dict[str, Any]], taxonomy: dict[str, list[str]]) -> str:
-    return f"""
-Classify receipt line items into item taxonomy main_category and sub_category IDs.
-Return strict JSON only. Do not include markdown or explanations.
-
-Allowed taxonomy:
-{json.dumps(taxonomy, ensure_ascii=False, indent=2)}
-
-Rules:
-- Use merchant only as context.
-- Use item raw_name as the strongest signal.
-- Do not classify all items from the same merchant into one category.
-- Return exactly one prediction for every input id.
-- main_category must be exactly one key from the allowed taxonomy.
-- sub_category must be exactly one value under the selected main_category.
-- If unclear, use main_category "other" and sub_category "other.unknown".
-
-Input:
-{json.dumps(batch, ensure_ascii=False, indent=2)}
-
-Output schema:
-{{
-  "predictions": [
-    {{
-      "id": "string",
-      "main_category": "string",
-      "sub_category": "string",
-      "confidence": 0.0
-    }}
-  ]
-}}
-""".strip()
+    taxonomy_json = json.dumps(taxonomy, ensure_ascii=False, separators=(",", ":"))
+    batch_json = json.dumps(batch, ensure_ascii=False, separators=(",", ":"))
+    return (
+        "Classify receipt items. Return strict JSON only, no markdown. "
+        "Use merchant as context and raw_name as strongest signal. "
+        "main_category must be one taxonomy key; sub_category must be under that key. "
+        "If unclear use other/other.unknown. "
+        f"Taxonomy={taxonomy_json}\n"
+        f"Input={batch_json}\n"
+        'Output={"predictions":[{"id":"...","main_category":"...","sub_category":"...","confidence":0.0}]}'
+    )
 
 
 def focused_taxonomy_for_qwen_batch(batch: list[dict[str, Any]], taxonomy: dict[str, list[str]]) -> dict[str, list[str]]:

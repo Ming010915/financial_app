@@ -20,7 +20,7 @@ from transformers import AutoModelForMultimodalLM, AutoProcessor
 
 
 DEFAULT_MODEL = os.environ.get("QWEN_ITEM_MODEL", "Qwen/Qwen3.5-4B")
-DEFAULT_TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "taxonomy" / "receipt_item_classification_skill.md"
+DEFAULT_TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "taxonomy" / "receipt_item_taxonomy_summary.json"
 UNKNOWN_CLASSIFICATION = {
     "main_category": "other",
     "sub_category": "other.unknown",
@@ -81,16 +81,128 @@ MERCHANT_CONTEXT_RULES = [
         "notes": "Bakery items may be immediate consumption dining or take-home groceries depending on item context.",
     },
     {
+        "merchant_type": "travel_or_hotel",
+        "keywords": ["lufthansa", "booking.com", "airbnb", "hotel", "deutsche bahn", "flixbus"],
+        "candidate_main_categories": [
+            "travel",
+            "transport",
+            "financial_admin",
+        ],
+        "confidence": 0.8,
+        "notes": "Travel merchants can represent trip transport, lodging, or booking/service fees; use item text to separate travel from daily transport.",
+    },
+    {
+        "merchant_type": "housing_or_utility",
+        "keywords": ["landlord", "vattenfall", "e.on", "enbw", "strom", "utility", "vodafone", "telekom"],
+        "candidate_main_categories": [
+            "housing_utilities",
+            "digital_services",
+            "financial_admin",
+        ],
+        "confidence": 0.8,
+        "notes": "Housing and utility merchants usually indicate rent, utilities, home internet, phone, or related service fees.",
+    },
+    {
+        "merchant_type": "digital_service",
+        "keywords": ["netflix", "spotify", "steam", "openai", "chatgpt", "adobe", "icloud", "dropbox", "new york times"],
+        "candidate_main_categories": [
+            "digital_services",
+            "entertainment_leisure",
+            "financial_admin",
+        ],
+        "confidence": 0.9,
+        "notes": "Digital service merchants usually indicate streaming, music, gaming, software, cloud storage, news, or online service plans.",
+    },
+    {
+        "merchant_type": "entertainment_or_leisure",
+        "keywords": ["cinemaxx", "cinema", "kino", "ticketmaster", "museum", "bowling", "escape room"],
+        "candidate_main_categories": [
+            "entertainment_leisure",
+            "dining",
+            "financial_admin",
+        ],
+        "confidence": 0.85,
+        "notes": "Entertainment merchants usually indicate tickets, events, culture, hobbies, nightlife, or leisure services.",
+    },
+    {
+        "merchant_type": "education_or_work",
+        "keywords": ["lmu", "university", "coursera", "udemy", "school", "office depot", "staples"],
+        "candidate_main_categories": [
+            "education_work",
+            "retail_goods",
+            "financial_admin",
+        ],
+        "confidence": 0.8,
+        "notes": "Education/work merchants usually indicate tuition, courses, study materials, office supplies, or professional fees.",
+    },
+    {
+        "merchant_type": "pet_store",
+        "keywords": ["fressnapf", "zooplus", "petco", "petsmart", "tierarzt", "veterinary"],
+        "candidate_main_categories": [
+            "pets",
+            "health",
+            "financial_admin",
+        ],
+        "confidence": 0.9,
+        "notes": "Pet merchants usually indicate pet food, supplies, veterinary services, grooming, or boarding.",
+    },
+    {
+        "merchant_type": "childcare_or_family",
+        "keywords": ["kita", "kindergarten", "daycare", "babyone", "baby walz"],
+        "candidate_main_categories": [
+            "children_family",
+            "retail_goods",
+            "financial_admin",
+        ],
+        "confidence": 0.85,
+        "notes": "Childcare/family merchants usually indicate childcare, baby supplies, children's goods, or family support fees.",
+    },
+    {
+        "merchant_type": "insurance",
+        "keywords": ["tk", "aok", "huk", "allianz", "axa", "debeka", "getsafe", "feather", "ergo"],
+        "candidate_main_categories": [
+            "insurance",
+            "health",
+            "financial_admin",
+        ],
+        "confidence": 0.85,
+        "notes": "Insurance merchants usually indicate health, car, home, travel, life, liability, or other insurance premiums.",
+    },
+    {
+        "merchant_type": "bank_or_admin",
+        "keywords": ["commerzbank", "deutsche bank", "sparkasse", "bank", "atm", "finanzamt", "tax office"],
+        "candidate_main_categories": [
+            "financial_admin",
+            "insurance",
+            "other",
+        ],
+        "confidence": 0.85,
+        "notes": "Bank and administration merchants usually indicate fees, interest, taxes, fines, legal/admin services, or unclear financial adjustments.",
+    },
+    {
+        "merchant_type": "retail_store",
+        "keywords": ["zara", "h&m", "hm", "uniqlo", "ikea", "mediamarkt", "saturn", "apple store"],
+        "candidate_main_categories": [
+            "retail_goods",
+            "household",
+            "personal_care",
+            "financial_admin",
+        ],
+        "confidence": 0.8,
+        "notes": "Retail stores usually indicate durable goods, clothing, electronics, home goods, or service fees.",
+    },
+    {
         "merchant_type": "marketplace_or_payment",
         "keywords": ["amazon", "ebay", "aliexpress", "paypal", "klarna"],
         "candidate_main_categories": [
             "retail_goods",
-            "digital_subscriptions",
+            "digital_services",
             "household",
             "personal_care",
             "health",
             "pets",
             "children_family",
+            "gifts_donations",
             "other",
         ],
         "confidence": 0.7,
@@ -98,7 +210,7 @@ MERCHANT_CONTEXT_RULES = [
     },
     {
         "merchant_type": "fuel_or_mobility",
-        "keywords": ["shell", "aral", "esso", "total", "bp", "jet", "uber", "bolt", "taxi"],
+        "keywords": ["shell", "aral", "esso", "total", "bp", "jet", "uber", "bolt", "taxi", "mvg"],
         "candidate_main_categories": [
             "transport",
             "groceries",
@@ -106,6 +218,15 @@ MERCHANT_CONTEXT_RULES = [
         ],
         "confidence": 0.8,
         "notes": "Fuel, parking, rides, and convenience-store items are all possible depending on the line item.",
+    },
+    {
+        "merchant_type": "unknown_or_misc",
+        "keywords": ["unknown merchant", "misc"],
+        "candidate_main_categories": [
+            "other",
+        ],
+        "confidence": 0.6,
+        "notes": "Unknown or miscellaneous merchant labels should stay narrow unless the item text clearly identifies another category.",
     },
 ]
 
@@ -160,8 +281,38 @@ def extract_json_array(section: str) -> list[str]:
     return json.loads(match.group(1))
 
 
+def tags_from_subcategories(subcategories_by_main: dict[str, list[str]]) -> list[str]:
+    tags = {"unknown"}
+    for subcategories in subcategories_by_main.values():
+        for subcategory in subcategories:
+            if "." in subcategory:
+                tags.add(subcategory.split(".", 1)[1])
+    return sorted(tags)
+
+
 def load_taxonomy(path: Path) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8")
+    if path.suffix.lower() == ".json":
+        data = json.loads(text)
+        raw_subcategories = data.get("sub_categories_by_main")
+        if not isinstance(raw_subcategories, dict):
+            raw_subcategories = {
+                row["id"]: row["sub_categories"]
+                for row in data.get("main_categories", [])
+            }
+        subcategories_by_main = {
+            str(main): list(subcategories)
+            for main, subcategories in raw_subcategories.items()
+        }
+        tags = data.get("tags") or data.get("allowed_tags") or tags_from_subcategories(subcategories_by_main)
+        if "unknown" not in tags:
+            tags = [*tags, "unknown"]
+        return {
+            "allowed_main_categories": list(subcategories_by_main),
+            "allowed_subcategories_by_main": subcategories_by_main,
+            "allowed_tags": tags,
+        }
+
     main_categories = extract_json_array(
         extract_markdown_section(text, "## 3. Allowed Main Categories", "## 4. Allowed Taxonomy")
     )
@@ -472,7 +623,7 @@ def main() -> None:
     parser.add_argument(
         "--taxonomy",
         default=str(DEFAULT_TAXONOMY_PATH),
-        help="Path to receipt item classification skill markdown.",
+        help="Path to receipt item taxonomy JSON or classification skill markdown.",
     )
     parser.add_argument(
         "--sample",

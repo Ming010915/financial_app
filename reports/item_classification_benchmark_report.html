@@ -1,211 +1,61 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Item Classification Benchmark Report</title>
+  <title>Item Classification Benchmark Report v2</title>
   <style>
     :root {
-      --bg: #f7f8fb;
+      --bg: #f6f7f9;
       --panel: #ffffff;
       --text: #172033;
       --muted: #667085;
-      --line: #d9dee8;
-      --accent: #0f6b6f;
-      --soft: #e5f3f2;
+      --line: #d8dde7;
+      --accent: #176b5c;
+      --soft: #e9f4f0;
       --warn: #8a5b00;
-      --warn-soft: #fff2cc;
-      --code: #f2f4f8;
+      --warn-soft: #fff4d6;
+      --code: #f1f3f7;
     }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font: 15px/1.58 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    main {
-      width: min(1160px, calc(100vw - 32px));
-      margin: 32px auto 56px;
-    }
-
-    h1, h2, h3 {
-      margin: 0;
-      line-height: 1.2;
-      letter-spacing: 0;
-    }
-
-    h1 {
-      font-size: 34px;
-      margin-bottom: 10px;
-    }
-
-    h2 {
-      font-size: 22px;
-      margin-bottom: 14px;
-    }
-
-    h3 {
-      font-size: 17px;
-      margin-bottom: 8px;
-    }
-
-    p {
-      margin: 0 0 12px;
-    }
-
-    code {
-      padding: 1px 5px;
-      border-radius: 4px;
-      background: var(--code);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.94em;
-    }
-
-    pre {
-      margin: 0;
-      padding: 14px;
-      overflow: auto;
-      background: var(--code);
-      border-radius: 8px;
-      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
-
-    .subtitle {
-      color: var(--muted);
-      max-width: 920px;
-      font-size: 16px;
-    }
-
-    .meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 16px;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 3px 10px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: var(--panel);
-      color: var(--muted);
-      font-size: 13px;
-      white-space: nowrap;
-    }
-
-    .section {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 20px;
-      margin-top: 18px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .stat {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fbfcfe;
-      padding: 14px;
-    }
-
-    .stat strong {
-      display: block;
-      font-size: 25px;
-      line-height: 1.1;
-      margin-bottom: 5px;
-    }
-
-    .stat span {
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .answer {
-      border-left: 4px solid var(--accent);
-      background: var(--soft);
-      padding: 14px 16px;
-      border-radius: 6px;
-      margin-top: 12px;
-    }
-
-    .warning {
-      border-left: 4px solid var(--warn);
-      background: var(--warn-soft);
-      padding: 14px 16px;
-      border-radius: 6px;
-      margin-top: 12px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-      font-size: 14px;
-    }
-
-    th, td {
-      text-align: left;
-      vertical-align: top;
-      padding: 10px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    th {
-      color: var(--muted);
-      background: #fbfcfe;
-      font-weight: 700;
-    }
-
-    ul {
-      margin: 0;
-      padding-left: 20px;
-    }
-
-    li {
-      margin: 6px 0;
-    }
-
-    .two-col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-
-    @media (max-width: 900px) {
-      .grid,
-      .two-col {
-        grid-template-columns: 1fr;
-      }
-    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.58 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: min(1180px, calc(100vw - 32px)); margin: 32px auto 56px; }
+    h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: 0; }
+    h1 { font-size: 34px; margin-bottom: 10px; }
+    h2 { font-size: 22px; margin-bottom: 14px; }
+    h3 { font-size: 17px; margin-bottom: 8px; }
+    p { margin: 0 0 12px; }
+    code { padding: 1px 5px; border-radius: 4px; background: var(--code); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.94em; }
+    pre { margin: 0; padding: 14px; overflow: auto; background: var(--code); border-radius: 8px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .subtitle { color: var(--muted); max-width: 940px; font-size: 16px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .pill { display: inline-flex; align-items: center; min-height: 28px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; margin-top: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .stat { border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; padding: 14px; }
+    .stat strong { display: block; font-size: 25px; line-height: 1.1; margin-bottom: 5px; }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .answer { border-left: 4px solid var(--accent); background: var(--soft); padding: 14px 16px; border-radius: 6px; margin-top: 12px; }
+    .warning { border-left: 4px solid var(--warn); background: var(--warn-soft); padding: 14px 16px; border-radius: 6px; margin-top: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 10px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); background: #fbfcfe; font-weight: 700; }
+    ul { margin: 0; padding-left: 20px; }
+    li { margin: 6px 0; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <main>
     <header>
-      <h1>Item Classification Benchmark Report</h1>
+      <h1>Item Classification Benchmark Report v2</h1>
       <p class="subtitle">
-        这份报告解释当前 item-level 分类 benchmark 是怎么设计的、是否包含大类和小类、
-        当前实际评估了什么，以及 legacy embedding 与 Harrier embedding 的结果。
+        This report documents the updated receipt item taxonomy and benchmark after replacing the old dataset with the v2 files. It compares the legacy centroid classifier and Harrier on the same 180 item rows, and records the current Qwen local-run status.
       </p>
       <div class="meta">
         <span class="pill">Branch: llm-memory</span>
         <span class="pill">Dataset: benchmarks/item_classification_benchmark.csv</span>
-        <span class="pill">Scope: item main_category accuracy</span>
+        <span class="pill">Taxonomy: taxonomy/receipt_item_taxonomy_summary.json</span>
         <span class="pill">Report date: 2026-07-02</span>
       </div>
     </header>
@@ -213,134 +63,80 @@
     <section class="section">
       <h2>Short Answer</h2>
       <div class="answer">
-        <p>
-          Benchmark 数据集里<strong>同时有大类和小类 gold label</strong>：
-          <code>gold_main_category</code> 和 <code>gold_sub_category</code>。
-        </p>
-        <p>
-          但是当前 benchmark 的<strong>准确率只评估大类</strong>，也就是
-          <code>main_category</code>。小类现在只是先保存在数据集中，方便下一阶段扩展。
-        </p>
+        <p>The benchmark has been replaced with v2: <strong>180 item rows</strong>, <strong>18 main categories</strong>, and <strong>146 subcategories</strong>.</p>
+        <p>The full scored comparison currently evaluates <code>main_category</code> only for the two embedding-style approaches. Qwen is still the candidate for item-level <code>main_category</code> plus <code>sub_category</code>, but the local Qwen 4B CLI run did not complete reliably in this interactive run.</p>
       </div>
     </section>
 
     <section class="section">
       <h2>Dataset Design</h2>
       <div class="grid">
-        <div class="stat">
-          <strong>120</strong>
-          <span>gold-labeled item rows</span>
-        </div>
-        <div class="stat">
-          <strong>12</strong>
-          <span>main categories covered</span>
-        </div>
-        <div class="stat">
-          <strong>10</strong>
-          <span>items per covered main category</span>
-        </div>
-        <div class="stat">
-          <strong>main only</strong>
-          <span>current scoring target</span>
-        </div>
+        <div class="stat"><strong>180</strong><span>gold-labeled item rows</span></div>
+        <div class="stat"><strong>18</strong><span>main categories covered</span></div>
+        <div class="stat"><strong>10</strong><span>items per main category</span></div>
+        <div class="stat"><strong>146</strong><span>taxonomy subcategories</span></div>
       </div>
-      <p style="margin-top:16px;">
-        每条 benchmark row 表示一个已经 OCR/receipt extraction 完成后的 item。字段如下：
-      </p>
-      <pre>id, merchant, raw_name, quantity, amount, currency, gold_main_category, gold_sub_category</pre>
-      <p style="margin-top:12px;">
-        当前 benchmark 覆盖了 12 个 main categories，每个 10 条样本：
-      </p>
+      <p style="margin-top:16px;">Each benchmark row represents one receipt line item after OCR/extraction. The v2 CSV fields are:</p>
+      <pre>id, merchant, raw_name, quantity, amount, currency, gold_main_category, gold_sub_category, decision_note</pre>
+      <p style="margin-top:12px;">Gold main-category distribution:</p>
       <pre>{
-  "groceries": 10,
-  "dining": 10,
-  "household": 10,
-  "personal_care": 10,
-  "health": 10,
-  "transport": 10,
-  "retail_goods": 10,
-  "digital_subscriptions": 10,
-  "entertainment_leisure": 10,
-  "education_work": 10,
-  "pets": 10,
-  "financial_admin": 10
+  &quot;groceries&quot;: 10,
+  &quot;dining&quot;: 10,
+  &quot;household&quot;: 10,
+  &quot;personal_care&quot;: 10,
+  &quot;health&quot;: 10,
+  &quot;transport&quot;: 10,
+  &quot;travel&quot;: 10,
+  &quot;housing_utilities&quot;: 10,
+  &quot;retail_goods&quot;: 10,
+  &quot;digital_services&quot;: 10,
+  &quot;entertainment_leisure&quot;: 10,
+  &quot;education_work&quot;: 10,
+  &quot;pets&quot;: 10,
+  &quot;children_family&quot;: 10,
+  &quot;gifts_donations&quot;: 10,
+  &quot;insurance&quot;: 10,
+  &quot;financial_admin&quot;: 10,
+  &quot;other&quot;: 10
 }</pre>
-      <div class="warning">
-        <p>
-          完整 taxonomy 有 18 个 main categories。当前 benchmark 还没有覆盖：
-          <code>travel</code>, <code>housing_utilities</code>, <code>children_family</code>,
-          <code>gifts_donations</code>, <code>insurance</code>, <code>other</code>。
-        </p>
-      </div>
     </section>
 
     <section class="section">
-      <h2>Is It Main Category or Subcategory?</h2>
+      <h2>Taxonomy v2</h2>
+      <p>The executable taxonomy used by the benchmark runner is the compact JSON file <code>taxonomy/receipt_item_taxonomy_summary.json</code>. It has the v2 shape <code>counts</code> plus <code>sub_categories_by_main</code>.</p>
       <table>
-        <thead>
-          <tr>
-            <th>Level</th>
-            <th>Exists In Dataset?</th>
-            <th>Currently Scored?</th>
-            <th>Reason</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><code>gold_main_category</code></td>
-            <td>Yes</td>
-            <td>Yes</td>
-            <td>All compared models can produce or be mapped to a main-category prediction.</td>
-          </tr>
-          <tr>
-            <td><code>gold_sub_category</code></td>
-            <td>Yes</td>
-            <td>No</td>
-            <td>Legacy embedding and Harrier zero-shot currently only output main categories. Subcategory scoring would be unfair unless every model outputs subcategory.</td>
-          </tr>
-        </tbody>
+        <thead><tr><th>Main Category</th><th>Subcategory Count</th><th>Example Subcategories</th></tr></thead>
+        <tbody><tr><td><code>groceries</code></td><td>12</td><td><code>groceries.dairy, groceries.bread_bakery, groceries.produce, groceries.meat_seafood, groceries.frozen_food ...</code></td></tr>
+<tr><td><code>dining</code></td><td>9</td><td><code>dining.restaurant, dining.fast_food, dining.cafe_coffee, dining.bakery_pastry, dining.delivery_takeaway ...</code></td></tr>
+<tr><td><code>household</code></td><td>10</td><td><code>household.cleaning, household.laundry, household.paper_goods, household.kitchen_supplies, household.home_essentials ...</code></td></tr>
+<tr><td><code>personal_care</code></td><td>8</td><td><code>personal_care.dental_care, personal_care.hair_care, personal_care.skin_care, personal_care.cosmetics, personal_care.hygiene ...</code></td></tr>
+<tr><td><code>health</code></td><td>8</td><td><code>health.medicine, health.pharmacy, health.supplements, health.medical_devices, health.doctor_clinic ...</code></td></tr>
+<tr><td><code>transport</code></td><td>9</td><td><code>transport.public_transport, transport.train, transport.taxi_ride_hailing, transport.fuel, transport.parking ...</code></td></tr>
+<tr><td><code>travel</code></td><td>9</td><td><code>travel.flights, travel.accommodation, travel.long_distance_train_bus, travel.local_transport, travel.travel_food ...</code></td></tr>
+<tr><td><code>housing_utilities</code></td><td>6</td><td><code>housing_utilities.rent_mortgage, housing_utilities.electricity_gas_water, housing_utilities.internet_phone, housing_utilities.property_fee_tax, housing_utilities.repairs_services ...</code></td></tr>
+<tr><td><code>retail_goods</code></td><td>10</td><td><code>retail_goods.clothing, retail_goods.shoes_bags_accessories, retail_goods.electronics, retail_goods.books_media, retail_goods.stationery ...</code></td></tr>
+<tr><td><code>digital_services</code></td><td>9</td><td><code>digital_services.streaming, digital_services.music_audio, digital_services.gaming, digital_services.software_apps, digital_services.cloud_storage ...</code></td></tr>
+<tr><td><code>entertainment_leisure</code></td><td>8</td><td><code>entertainment_leisure.cinema_events, entertainment_leisure.museums_culture, entertainment_leisure.hobbies, entertainment_leisure.sports_activities, entertainment_leisure.nightlife ...</code></td></tr>
+<tr><td><code>education_work</code></td><td>8</td><td><code>education_work.tuition_courses, education_work.study_materials, education_work.office_supplies, education_work.professional_services, education_work.work_equipment ...</code></td></tr>
+<tr><td><code>pets</code></td><td>5</td><td><code>pets.pet_food, pets.pet_care_supplies, pets.veterinary, pets.pet_services, pets.other_pets</code></td></tr>
+<tr><td><code>children_family</code></td><td>8</td><td><code>children_family.childcare, children_family.baby_food_formula, children_family.baby_supplies, children_family.kids_clothing, children_family.kids_toys ...</code></td></tr>
+<tr><td><code>gifts_donations</code></td><td>5</td><td><code>gifts_donations.gifts, gifts_donations.donations_charity, gifts_donations.tips, gifts_donations.celebrations, gifts_donations.other_gifts_donations</code></td></tr>
+<tr><td><code>insurance</code></td><td>7</td><td><code>insurance.health_insurance, insurance.car_insurance, insurance.home_insurance, insurance.travel_insurance, insurance.life_insurance ...</code></td></tr>
+<tr><td><code>financial_admin</code></td><td>13</td><td><code>financial_admin.bank_fee, financial_admin.card_fee, financial_admin.atm_fee, financial_admin.interest, financial_admin.loan_payment ...</code></td></tr>
+<tr><td><code>other</code></td><td>2</td><td><code>other.other, other.unknown</code></td></tr></tbody>
       </table>
-      <p style="margin-top:12px;">
-        Example row:
-      </p>
-      <pre>{
-  "merchant": "REWE",
-  "raw_name": "ZAHNCREME",
-  "gold_main_category": "personal_care",
-  "gold_sub_category": "personal_care.dental_care"
-}</pre>
     </section>
 
     <section class="section">
-      <h2>Models Compared</h2>
+      <h2>Inputs Compared</h2>
       <table>
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th>Input</th>
-            <th>Method</th>
-            <th>Output Evaluated</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Column</th><th>Model</th><th>Input Text</th><th>Scored Output</th></tr></thead>
         <tbody>
-          <tr>
-            <td>Legacy embedding</td>
-            <td><code>merchant</code> and <code>merchant raw_name</code></td>
-            <td>Existing SentenceTransformer nearest-centroid classifier from <code>dataset/centroids.json</code>, then mapped from old transaction categories to taxonomy main categories.</td>
-            <td><code>main_category</code></td>
-          </tr>
-          <tr>
-            <td>Harrier 0.6B</td>
-            <td><code>merchant</code> and <code>merchant raw_name</code></td>
-            <td><code>microsoft/harrier-oss-v1-0.6b</code> as zero-shot embedding classifier against taxonomy main-category descriptions, with merchant-focused candidate narrowing.</td>
-            <td><code>main_category</code></td>
-          </tr>
-          <tr>
-            <td>Qwen local LLM</td>
-            <td><code>merchant + raw_name + amount</code></td>
-            <td>Prompted local Qwen 4B with focused taxonomy. Full 120-row run is still too slow, so the current report includes a 12-row stratified probe.</td>
-            <td><code>main_category</code> and <code>sub_category</code> on the probe</td>
-          </tr>
+          <tr><td>1</td><td>Legacy embedding</td><td><code>merchant</code></td><td><code>main_category</code></td></tr>
+          <tr><td>2</td><td>Legacy embedding</td><td><code>merchant raw_name</code></td><td><code>main_category</code></td></tr>
+          <tr><td>3</td><td>Harrier 0.6B</td><td><code>merchant</code></td><td><code>main_category</code></td></tr>
+          <tr><td>4</td><td>Harrier 0.6B</td><td><code>merchant raw_name</code></td><td><code>main_category</code></td></tr>
+          <tr><td>5</td><td>Qwen 4B</td><td><code>merchant raw_name quantity amount currency</code></td><td><code>main_category</code> and <code>sub_category</code>; not completed in this run</td></tr>
         </tbody>
       </table>
     </section>
@@ -348,76 +144,16 @@
     <section class="section">
       <h2>Current Results</h2>
       <table>
-        <thead>
-          <tr>
-            <th>Metric</th>
-            <th>Legacy Embedding<br>merchant</th>
-            <th>Legacy Embedding<br>merchant item</th>
-            <th>Harrier 0.6B<br>merchant</th>
-            <th>Harrier 0.6B<br>merchant item</th>
-            <th>Qwen 4B<br>probe</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><code>merchant</code></td>
-            <td>Used</td>
-            <td>Used</td>
-            <td>Used</td>
-            <td>Used</td>
-            <td>Used</td>
-          </tr>
-          <tr>
-            <td><code>raw_name</code></td>
-            <td>Not used</td>
-            <td>Used</td>
-            <td>Not used</td>
-            <td>Used</td>
-            <td>Used</td>
-          </tr>
-          <tr>
-            <td><code>amount</code></td>
-            <td>Not used</td>
-            <td>Not used</td>
-            <td>Not used</td>
-            <td>Not used</td>
-            <td>Used</td>
-          </tr>
-          <tr>
-            <td>Coverage</td>
-            <td>120/120</td>
-            <td>120/120</td>
-            <td>120/120</td>
-            <td>120/120</td>
-            <td>12-row stratified probe</td>
-          </tr>
-          <tr>
-            <td>Main accuracy</td>
-            <td>43/120 = 35.83%</td>
-            <td>46/120 = 38.33%</td>
-            <td>56/120 = 46.67%</td>
-            <td>83/120 = 69.17%</td>
-            <td>12/12 = 100.00%</td>
-          </tr>
-          <tr>
-            <td>Subcategory accuracy</td>
-            <td>Not evaluated</td>
-            <td>Not evaluated</td>
-            <td>Not evaluated</td>
-            <td>Not evaluated</td>
-            <td>11/12 = 91.67%</td>
-          </tr>
-        </tbody>
+        <thead><tr><th>Model</th><th>Input</th><th>Correct / Total</th><th>Main Accuracy</th><th>Notes</th></tr></thead>
+        <tbody><tr><td>Legacy embedding</td><td><code>merchant</code></td><td>43/180</td><td>23.89%</td><td>Legacy SentenceTransformer nearest-centroid classifier with merchant-only input.</td></tr><tr><td>Legacy embedding</td><td><code>merchant raw_name</code></td><td>49/180</td><td>27.22%</td><td>Legacy SentenceTransformer nearest-centroid classifier with merchant and item text input.</td></tr><tr><td>Harrier 0.6B</td><td><code>merchant</code></td><td>85/180</td><td>47.22%</td><td>Microsoft Harrier zero-shot classifier with merchant-only input.</td></tr><tr><td>Harrier 0.6B</td><td><code>merchant raw_name</code></td><td>127/180</td><td>70.56%</td><td>Microsoft Harrier zero-shot classifier with merchant and item text input.</td></tr><tr><td>Qwen 4B local LLM</td><td><code>merchant raw_name quantity amount currency</code></td><td>not scored</td><td>not scored</td><td>v2 probe attempted but local MPS generation did not return within the interactive time budget.</td></tr></tbody>
       </table>
       <div class="warning">
-        <p>
-          Qwen 的 12/12 不是 full 120 benchmark。它是每个已覆盖大类抽 1 条的 stratified probe，用来观察 Qwen 4B 是否能做大类和小类。Full 120 条在当前 Transformers/MPS 路径下预计耗时过长。
-        </p>
+        <p>The legacy centroid model was trained on older transaction-level categories. Its old <code>Entertainment &amp; Subscriptions</code> label is mapped to v2 <code>digital_services</code>, so it cannot fairly separate <code>digital_services</code> from <code>entertainment_leisure</code>.</p>
       </div>
     </section>
 
     <section class="section">
-      <h2>Per-Category Accuracy: Full 120 Embedding Runs</h2>
+      <h2>Per-Category Accuracy</h2>
       <table>
         <thead>
           <tr>
@@ -428,89 +164,65 @@
             <th>Harrier: merchant item</th>
           </tr>
         </thead>
-        <tbody>
-          <tr><td><code>digital_subscriptions</code></td><td>4/10</td><td>5/10</td><td>6/10</td><td>9/10</td></tr>
-          <tr><td><code>dining</code></td><td>9/10</td><td>9/10</td><td>9/10</td><td>10/10</td></tr>
-          <tr><td><code>education_work</code></td><td>0/10</td><td>0/10</td><td>3/10</td><td>5/10</td></tr>
-          <tr><td><code>entertainment_leisure</code></td><td>0/10</td><td>0/10</td><td>4/10</td><td>6/10</td></tr>
-          <tr><td><code>financial_admin</code></td><td>2/10</td><td>2/10</td><td>3/10</td><td>6/10</td></tr>
-          <tr><td><code>groceries</code></td><td>3/10</td><td>2/10</td><td>7/10</td><td>6/10</td></tr>
-          <tr><td><code>health</code></td><td>10/10</td><td>9/10</td><td>8/10</td><td>9/10</td></tr>
-          <tr><td><code>household</code></td><td>0/10</td><td>1/10</td><td>0/10</td><td>2/10</td></tr>
-          <tr><td><code>personal_care</code></td><td>1/10</td><td>1/10</td><td>3/10</td><td>9/10</td></tr>
-          <tr><td><code>pets</code></td><td>2/10</td><td>7/10</td><td>7/10</td><td>9/10</td></tr>
-          <tr><td><code>retail_goods</code></td><td>6/10</td><td>3/10</td><td>1/10</td><td>2/10</td></tr>
-          <tr><td><code>transport</code></td><td>6/10</td><td>7/10</td><td>5/10</td><td>10/10</td></tr>
-        </tbody>
+        <tbody><tr><td><code>groceries</code></td><td>3/10 (30.00%)</td><td>3/10 (30.00%)</td><td>8/10 (80.00%)</td><td>7/10 (70.00%)</td></tr>
+<tr><td><code>dining</code></td><td>9/10 (90.00%)</td><td>9/10 (90.00%)</td><td>9/10 (90.00%)</td><td>10/10 (100.00%)</td></tr>
+<tr><td><code>household</code></td><td>0/10 (0.00%)</td><td>1/10 (10.00%)</td><td>1/10 (10.00%)</td><td>2/10 (20.00%)</td></tr>
+<tr><td><code>personal_care</code></td><td>1/10 (10.00%)</td><td>1/10 (10.00%)</td><td>3/10 (30.00%)</td><td>9/10 (90.00%)</td></tr>
+<tr><td><code>health</code></td><td>10/10 (100.00%)</td><td>9/10 (90.00%)</td><td>8/10 (80.00%)</td><td>9/10 (90.00%)</td></tr>
+<tr><td><code>transport</code></td><td>6/10 (60.00%)</td><td>7/10 (70.00%)</td><td>5/10 (50.00%)</td><td>10/10 (100.00%)</td></tr>
+<tr><td><code>travel</code></td><td>0/10 (0.00%)</td><td>0/10 (0.00%)</td><td>4/10 (40.00%)</td><td>5/10 (50.00%)</td></tr>
+<tr><td><code>housing_utilities</code></td><td>0/10 (0.00%)</td><td>0/10 (0.00%)</td><td>4/10 (40.00%)</td><td>8/10 (80.00%)</td></tr>
+<tr><td><code>retail_goods</code></td><td>6/10 (60.00%)</td><td>3/10 (30.00%)</td><td>3/10 (30.00%)</td><td>2/10 (20.00%)</td></tr>
+<tr><td><code>digital_services</code></td><td>3/10 (30.00%)</td><td>4/10 (40.00%)</td><td>6/10 (60.00%)</td><td>9/10 (90.00%)</td></tr>
+<tr><td><code>entertainment_leisure</code></td><td>0/10 (0.00%)</td><td>0/10 (0.00%)</td><td>4/10 (40.00%)</td><td>7/10 (70.00%)</td></tr>
+<tr><td><code>education_work</code></td><td>0/10 (0.00%)</td><td>0/10 (0.00%)</td><td>4/10 (40.00%)</td><td>4/10 (40.00%)</td></tr>
+<tr><td><code>pets</code></td><td>2/10 (20.00%)</td><td>7/10 (70.00%)</td><td>7/10 (70.00%)</td><td>10/10 (100.00%)</td></tr>
+<tr><td><code>children_family</code></td><td>0/10 (0.00%)</td><td>0/10 (0.00%)</td><td>5/10 (50.00%)</td><td>6/10 (60.00%)</td></tr>
+<tr><td><code>gifts_donations</code></td><td>0/10 (0.00%)</td><td>0/10 (0.00%)</td><td>2/10 (20.00%)</td><td>8/10 (80.00%)</td></tr>
+<tr><td><code>insurance</code></td><td>0/10 (0.00%)</td><td>0/10 (0.00%)</td><td>3/10 (30.00%)</td><td>8/10 (80.00%)</td></tr>
+<tr><td><code>financial_admin</code></td><td>2/10 (20.00%)</td><td>2/10 (20.00%)</td><td>5/10 (50.00%)</td><td>8/10 (80.00%)</td></tr>
+<tr><td><code>other</code></td><td>1/10 (10.00%)</td><td>3/10 (30.00%)</td><td>4/10 (40.00%)</td><td>5/10 (50.00%)</td></tr></tbody>
       </table>
     </section>
 
     <section class="section">
-      <h2>Qwen 4B Subcategory Probe</h2>
-      <p>
-        Qwen was run on 12 stratified examples, one from each covered main category. It got all 12 main categories right and 11 of 12 subcategories right.
-      </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Gold</th>
-            <th>Qwen Prediction</th>
-            <th>Result</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td><code>MILCH 1.5%</code></td><td><code>groceries / groceries.dairy</code></td><td><code>groceries / groceries.dairy</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>LATTE GRANDE</code></td><td><code>dining / dining.cafe_coffee</code></td><td><code>dining / dining.cafe_coffee</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>WASCHMITTEL</code></td><td><code>household / household.laundry</code></td><td><code>household / household.cleaning</code></td><td>Main correct, sub wrong</td></tr>
-          <tr><td><code>ZAHNCREME</code></td><td><code>personal_care / personal_care.dental_care</code></td><td><code>personal_care / personal_care.dental_care</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>IBUPROFEN</code></td><td><code>health / health.medicine</code></td><td><code>health / health.medicine</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>SUBWAY TICKET</code></td><td><code>transport / transport.public_transport</code></td><td><code>transport / transport.public_transport</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>JACKET</code></td><td><code>retail_goods / retail_goods.clothing</code></td><td><code>retail_goods / retail_goods.clothing</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>MONTHLY SUBSCRIPTION</code></td><td><code>digital_subscriptions / digital_subscriptions.streaming</code></td><td><code>digital_subscriptions / digital_subscriptions.streaming</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>CINEMA TICKET</code></td><td><code>entertainment_leisure / entertainment_leisure.cinema_events</code></td><td><code>entertainment_leisure / entertainment_leisure.cinema_events</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>TUITION FEE</code></td><td><code>education_work / education_work.tuition_courses</code></td><td><code>education_work / education_work.tuition_courses</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>CAT FOOD</code></td><td><code>pets / pets.pet_food</code></td><td><code>pets / pets.pet_food</code></td><td>Main + sub correct</td></tr>
-          <tr><td><code>ACCOUNT FEE</code></td><td><code>financial_admin / financial_admin.bank_fee</code></td><td><code>financial_admin / financial_admin.bank_fee</code></td><td>Main + sub correct</td></tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section class="section">
-      <h2>What This Means</h2>
-      <ul>
-        <li>The full 120-row benchmark currently scores main-category accuracy for embedding models.</li>
-        <li>Using the same input modes matters: Harrier improves from 46.67% with merchant-only input to 69.17% with <code>merchant raw_name</code>.</li>
-        <li>The old legacy centroids barely improve when item text is appended: 35.83% to 38.33%.</li>
-        <li>Qwen looks promising on a small stratified probe: 100% main-category and 91.67% subcategory accuracy, but it is not yet a full benchmark result.</li>
-        <li>The practical blocker for Qwen is runtime, not benchmark design. It needs a warm local service or faster inference path before running all 120 rows comfortably.</li>
-      </ul>
-    </section>
-
-    <section class="section">
-      <h2>Limitations</h2>
-      <ul>
-        <li>The benchmark is hand-authored and balanced. It is useful for model comparison, but it is not yet a production distribution.</li>
-        <li>It covers 12 of the 18 main taxonomy categories.</li>
-        <li>Full 120-row scoring does not yet include subcategory accuracy for all models.</li>
-        <li>It evaluates each item row independently, not full multi-item receipt context.</li>
-        <li>Qwen full benchmark is not included because the current local generation path is too slow for a 120-row interactive run; only a 12-row stratified probe is included.</li>
-      </ul>
-    </section>
-
-    <section class="section">
-      <h2>Recommended Next Step</h2>
-      <div class="answer">
-        <p>
-          The most useful next benchmark is:
-          <strong>train taxonomy centroids using Harrier embeddings on labeled item examples</strong>
-          and run Qwen through a warm local service. Then evaluate both <code>main_category</code>
-          and <code>sub_category</code> on the same full 120-row dataset.
-        </p>
-        <p>
-          That would be a fairer embedding-model comparison against the current centroid approach, and it would also be fast enough to run locally.
-        </p>
+      <h2>Qwen 4B Probe Status</h2>
+      <div class="warning">
+        <p>The v2 Qwen probe was attempted but is <strong>not scored</strong>. The 18-row run stalled during local MPS generation, and a single-row smoke test also failed to return within the interactive time budget after prompt compaction.</p>
+        <p>The old 12-row v1 Qwen result has been replaced with a status JSON so it cannot be mistaken for v2 accuracy.</p>
       </div>
+      <p>The intended v2 probe cases are listed below, one per main category:</p>
+      <table>
+        <thead><tr><th>ID</th><th>Merchant</th><th>Raw Name</th><th>Gold Main</th><th>Gold Sub</th></tr></thead>
+        <tbody><tr><td><code>groceries_001</code></td><td>REWE</td><td><code>MILCH 1.5%</code></td><td><code>groceries</code></td><td><code>groceries.dairy</code></td></tr>
+<tr><td><code>dining_001</code></td><td>Starbucks</td><td><code>LATTE GRANDE</code></td><td><code>dining</code></td><td><code>dining.cafe_coffee</code></td></tr>
+<tr><td><code>household_001</code></td><td>REWE</td><td><code>WASCHMITTEL</code></td><td><code>household</code></td><td><code>household.laundry</code></td></tr>
+<tr><td><code>personal_care_001</code></td><td>REWE</td><td><code>ZAHNCREME</code></td><td><code>personal_care</code></td><td><code>personal_care.dental_care</code></td></tr>
+<tr><td><code>health_001</code></td><td>Apotheke</td><td><code>IBUPROFEN</code></td><td><code>health</code></td><td><code>health.medicine</code></td></tr>
+<tr><td><code>transport_001</code></td><td>MVG</td><td><code>SUBWAY TICKET</code></td><td><code>transport</code></td><td><code>transport.public_transport</code></td></tr>
+<tr><td><code>travel_001</code></td><td>Lufthansa</td><td><code>FLIGHT TICKET MUC BER</code></td><td><code>travel</code></td><td><code>travel.flights</code></td></tr>
+<tr><td><code>housing_utilities_001</code></td><td>Landlord</td><td><code>MONTHLY RENT</code></td><td><code>housing_utilities</code></td><td><code>housing_utilities.rent_mortgage</code></td></tr>
+<tr><td><code>retail_goods_001</code></td><td>Zara</td><td><code>JACKET</code></td><td><code>retail_goods</code></td><td><code>retail_goods.clothing</code></td></tr>
+<tr><td><code>digital_services_001</code></td><td>Netflix</td><td><code>MONTHLY SUBSCRIPTION</code></td><td><code>digital_services</code></td><td><code>digital_services.streaming</code></td></tr>
+<tr><td><code>entertainment_leisure_001</code></td><td>CinemaxX</td><td><code>CINEMA TICKET</code></td><td><code>entertainment_leisure</code></td><td><code>entertainment_leisure.cinema_events</code></td></tr>
+<tr><td><code>education_work_001</code></td><td>LMU Munich</td><td><code>TUITION FEE</code></td><td><code>education_work</code></td><td><code>education_work.tuition_courses</code></td></tr>
+<tr><td><code>pets_001</code></td><td>Fressnapf</td><td><code>CAT FOOD</code></td><td><code>pets</code></td><td><code>pets.pet_food</code></td></tr>
+<tr><td><code>children_family_001</code></td><td>Kita Sonnenschein</td><td><code>KITA FEE</code></td><td><code>children_family</code></td><td><code>children_family.childcare</code></td></tr>
+<tr><td><code>gifts_donations_001</code></td><td>Amazon</td><td><code>BIRTHDAY GIFT</code></td><td><code>gifts_donations</code></td><td><code>gifts_donations.gifts</code></td></tr>
+<tr><td><code>insurance_001</code></td><td>TK</td><td><code>HEALTH INSURANCE</code></td><td><code>insurance</code></td><td><code>insurance.health_insurance</code></td></tr>
+<tr><td><code>financial_admin_001</code></td><td>Commerzbank</td><td><code>ACCOUNT FEE</code></td><td><code>financial_admin</code></td><td><code>financial_admin.bank_fee</code></td></tr>
+<tr><td><code>other_001</code></td><td>Unknown Merchant</td><td><code>MISC ITEM</code></td><td><code>other</code></td><td><code>other.other</code></td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Implementation Notes</h2>
+      <ul>
+        <li>The benchmark runner now supports the v2 compact taxonomy JSON format through <code>sub_categories_by_main</code>.</li>
+        <li>The old taxonomy label <code>digital_subscriptions</code> was replaced with <code>digital_services</code> in executable code paths.</li>
+        <li>Qwen merchant pre-filtering was expanded for v2 categories such as <code>travel</code>, <code>housing_utilities</code>, <code>digital_services</code>, <code>insurance</code>, and <code>children_family</code>.</li>
+        <li>The Qwen benchmark prompt was compacted to reduce token count, but local generation is still too slow in the current CLI/MPS path.</li>
+      </ul>
     </section>
   </main>
 </body>

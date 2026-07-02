@@ -1,121 +1,181 @@
-id,merchant,raw_name,quantity,amount,currency,gold_main_category,gold_sub_category
-groceries_001,REWE,MILCH 1.5%,1,1.29,EUR,groceries,groceries.dairy
-groceries_002,Edeka,VOLLKORNBROT,1,2.49,EUR,groceries,groceries.bread_bakery
-groceries_003,Lidl,BIO BANANEN,1,2.18,EUR,groceries,groceries.produce
-groceries_004,Aldi Sud,APFEL,1,1.99,EUR,groceries,groceries.produce
-groceries_005,Kaufland,HUHNCHENBRUST,1,6.49,EUR,groceries,groceries.meat_seafood
-groceries_006,REWE,LACHSFILET,1,7.99,EUR,groceries,groceries.meat_seafood
-groceries_007,Edeka,TK PIZZA,1,3.29,EUR,groceries,groceries.frozen_food
-groceries_008,edika,MAGNUM MANDEL,1,2.79,EUR,groceries,groceries.snacks_sweets
-groceries_009,Netto,BASMATI REIS,1,2.99,EUR,groceries,groceries.pantry_staples
-groceries_010,Penny,SPAGHETTI,1,1.19,EUR,groceries,groceries.pantry_staples
-dining_001,Starbucks,LATTE GRANDE,1,4.8,EUR,dining,dining.cafe_coffee
-dining_002,Starbucks,CROISSANT,1,2.6,EUR,dining,dining.bakery_pastry
-dining_003,McDonald's,BIG MAC MENU,1,8.99,EUR,dining,dining.fast_food
-dining_004,Burger King,WHOPPER,1,6.49,EUR,dining,dining.fast_food
-dining_005,Pizzeria Da Luigi,MARGHERITA PIZZA,1,10.5,EUR,dining,dining.restaurant
-dining_006,Doner Kebab Haus,DONER KEBAB,1,6.0,EUR,dining,dining.fast_food
-dining_007,Sushi Express,SALMON MAKI,1,7.5,EUR,dining,dining.restaurant
-dining_008,Studentenwerk Mensa,LUNCH MENU,1,4.2,EUR,dining,dining.canteen
-dining_009,Irish Pub,DRAFT BEER,1,5.2,EUR,dining,dining.bar_nightlife
-dining_010,Lieferando,DELIVERY TAKEAWAY ORDER,1,18.9,EUR,dining,dining.delivery_takeaway
-household_001,REWE,WASCHMITTEL,1,5.99,EUR,household,household.laundry
-household_002,dm,DISH SOAP,1,1.79,EUR,household,household.cleaning
-household_003,Rossmann,TOILET PAPER,1,3.99,EUR,household,household.paper_goods
-household_004,Edeka,TRASH BAGS,1,2.49,EUR,household,household.home_essentials
-household_005,Aldi Sud,BATTERIES AA,1,4.99,EUR,household,household.home_essentials
-household_006,IKEA,LED LIGHT BULB,1,3.99,EUR,household,household.home_essentials
-household_007,dm,CLEANING SPRAY,1,2.29,EUR,household,household.cleaning
-household_008,REWE,ALUMINUM FOIL,1,1.99,EUR,household,household.kitchen_supplies
-household_009,Obi,PLANT SOIL,1,4.49,EUR,household,household.garden_plants
-household_010,Obi,SCREWDRIVER SET,1,12.99,EUR,household,household.tools_hardware
-personal_care_001,REWE,ZAHNCREME,1,2.49,EUR,personal_care,personal_care.dental_care
-personal_care_002,dm,TOOTHBRUSH,1,1.99,EUR,personal_care,personal_care.dental_care
-personal_care_003,dm,SHAMPOO,1,2.95,EUR,personal_care,personal_care.hair_care
-personal_care_004,Rossmann,CONDITIONER,1,2.75,EUR,personal_care,personal_care.hair_care
-personal_care_005,dm,DEODORANT,1,1.85,EUR,personal_care,personal_care.hygiene
-personal_care_006,Rossmann,SUNSCREEN,1,6.99,EUR,personal_care,personal_care.skin_care
-personal_care_007,dm,FACE CREAM,1,4.99,EUR,personal_care,personal_care.skin_care
-personal_care_008,Muller,LIPSTICK,1,7.99,EUR,personal_care,personal_care.cosmetics
-personal_care_009,Douglas,PERFUME,1,39.99,EUR,personal_care,personal_care.fragrance
-personal_care_010,Hair Salon,HAIRCUT,1,25.0,EUR,personal_care,personal_care.grooming_services
-health_001,Apotheke,IBUPROFEN,1,4.99,EUR,health,health.medicine
-health_002,Apotheke,COUGH SYRUP,1,6.49,EUR,health,health.medicine
-health_003,dm,VITAMIN D,1,4.95,EUR,health,health.supplements
-health_004,Rossmann,PROTEIN POWDER,1,14.99,EUR,health,health.supplements
-health_005,Apotheke,THERMOMETER,1,8.99,EUR,health,health.medical_devices
-health_006,Apotheke,BANDAGE,1,3.49,EUR,health,health.medical_devices
-health_007,Apotheke,PHARMACY ORDER,1,12.0,EUR,health,health.pharmacy
-health_008,Doctor Clinic,CONSULTATION FEE,1,40.0,EUR,health,health.doctor_clinic
-health_009,Physiotherapy Center,PHYSIOTHERAPY,1,55.0,EUR,health,health.therapy
-health_010,McFit,GYM MEMBERSHIP,1,19.99,EUR,health,health.fitness_wellness
-transport_001,MVG,SUBWAY TICKET,1,3.7,EUR,transport,transport.public_transport
-transport_002,Deutsche Bahn,COMMUTER TRAIN,1,5.8,EUR,transport,transport.train
-transport_003,Uber,RIDE,1,14.2,EUR,transport,transport.taxi_ride_hailing
-transport_004,Bolt,TAXI RIDE,1,11.7,EUR,transport,transport.taxi_ride_hailing
-transport_005,Aral,FUEL,1,58.0,EUR,transport,transport.fuel
-transport_006,Shell,FUEL DIESEL,1,62.4,EUR,transport,transport.fuel
-transport_007,Parking Garage,PARKING FEE,1,4.0,EUR,transport,transport.parking
-transport_008,Car Wash,CAR WASH,1,9.99,EUR,transport,transport.car_maintenance
-transport_009,MVG Rad,BIKE RENTAL,1,2.5,EUR,transport,transport.bike_scooter
-transport_010,TIER,E SCOOTER,1,4.8,EUR,transport,transport.bike_scooter
-retail_goods_001,Zara,JACKET,1,49.99,EUR,retail_goods,retail_goods.clothing
-retail_goods_002,H&M,T SHIRT,1,12.99,EUR,retail_goods,retail_goods.clothing
-retail_goods_003,Deichmann,SNEAKERS,1,39.99,EUR,retail_goods,retail_goods.shoes_bags_accessories
-retail_goods_004,Amazon,USB-C CABLE,1,8.99,EUR,retail_goods,retail_goods.electronics
-retail_goods_005,MediaMarkt,HEADPHONES,1,79.99,EUR,retail_goods,retail_goods.electronics
-retail_goods_006,Thalia,NOVEL,1,14.0,EUR,retail_goods,retail_goods.books_media
-retail_goods_007,Copyshop Schwabing,NOTEBOOK,1,3.49,EUR,retail_goods,retail_goods.stationery
-retail_goods_008,Decathlon,TENNIS RACKET,1,34.99,EUR,retail_goods,retail_goods.sports_outdoor
-retail_goods_009,Spielwaren,Toy Car,1,9.99,EUR,retail_goods,retail_goods.toys_games
-retail_goods_010,Douglas,LUXURY WATCH,1,199.0,EUR,retail_goods,retail_goods.luxury
-digital_subscriptions_001,Netflix,MONTHLY SUBSCRIPTION,1,12.99,EUR,digital_subscriptions,digital_subscriptions.streaming
-digital_subscriptions_002,Spotify Premium Student,MUSIC SUBSCRIPTION,1,5.99,EUR,digital_subscriptions,digital_subscriptions.music_audio
-digital_subscriptions_003,Steam,GAME PURCHASE,1,19.99,EUR,digital_subscriptions,digital_subscriptions.gaming
-digital_subscriptions_004,OpenAI ChatGPT,CHATGPT PLUS,1,20.0,EUR,digital_subscriptions,digital_subscriptions.software_apps
-digital_subscriptions_005,Adobe,CREATIVE CLOUD,1,29.99,EUR,digital_subscriptions,digital_subscriptions.software_apps
-digital_subscriptions_006,Apple iCloud,ICLOUD STORAGE,1,2.99,EUR,digital_subscriptions,digital_subscriptions.cloud_storage
-digital_subscriptions_007,New York Times,NEWS SUBSCRIPTION,1,8.0,EUR,digital_subscriptions,digital_subscriptions.news_media
-digital_subscriptions_008,Telekom,MOBILE PLAN,1,19.99,EUR,digital_subscriptions,digital_subscriptions.telecom_mobile_plan
-digital_subscriptions_009,Amazon Prime,PRIME MEMBERSHIP,1,8.99,EUR,digital_subscriptions,digital_subscriptions.membership_platform
-digital_subscriptions_010,Disney Plus,STREAMING PLAN,1,8.99,EUR,digital_subscriptions,digital_subscriptions.streaming
-entertainment_leisure_001,CinemaxX,CINEMA TICKET,1,12.5,EUR,entertainment_leisure,entertainment_leisure.cinema_events
-entertainment_leisure_002,Eventim,CONCERT TICKET,1,45.0,EUR,entertainment_leisure,entertainment_leisure.cinema_events
-entertainment_leisure_003,Museum,EXHIBITION TICKET,1,9.0,EUR,entertainment_leisure,entertainment_leisure.museums_culture
-entertainment_leisure_004,Craft Store,PAINTING SUPPLIES,1,18.5,EUR,entertainment_leisure,entertainment_leisure.hobbies
-entertainment_leisure_005,Bowling Center,BOWLING,1,16.0,EUR,entertainment_leisure,entertainment_leisure.sports_activities
-entertainment_leisure_006,Club Entry,CLUB ENTRANCE,1,15.0,EUR,entertainment_leisure,entertainment_leisure.nightlife
-entertainment_leisure_007,Arcade,ARCADE TOKENS,1,10.0,EUR,entertainment_leisure,entertainment_leisure.games_arcades
-entertainment_leisure_008,Escape Room,ESCAPE ROOM,1,28.0,EUR,entertainment_leisure,entertainment_leisure.leisure_services
-entertainment_leisure_009,Karaoke Bar,KARAOKE ROOM,1,22.0,EUR,entertainment_leisure,entertainment_leisure.leisure_services
-entertainment_leisure_010,Climbing Gym,DAY PASS,1,14.0,EUR,entertainment_leisure,entertainment_leisure.sports_activities
-education_work_001,LMU Munich,TUITION FEE,1,85.0,EUR,education_work,education_work.tuition_courses
-education_work_002,Udemy,ONLINE COURSE,1,19.99,EUR,education_work,education_work.tuition_courses
-education_work_003,Thalia,TEXTBOOK,1,32.0,EUR,education_work,education_work.study_materials
-education_work_004,Copyshop Schwabing,PRINTER PAPER,1,4.99,EUR,education_work,education_work.office_supplies
-education_work_005,Tax Advisor,PROFESSIONAL SERVICE,1,120.0,EUR,education_work,education_work.professional_services
-education_work_006,MediaMarkt,WORK KEYBOARD,1,49.99,EUR,education_work,education_work.work_equipment
-education_work_007,Conference Center,CONFERENCE TICKET,1,199.0,EUR,education_work,education_work.conferences
-education_work_008,Exam Office,CERTIFICATION EXAM,1,75.0,EUR,education_work,education_work.certifications
-education_work_009,Stationery Store,PEN SET,1,5.99,EUR,education_work,education_work.office_supplies
-education_work_010,Coursera,SPECIALIZATION COURSE,1,39.0,EUR,education_work,education_work.tuition_courses
-pets_001,Fressnapf,CAT FOOD,1,12.49,EUR,pets,pets.pet_food
-pets_002,Fressnapf,DOG FOOD,1,18.99,EUR,pets,pets.pet_food
-pets_003,dm,CAT LITTER,1,6.49,EUR,pets,pets.pet_care_supplies
-pets_004,Amazon,DOG LEASH,1,9.99,EUR,pets,pets.pet_care_supplies
-pets_005,Veterinary Clinic,VET BILL,1,65.0,EUR,pets,pets.veterinary
-pets_006,Pet Groomer,PET GROOMING,1,35.0,EUR,pets,pets.pet_services
-pets_007,Fressnapf,FISH FOOD,1,4.99,EUR,pets,pets.pet_food
-pets_008,Fressnapf,BIRD SEED,1,3.99,EUR,pets,pets.pet_food
-pets_009,Amazon,CAT TOY,1,7.99,EUR,pets,pets.pet_care_supplies
-pets_010,Pet Boarding,PET BOARDING,1,45.0,EUR,pets,pets.pet_services
-financial_admin_001,Commerzbank,ACCOUNT FEE,1,4.9,EUR,financial_admin,financial_admin.bank_fee
-financial_admin_002,ATM,ATM FEE,1,2.5,EUR,financial_admin,financial_admin.atm_fee
-financial_admin_003,Tax Office,TAX PAYMENT,1,300.0,EUR,financial_admin,financial_admin.taxes
-financial_admin_004,City Munich,TRAFFIC FINE,1,30.0,EUR,financial_admin,financial_admin.fines_penalties
-financial_admin_005,REWE,PFAND,1,0.25,EUR,financial_admin,financial_admin.deposits_refunds
-financial_admin_006,Edeka,RABATT,1,-1.0,EUR,financial_admin,financial_admin.discounts_adjustments
-financial_admin_007,Lieferando,DELIVERY FEE,1,2.99,EUR,financial_admin,financial_admin.service_delivery_fees
-financial_admin_008,Restaurant,TIP,1,3.0,EUR,financial_admin,financial_admin.service_delivery_fees
-financial_admin_009,Visa Card,CARD FEE,1,1.5,EUR,financial_admin,financial_admin.card_fee
-financial_admin_010,Bank Loan,LOAN PAYMENT,1,200.0,EUR,financial_admin,financial_admin.loan_payment
+id,merchant,raw_name,quantity,amount,currency,gold_main_category,gold_sub_category,decision_note
+groceries_001,REWE,MILCH 1.5%,1,1.29,EUR,groceries,groceries.dairy,supermarket food ingredient
+groceries_002,Edeka,VOLLKORNBROT,1,2.49,EUR,groceries,groceries.bread_bakery,supermarket bread
+groceries_003,Lidl,BIO BANANEN,1,2.18,EUR,groceries,groceries.produce,fresh produce
+groceries_004,Aldi Sud,APFEL,1,1.99,EUR,groceries,groceries.produce,fresh produce
+groceries_005,Kaufland,HUHNCHENBRUST,1,6.49,EUR,groceries,groceries.meat_seafood,raw meat
+groceries_006,REWE,LACHSFILET,1,7.99,EUR,groceries,groceries.meat_seafood,raw seafood
+groceries_007,Edeka,TK PIZZA,1,3.29,EUR,groceries,groceries.frozen_food,frozen supermarket food
+groceries_008,Edeka,MAGNUM MANDEL,1,2.79,EUR,groceries,groceries.snacks_sweets,ice cream treated as snack/sweets
+groceries_009,Netto,BASMATI REIS,1,2.99,EUR,groceries,groceries.pantry_staples,dry staple
+groceries_010,Penny,ORANGENSAFT,1,1.89,EUR,groceries,groceries.soft_drinks,non-alcoholic drink bought in grocery
+dining_001,Starbucks,LATTE GRANDE,1,4.8,EUR,dining,dining.cafe_coffee,ready-to-consume cafe drink
+dining_002,Starbucks,CROISSANT,1,2.6,EUR,dining,dining.bakery_pastry,bakery item in cafe context
+dining_003,McDonald's,BIG MAC MENU,1,8.99,EUR,dining,dining.fast_food,quick-service restaurant
+dining_004,Burger King,WHOPPER,1,6.49,EUR,dining,dining.fast_food,quick-service restaurant
+dining_005,Pizzeria Da Luigi,MARGHERITA PIZZA,1,10.5,EUR,dining,dining.restaurant,sit-down restaurant meal
+dining_006,Doner Kebab Haus,DONER KEBAB,1,6.0,EUR,dining,dining.fast_food,takeaway/fast-food style meal
+dining_007,Sushi Express,SALMON MAKI,1,7.5,EUR,dining,dining.restaurant,prepared restaurant food
+dining_008,Studentenwerk Mensa,LUNCH MENU,1,4.2,EUR,dining,dining.canteen,canteen meal
+dining_009,Irish Pub,DRAFT BEER,1,5.2,EUR,dining,dining.bar_nightlife,bar/pub drink
+dining_010,Lieferando,DELIVERY TAKEAWAY ORDER,1,18.9,EUR,dining,dining.delivery_takeaway,food delivery total
+household_001,REWE,WASCHMITTEL,1,5.99,EUR,household,household.laundry,laundry supply
+household_002,dm,DISH SOAP,1,1.79,EUR,household,household.cleaning,cleaning product
+household_003,Rossmann,TOILET PAPER,1,3.99,EUR,household,household.paper_goods,paper household consumable
+household_004,Edeka,TRASH BAGS,1,2.49,EUR,household,household.home_essentials,household consumable
+household_005,Aldi Sud,BATTERIES AA,1,4.99,EUR,household,household.home_essentials,home utility consumable
+household_006,IKEA,LED LIGHT BULB,1,3.99,EUR,household,household.home_essentials,home replacement item
+household_007,dm,CLEANING SPRAY,1,2.29,EUR,household,household.cleaning,cleaning product
+household_008,REWE,ALUMINUM FOIL,1,1.99,EUR,household,household.kitchen_supplies,kitchen consumable
+household_009,Obi,PLANT SOIL,1,4.49,EUR,household,household.garden_plants,gardening supply
+household_010,Obi,SCREWDRIVER SET,1,12.99,EUR,household,household.tools_hardware,home tool
+personal_care_001,REWE,ZAHNCREME,1,2.49,EUR,personal_care,personal_care.dental_care,daily dental care
+personal_care_002,dm,TOOTHBRUSH,1,1.99,EUR,personal_care,personal_care.dental_care,daily dental care
+personal_care_003,dm,SHAMPOO,1,2.95,EUR,personal_care,personal_care.hair_care,hair care product
+personal_care_004,Rossmann,CONDITIONER,1,2.75,EUR,personal_care,personal_care.hair_care,hair care product
+personal_care_005,dm,DEODORANT,1,1.85,EUR,personal_care,personal_care.hygiene,daily hygiene
+personal_care_006,Rossmann,SUNSCREEN,1,6.99,EUR,personal_care,personal_care.skin_care,personal skin protection/care
+personal_care_007,dm,FACE CREAM,1,4.99,EUR,personal_care,personal_care.skin_care,skin care product
+personal_care_008,Muller,LIPSTICK,1,7.99,EUR,personal_care,personal_care.cosmetics,cosmetics
+personal_care_009,Douglas,PERFUME,1,39.99,EUR,personal_care,personal_care.fragrance,fragrance
+personal_care_010,Hair Salon,HAIRCUT,1,25.0,EUR,personal_care,personal_care.grooming_services,personal grooming service
+health_001,Apotheke,IBUPROFEN,1,4.99,EUR,health,health.medicine,medicine
+health_002,Apotheke,COUGH SYRUP,1,6.49,EUR,health,health.medicine,medicine
+health_003,dm,VITAMIN D,1,4.95,EUR,health,health.supplements,supplement
+health_004,Rossmann,PROTEIN POWDER,1,14.99,EUR,health,health.supplements,fitness/health supplement
+health_005,Apotheke,THERMOMETER,1,8.99,EUR,health,health.medical_devices,medical device
+health_006,Apotheke,BANDAGE,1,3.49,EUR,health,health.medical_devices,medical supply/device
+health_007,Apotheke,PHARMACY ORDER,1,12.0,EUR,health,health.pharmacy,generic pharmacy purchase
+health_008,Doctor Clinic,CONSULTATION FEE,1,40.0,EUR,health,health.doctor_clinic,medical consultation
+health_009,Physiotherapy Center,PHYSIOTHERAPY,1,55.0,EUR,health,health.therapy,therapy treatment
+health_010,McFit,GYM MEMBERSHIP,1,19.99,EUR,health,health.fitness_wellness,fitness membership
+transport_001,MVG,SUBWAY TICKET,1,3.7,EUR,transport,transport.public_transport,local transit
+transport_002,Deutsche Bahn,COMMUTER TRAIN,1,5.8,EUR,transport,transport.train,regular train/commute
+transport_003,Uber,RIDE,1,14.2,EUR,transport,transport.taxi_ride_hailing,ride hailing
+transport_004,Bolt,TAXI RIDE,1,11.7,EUR,transport,transport.taxi_ride_hailing,taxi/ride hailing
+transport_005,Aral,FUEL,1,58.0,EUR,transport,transport.fuel,vehicle fuel
+transport_006,Shell,FUEL DIESEL,1,62.4,EUR,transport,transport.fuel,vehicle fuel
+transport_007,Parking Garage,PARKING FEE,1,4.0,EUR,transport,transport.parking,parking
+transport_008,Car Wash,CAR WASH,1,9.99,EUR,transport,transport.car_maintenance,vehicle service
+transport_009,MVG Rad,BIKE RENTAL,1,2.5,EUR,transport,transport.bike_scooter,bike rental
+transport_010,TIER,E SCOOTER,1,4.8,EUR,transport,transport.bike_scooter,micro-mobility rental
+travel_001,Lufthansa,FLIGHT TICKET MUC BER,1,129.0,EUR,travel,travel.flights,intercity flight
+travel_002,Booking.com,HOTEL BERLIN 2 NIGHTS,1,188.0,EUR,travel,travel.accommodation,travel lodging
+travel_003,Airbnb,APARTMENT STAY,1,215.0,EUR,travel,travel.accommodation,travel lodging
+travel_004,FlixBus,BUS MUNICH PRAGUE,1,29.99,EUR,travel,travel.long_distance_train_bus,long-distance travel bus
+travel_005,Deutsche Bahn,ICE TICKET MUNICH HAMBURG,1,89.9,EUR,travel,travel.long_distance_train_bus,long-distance train for trip
+travel_006,BVG,DAY PASS BERLIN,1,9.5,EUR,travel,travel.local_transport,local transport while traveling
+travel_007,Airport Cafe,SANDWICH AIRPORT,1,7.2,EUR,travel,travel.travel_food,travel context food
+travel_008,GetYourGuide,CITY TOUR,1,24.0,EUR,travel,travel.activities_tours,tour/activity
+travel_009,Rimowa Store,LUGGAGE TAG,1,8.99,EUR,travel,travel.luggage_travel_supplies,travel supply
+travel_010,VFS Global,VISA APPLICATION FEE,1,80.0,EUR,travel,travel.visa_travel_fees,visa/travel admin
+housing_utilities_001,Landlord,MONTHLY RENT,1,950.0,EUR,housing_utilities,housing_utilities.rent_mortgage,rent
+housing_utilities_002,Bank Mortgage,MORTGAGE PAYMENT,1,1200.0,EUR,housing_utilities,housing_utilities.rent_mortgage,mortgage
+housing_utilities_003,Stadtwerke,ELECTRICITY BILL,1,68.5,EUR,housing_utilities,housing_utilities.electricity_gas_water,utility bill
+housing_utilities_004,SWM,GAS BILL,1,54.2,EUR,housing_utilities,housing_utilities.electricity_gas_water,utility bill
+housing_utilities_005,M-net,HOME INTERNET,1,29.99,EUR,housing_utilities,housing_utilities.internet_phone,home internet
+housing_utilities_006,Telekom,LANDLINE INTERNET,1,39.99,EUR,housing_utilities,housing_utilities.internet_phone,home internet/phone
+housing_utilities_007,City Munich,PROPERTY TAX,1,210.0,EUR,housing_utilities,housing_utilities.property_fee_tax,property tax/fee
+housing_utilities_008,Hausverwaltung,NEBENKOSTEN,1,180.0,EUR,housing_utilities,housing_utilities.property_fee_tax,housing service/fee
+housing_utilities_009,Plumber Service,SINK REPAIR,1,95.0,EUR,housing_utilities,housing_utilities.repairs_services,home repair
+housing_utilities_010,Key Service,LOCKSMITH,1,75.0,EUR,housing_utilities,housing_utilities.repairs_services,home repair service
+retail_goods_001,Zara,JACKET,1,49.99,EUR,retail_goods,retail_goods.clothing,clothing
+retail_goods_002,H&M,T SHIRT,1,12.99,EUR,retail_goods,retail_goods.clothing,clothing
+retail_goods_003,Deichmann,SNEAKERS,1,39.99,EUR,retail_goods,retail_goods.shoes_bags_accessories,shoes
+retail_goods_004,Amazon,USB-C CABLE,1,8.99,EUR,retail_goods,retail_goods.electronics,consumer electronics accessory
+retail_goods_005,MediaMarkt,HEADPHONES,1,79.99,EUR,retail_goods,retail_goods.electronics,consumer electronics
+retail_goods_006,Thalia,NOVEL,1,14.0,EUR,retail_goods,retail_goods.books_media,book/media
+retail_goods_007,Copyshop Schwabing,NOTEBOOK,1,3.49,EUR,retail_goods,retail_goods.stationery,generic stationery without work/study context
+retail_goods_008,Decathlon,TENNIS RACKET,1,34.99,EUR,retail_goods,retail_goods.sports_outdoor,sports/outdoor good
+retail_goods_009,Spielwaren,TOY CAR,1,9.99,EUR,retail_goods,retail_goods.toys_games,toy/game item
+retail_goods_010,Douglas,LUXURY WATCH,1,199.0,EUR,retail_goods,retail_goods.luxury,luxury good
+digital_services_001,Netflix,MONTHLY SUBSCRIPTION,1,12.99,EUR,digital_services,digital_services.streaming,streaming subscription
+digital_services_002,Spotify Premium Student,MUSIC SUBSCRIPTION,1,5.99,EUR,digital_services,digital_services.music_audio,music/audio subscription
+digital_services_003,Steam,GAME PURCHASE,1,19.99,EUR,digital_services,digital_services.gaming,digital game/service
+digital_services_004,OpenAI ChatGPT,CHATGPT PLUS,1,20.0,EUR,digital_services,digital_services.software_apps,software/app subscription
+digital_services_005,Adobe,CREATIVE CLOUD,1,29.99,EUR,digital_services,digital_services.software_apps,software/app subscription
+digital_services_006,Apple iCloud,ICLOUD STORAGE,1,2.99,EUR,digital_services,digital_services.cloud_storage,cloud storage
+digital_services_007,New York Times,NEWS SUBSCRIPTION,1,8.0,EUR,digital_services,digital_services.news_media,news/media subscription
+digital_services_008,Telekom,MOBILE PLAN,1,19.99,EUR,digital_services,digital_services.telecom_mobile_plan,personal mobile plan
+digital_services_009,Amazon Prime,PRIME MEMBERSHIP,1,8.99,EUR,digital_services,digital_services.membership_platform,platform membership
+digital_services_010,Dropbox,ONLINE SERVICE PLAN,1,11.99,EUR,digital_services,digital_services.online_services,generic online service
+entertainment_leisure_001,CinemaxX,CINEMA TICKET,1,12.5,EUR,entertainment_leisure,entertainment_leisure.cinema_events,event/ticket
+entertainment_leisure_002,Eventim,CONCERT TICKET,1,45.0,EUR,entertainment_leisure,entertainment_leisure.cinema_events,event/ticket
+entertainment_leisure_003,Museum,EXHIBITION TICKET,1,9.0,EUR,entertainment_leisure,entertainment_leisure.museums_culture,museum/culture
+entertainment_leisure_004,Craft Store,PAINTING SUPPLIES,1,18.5,EUR,entertainment_leisure,entertainment_leisure.hobbies,hobby supply
+entertainment_leisure_005,Bowling Center,BOWLING,1,16.0,EUR,entertainment_leisure,entertainment_leisure.sports_activities,recreational sport activity
+entertainment_leisure_006,Club Entry,CLUB ENTRANCE,1,15.0,EUR,entertainment_leisure,entertainment_leisure.nightlife,nightlife entry
+entertainment_leisure_007,Arcade,ARCADE TOKENS,1,10.0,EUR,entertainment_leisure,entertainment_leisure.games_arcades,arcade/game venue
+entertainment_leisure_008,Escape Room,ESCAPE ROOM,1,28.0,EUR,entertainment_leisure,entertainment_leisure.leisure_services,leisure service
+entertainment_leisure_009,Karaoke Bar,KARAOKE ROOM,1,22.0,EUR,entertainment_leisure,entertainment_leisure.leisure_services,leisure service
+entertainment_leisure_010,Zoo Munich,ZOO TICKET,1,17.0,EUR,entertainment_leisure,entertainment_leisure.other_entertainment,other leisure outing
+education_work_001,LMU Munich,TUITION FEE,1,85.0,EUR,education_work,education_work.tuition_courses,tuition/course fee
+education_work_002,Udemy,ONLINE COURSE,1,19.99,EUR,education_work,education_work.tuition_courses,course
+education_work_003,Thalia,TEXTBOOK,1,32.0,EUR,education_work,education_work.study_materials,study material
+education_work_004,Copyshop Schwabing,PRINTER PAPER,1,4.99,EUR,education_work,education_work.office_supplies,office/study supply with copyshop context
+education_work_005,Tax Advisor,PROFESSIONAL SERVICE,1,120.0,EUR,education_work,education_work.professional_services,professional service
+education_work_006,MediaMarkt,WORK KEYBOARD,1,49.99,EUR,education_work,education_work.work_equipment,work equipment
+education_work_007,Conference Center,CONFERENCE TICKET,1,199.0,EUR,education_work,education_work.conferences,conference
+education_work_008,Exam Office,CERTIFICATION EXAM,1,75.0,EUR,education_work,education_work.certifications,certification
+education_work_009,Stationery Store,PEN SET FOR OFFICE,1,5.99,EUR,education_work,education_work.office_supplies,office supply
+education_work_010,LinkedIn Learning,CAREER COURSE,1,29.99,EUR,education_work,education_work.other_education_work,career/education service not otherwise specified
+pets_001,Fressnapf,CAT FOOD,1,12.49,EUR,pets,pets.pet_food,pet food
+pets_002,Fressnapf,DOG FOOD,1,18.99,EUR,pets,pets.pet_food,pet food
+pets_003,dm,CAT LITTER,1,6.49,EUR,pets,pets.pet_care_supplies,pet care supply
+pets_004,Amazon,DOG LEASH,1,9.99,EUR,pets,pets.pet_care_supplies,pet accessory
+pets_005,Veterinary Clinic,VET BILL,1,65.0,EUR,pets,pets.veterinary,veterinary bill
+pets_006,Pet Groomer,PET GROOMING,1,35.0,EUR,pets,pets.pet_services,pet service
+pets_007,Fressnapf,FISH FOOD,1,4.99,EUR,pets,pets.pet_food,pet food
+pets_008,Fressnapf,BIRD SEED,1,3.99,EUR,pets,pets.pet_food,pet food
+pets_009,Amazon,CAT TOY,1,7.99,EUR,pets,pets.pet_care_supplies,pet toy/supply
+pets_010,Pet Boarding,PET BOARDING,1,45.0,EUR,pets,pets.pet_services,pet service
+children_family_001,Kita Sonnenschein,KITA FEE,1,210.0,EUR,children_family,children_family.childcare,childcare
+children_family_002,Babysitter,BABYSITTING,1,35.0,EUR,children_family,children_family.childcare,childcare
+children_family_003,dm,BABY FORMULA,1,12.99,EUR,children_family,children_family.baby_food_formula,baby formula
+children_family_004,Rossmann,DIAPERS,1,9.99,EUR,children_family,children_family.baby_supplies,baby supply
+children_family_005,H&M Kids,KIDS JACKET,1,24.99,EUR,children_family,children_family.kids_clothing,kids clothing
+children_family_006,Spielwaren,LEGO SET,1,29.99,EUR,children_family,children_family.kids_toys,kids toy
+children_family_007,Music School,PIANO LESSON CHILD,1,45.0,EUR,children_family,children_family.kids_education_activities,child activity/education
+children_family_008,Family Support,PARENT SUPPORT PAYMENT,1,100.0,EUR,children_family,children_family.family_support,family support
+children_family_009,BabyOne,STROLLER ACCESSORY,1,19.99,EUR,children_family,children_family.baby_supplies,baby supply
+children_family_010,School Canteen,KIDS LUNCH,1,3.8,EUR,children_family,children_family.other_family,family/child-related expense
+gifts_donations_001,Amazon,BIRTHDAY GIFT,1,25.0,EUR,gifts_donations,gifts_donations.gifts,gift
+gifts_donations_002,Flower Shop,BOUQUET GIFT,1,18.0,EUR,gifts_donations,gifts_donations.gifts,gift
+gifts_donations_003,Red Cross,DONATION,1,50.0,EUR,gifts_donations,gifts_donations.donations_charity,charity donation
+gifts_donations_004,Wikipedia,DONATION,1,5.0,EUR,gifts_donations,gifts_donations.donations_charity,charity donation
+gifts_donations_005,Restaurant,TIP,1,3.0,EUR,gifts_donations,gifts_donations.tips,tip separated as discretionary payment
+gifts_donations_006,Hotel,HOUSEKEEPING TIP,1,5.0,EUR,gifts_donations,gifts_donations.tips,tip separated as discretionary payment
+gifts_donations_007,Party Store,BIRTHDAY PARTY SUPPLIES,1,22.5,EUR,gifts_donations,gifts_donations.celebrations,celebration-related
+gifts_donations_008,Event Venue,WEDDING GIFT CONTRIBUTION,1,100.0,EUR,gifts_donations,gifts_donations.celebrations,celebration contribution
+gifts_donations_009,GoFundMe,CROWDFUNDING SUPPORT,1,20.0,EUR,gifts_donations,gifts_donations.other_gifts_donations,support gift/donation
+gifts_donations_010,Church Bazaar,CHARITY PURCHASE,1,12.0,EUR,gifts_donations,gifts_donations.other_gifts_donations,misc gift/donation
+insurance_001,TK,HEALTH INSURANCE,1,125.0,EUR,insurance,insurance.health_insurance,health insurance premium
+insurance_002,AOK,HEALTH INSURANCE CONTRIBUTION,1,110.0,EUR,insurance,insurance.health_insurance,health insurance premium
+insurance_003,HUK Coburg,CAR INSURANCE,1,48.0,EUR,insurance,insurance.car_insurance,car insurance
+insurance_004,Allianz,HOME CONTENTS INSURANCE,1,9.99,EUR,insurance,insurance.home_insurance,home insurance
+insurance_005,AXA,TRAVEL INSURANCE,1,14.99,EUR,insurance,insurance.travel_insurance,travel insurance
+insurance_006,Debeka,LIFE INSURANCE,1,35.0,EUR,insurance,insurance.life_insurance,life insurance
+insurance_007,Getsafe,LIABILITY INSURANCE,1,5.49,EUR,insurance,insurance.liability_insurance,liability insurance
+insurance_008,Feather,EXPAT INSURANCE PLAN,1,39.0,EUR,insurance,insurance.other_insurance,other insurance
+insurance_009,Allianz,BIKE INSURANCE,1,6.99,EUR,insurance,insurance.other_insurance,other insurance
+insurance_010,ERGO,DEVICE INSURANCE,1,7.99,EUR,insurance,insurance.other_insurance,other insurance
+financial_admin_001,Commerzbank,ACCOUNT FEE,1,4.9,EUR,financial_admin,financial_admin.bank_fee,bank account fee
+financial_admin_002,Visa Card,CARD FEE,1,1.5,EUR,financial_admin,financial_admin.card_fee,card fee
+financial_admin_003,ATM,ATM FEE,1,2.5,EUR,financial_admin,financial_admin.atm_fee,ATM withdrawal fee
+financial_admin_004,Bank,OVERDRAFT INTEREST,1,3.2,EUR,financial_admin,financial_admin.interest,interest charge
+financial_admin_005,Bank Loan,LOAN PAYMENT,1,200.0,EUR,financial_admin,financial_admin.loan_payment,loan repayment
+financial_admin_006,Tax Office,TAX PAYMENT,1,300.0,EUR,financial_admin,financial_admin.taxes,tax payment
+financial_admin_007,City Munich,TRAFFIC FINE,1,30.0,EUR,financial_admin,financial_admin.fines_penalties,fine/penalty
+financial_admin_008,Notary Office,NOTARY FEE,1,85.0,EUR,financial_admin,financial_admin.legal_accounting,legal/accounting fee
+financial_admin_009,City Office,PASSPORT FEE,1,60.0,EUR,financial_admin,financial_admin.government_services,government service fee
+financial_admin_010,REWE,PFAND,1,0.25,EUR,financial_admin,financial_admin.deposits_refunds,deposit/refund line item
+other_001,Unknown Merchant,MISC ITEM,1,9.99,EUR,other,other.other,known expense but no suitable category
+other_002,Unknown,UNREADABLE ITEM,1,4.99,EUR,other,other.unknown,OCR/merchant insufficient
+other_003,Marketplace,CUSTOM PAYMENT,1,15.0,EUR,other,other.other,unclear custom payment
+other_004,Card Statement,UNKNOWN CHARGE,1,7.77,EUR,other,other.unknown,unknown card charge
+other_005,Local Store,SONSTIGES,1,3.5,EUR,other,other.other,other miscellaneous
+other_006,Receipt,ITEM 12345,1,2.0,EUR,other,other.unknown,raw item not interpretable
+other_007,PayPal,PRIVATE PAYMENT,1,20.0,EUR,other,other.other,private payment without more context
+other_008,Cash,CASH ADJUSTMENT,1,10.0,EUR,other,other.other,manual/misc adjustment
+other_009,Unknown Shop,OCR ???,1,5.0,EUR,other,other.unknown,OCR failure
+other_010,Misc Merchant,OTHER GOODS,1,6.0,EUR,other,other.other,fallback known other
