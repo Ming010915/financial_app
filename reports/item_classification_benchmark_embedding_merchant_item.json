@@ -1,0 +1,3970 @@
+{
+  "dataset": "benchmarks/item_classification_benchmark.csv",
+  "scope": "item main_category accuracy",
+  "gold_count": 120,
+  "gold_distribution": {
+    "groceries": 10,
+    "dining": 10,
+    "household": 10,
+    "personal_care": 10,
+    "health": 10,
+    "transport": 10,
+    "retail_goods": 10,
+    "digital_subscriptions": 10,
+    "entertainment_leisure": 10,
+    "education_work": 10,
+    "pets": 10,
+    "financial_admin": 10
+  },
+  "models": {
+    "embedding": {
+      "description": "Legacy SentenceTransformer nearest-centroid classifier, mapped from legacy transaction labels to taxonomy main categories.",
+      "input_mode": "merchant_item",
+      "total": 120,
+      "correct": 46,
+      "accuracy": 0.3833,
+      "per_category": {
+        "digital_subscriptions": {
+          "total": 10,
+          "correct": 5,
+          "accuracy": 0.5
+        },
+        "dining": {
+          "total": 10,
+          "correct": 9,
+          "accuracy": 0.9
+        },
+        "education_work": {
+          "total": 10,
+          "correct": 0,
+          "accuracy": 0.0
+        },
+        "entertainment_leisure": {
+          "total": 10,
+          "correct": 0,
+          "accuracy": 0.0
+        },
+        "financial_admin": {
+          "total": 10,
+          "correct": 2,
+          "accuracy": 0.2
+        },
+        "groceries": {
+          "total": 10,
+          "correct": 2,
+          "accuracy": 0.2
+        },
+        "health": {
+          "total": 10,
+          "correct": 9,
+          "accuracy": 0.9
+        },
+        "household": {
+          "total": 10,
+          "correct": 1,
+          "accuracy": 0.1
+        },
+        "personal_care": {
+          "total": 10,
+          "correct": 1,
+          "accuracy": 0.1
+        },
+        "pets": {
+          "total": 10,
+          "correct": 7,
+          "accuracy": 0.7
+        },
+        "retail_goods": {
+          "total": 10,
+          "correct": 3,
+          "accuracy": 0.3
+        },
+        "transport": {
+          "total": 10,
+          "correct": 7,
+          "accuracy": 0.7
+        }
+      },
+      "confusion": [
+        {
+          "gold": "digital_subscriptions",
+          "pred": "digital_subscriptions",
+          "count": 5
+        },
+        {
+          "gold": "digital_subscriptions",
+          "pred": "groceries",
+          "count": 1
+        },
+        {
+          "gold": "digital_subscriptions",
+          "pred": "other",
+          "count": 1
+        },
+        {
+          "gold": "digital_subscriptions",
+          "pred": "personal_care",
+          "count": 1
+        },
+        {
+          "gold": "digital_subscriptions",
+          "pred": "retail_goods",
+          "count": 1
+        },
+        {
+          "gold": "digital_subscriptions",
+          "pred": "transport",
+          "count": 1
+        },
+        {
+          "gold": "dining",
+          "pred": "dining",
+          "count": 9
+        },
+        {
+          "gold": "dining",
+          "pred": "transport",
+          "count": 1
+        },
+        {
+          "gold": "education_work",
+          "pred": "digital_subscriptions",
+          "count": 2
+        },
+        {
+          "gold": "education_work",
+          "pred": "groceries",
+          "count": 1
+        },
+        {
+          "gold": "education_work",
+          "pred": "health",
+          "count": 2
+        },
+        {
+          "gold": "education_work",
+          "pred": "other",
+          "count": 2
+        },
+        {
+          "gold": "education_work",
+          "pred": "personal_care",
+          "count": 1
+        },
+        {
+          "gold": "education_work",
+          "pred": "transport",
+          "count": 2
+        },
+        {
+          "gold": "entertainment_leisure",
+          "pred": "digital_subscriptions",
+          "count": 1
+        },
+        {
+          "gold": "entertainment_leisure",
+          "pred": "dining",
+          "count": 1
+        },
+        {
+          "gold": "entertainment_leisure",
+          "pred": "health",
+          "count": 1
+        },
+        {
+          "gold": "entertainment_leisure",
+          "pred": "household",
+          "count": 1
+        },
+        {
+          "gold": "entertainment_leisure",
+          "pred": "other",
+          "count": 1
+        },
+        {
+          "gold": "entertainment_leisure",
+          "pred": "personal_care",
+          "count": 2
+        },
+        {
+          "gold": "entertainment_leisure",
+          "pred": "retail_goods",
+          "count": 1
+        },
+        {
+          "gold": "entertainment_leisure",
+          "pred": "transport",
+          "count": 2
+        },
+        {
+          "gold": "financial_admin",
+          "pred": "dining",
+          "count": 2
+        },
+        {
+          "gold": "financial_admin",
+          "pred": "financial_admin",
+          "count": 2
+        },
+        {
+          "gold": "financial_admin",
+          "pred": "groceries",
+          "count": 2
+        },
+        {
+          "gold": "financial_admin",
+          "pred": "other",
+          "count": 2
+        },
+        {
+          "gold": "financial_admin",
+          "pred": "transport",
+          "count": 2
+        },
+        {
+          "gold": "groceries",
+          "pred": "dining",
+          "count": 5
+        },
+        {
+          "gold": "groceries",
+          "pred": "financial_admin",
+          "count": 1
+        },
+        {
+          "gold": "groceries",
+          "pred": "groceries",
+          "count": 2
+        },
+        {
+          "gold": "groceries",
+          "pred": "health",
+          "count": 1
+        },
+        {
+          "gold": "groceries",
+          "pred": "household",
+          "count": 1
+        },
+        {
+          "gold": "health",
+          "pred": "dining",
+          "count": 1
+        },
+        {
+          "gold": "health",
+          "pred": "health",
+          "count": 9
+        },
+        {
+          "gold": "household",
+          "pred": "dining",
+          "count": 2
+        },
+        {
+          "gold": "household",
+          "pred": "health",
+          "count": 1
+        },
+        {
+          "gold": "household",
+          "pred": "household",
+          "count": 1
+        },
+        {
+          "gold": "household",
+          "pred": "personal_care",
+          "count": 4
+        },
+        {
+          "gold": "household",
+          "pred": "retail_goods",
+          "count": 2
+        },
+        {
+          "gold": "personal_care",
+          "pred": "groceries",
+          "count": 2
+        },
+        {
+          "gold": "personal_care",
+          "pred": "health",
+          "count": 7
+        },
+        {
+          "gold": "personal_care",
+          "pred": "personal_care",
+          "count": 1
+        },
+        {
+          "gold": "pets",
+          "pred": "dining",
+          "count": 1
+        },
+        {
+          "gold": "pets",
+          "pred": "groceries",
+          "count": 1
+        },
+        {
+          "gold": "pets",
+          "pred": "pets",
+          "count": 7
+        },
+        {
+          "gold": "pets",
+          "pred": "retail_goods",
+          "count": 1
+        },
+        {
+          "gold": "retail_goods",
+          "pred": "digital_subscriptions",
+          "count": 2
+        },
+        {
+          "gold": "retail_goods",
+          "pred": "household",
+          "count": 2
+        },
+        {
+          "gold": "retail_goods",
+          "pred": "personal_care",
+          "count": 1
+        },
+        {
+          "gold": "retail_goods",
+          "pred": "pets",
+          "count": 1
+        },
+        {
+          "gold": "retail_goods",
+          "pred": "retail_goods",
+          "count": 3
+        },
+        {
+          "gold": "retail_goods",
+          "pred": "transport",
+          "count": 1
+        },
+        {
+          "gold": "transport",
+          "pred": "dining",
+          "count": 2
+        },
+        {
+          "gold": "transport",
+          "pred": "personal_care",
+          "count": 1
+        },
+        {
+          "gold": "transport",
+          "pred": "transport",
+          "count": 7
+        }
+      ],
+      "predictions": [
+        {
+          "id": "groceries_001",
+          "merchant": "REWE",
+          "raw_name": "MILCH 1.5%",
+          "quantity": 1.0,
+          "amount": 1.29,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.dairy",
+          "model": "embedding",
+          "embedding_input": "REWE MILCH 1.5%",
+          "legacy_pred": "Groceries",
+          "pred_main_category": "groceries",
+          "confidence": 0.435,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.435
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.413
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.401
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "groceries_002",
+          "merchant": "Edeka",
+          "raw_name": "VOLLKORNBROT",
+          "quantity": 1.0,
+          "amount": 2.49,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.bread_bakery",
+          "model": "embedding",
+          "embedding_input": "Edeka VOLLKORNBROT",
+          "legacy_pred": "Banking & Fees",
+          "pred_main_category": "financial_admin",
+          "confidence": 0.586,
+          "top3": [
+            {
+              "category": "Banking & Fees",
+              "score": 0.586
+            },
+            {
+              "category": "Groceries",
+              "score": 0.574
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.567
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "groceries_003",
+          "merchant": "Lidl",
+          "raw_name": "BIO BANANEN",
+          "quantity": 1.0,
+          "amount": 2.18,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.produce",
+          "model": "embedding",
+          "embedding_input": "Lidl BIO BANANEN",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.468,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.468
+            },
+            {
+              "category": "Shopping",
+              "score": 0.442
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.432
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "groceries_004",
+          "merchant": "Aldi Sud",
+          "raw_name": "APFEL",
+          "quantity": 1.0,
+          "amount": 1.99,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.produce",
+          "model": "embedding",
+          "embedding_input": "Aldi Sud APFEL",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.541,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.541
+            },
+            {
+              "category": "Shopping",
+              "score": 0.52
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.5
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "groceries_005",
+          "merchant": "Kaufland",
+          "raw_name": "HUHNCHENBRUST",
+          "quantity": 1.0,
+          "amount": 6.49,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.meat_seafood",
+          "model": "embedding",
+          "embedding_input": "Kaufland HUHNCHENBRUST",
+          "legacy_pred": "Home & Living",
+          "pred_main_category": "household",
+          "confidence": 0.647,
+          "top3": [
+            {
+              "category": "Home & Living",
+              "score": 0.647
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.599
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.568
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "groceries_006",
+          "merchant": "REWE",
+          "raw_name": "LACHSFILET",
+          "quantity": 1.0,
+          "amount": 7.99,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.meat_seafood",
+          "model": "embedding",
+          "embedding_input": "REWE LACHSFILET",
+          "legacy_pred": "Groceries",
+          "pred_main_category": "groceries",
+          "confidence": 0.685,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.685
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.655
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.651
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "groceries_007",
+          "merchant": "Edeka",
+          "raw_name": "TK PIZZA",
+          "quantity": 1.0,
+          "amount": 3.29,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.frozen_food",
+          "model": "embedding",
+          "embedding_input": "Edeka TK PIZZA",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.562,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.562
+            },
+            {
+              "category": "Groceries",
+              "score": 0.426
+            },
+            {
+              "category": "Shopping",
+              "score": 0.42
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "groceries_008",
+          "merchant": "edika",
+          "raw_name": "MAGNUM MANDEL",
+          "quantity": 1.0,
+          "amount": 2.79,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.snacks_sweets",
+          "model": "embedding",
+          "embedding_input": "edika MAGNUM MANDEL",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.568,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.568
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.564
+            },
+            {
+              "category": "Groceries",
+              "score": 0.535
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "groceries_009",
+          "merchant": "Netto",
+          "raw_name": "BASMATI REIS",
+          "quantity": 1.0,
+          "amount": 2.99,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.pantry_staples",
+          "model": "embedding",
+          "embedding_input": "Netto BASMATI REIS",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.657,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.657
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.628
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.615
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "groceries_010",
+          "merchant": "Penny",
+          "raw_name": "SPAGHETTI",
+          "quantity": 1.0,
+          "amount": 1.19,
+          "currency": "EUR",
+          "gold_main_category": "groceries",
+          "gold_sub_category": "groceries.pantry_staples",
+          "model": "embedding",
+          "embedding_input": "Penny SPAGHETTI",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.609,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.609
+            },
+            {
+              "category": "Groceries",
+              "score": 0.593
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.565
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "dining_001",
+          "merchant": "Starbucks",
+          "raw_name": "LATTE GRANDE",
+          "quantity": 1.0,
+          "amount": 4.8,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.cafe_coffee",
+          "model": "embedding",
+          "embedding_input": "Starbucks LATTE GRANDE",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.499,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.499
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.405
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.363
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "dining_002",
+          "merchant": "Starbucks",
+          "raw_name": "CROISSANT",
+          "quantity": 1.0,
+          "amount": 2.6,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.bakery_pastry",
+          "model": "embedding",
+          "embedding_input": "Starbucks CROISSANT",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.56,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.56
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.416
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.399
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "dining_003",
+          "merchant": "McDonald's",
+          "raw_name": "BIG MAC MENU",
+          "quantity": 1.0,
+          "amount": 8.99,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.fast_food",
+          "model": "embedding",
+          "embedding_input": "McDonald's BIG MAC MENU",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.404,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.404
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.273
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.265
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "dining_004",
+          "merchant": "Burger King",
+          "raw_name": "WHOPPER",
+          "quantity": 1.0,
+          "amount": 6.49,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.fast_food",
+          "model": "embedding",
+          "embedding_input": "Burger King WHOPPER",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.463,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.463
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.357
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.341
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "dining_005",
+          "merchant": "Pizzeria Da Luigi",
+          "raw_name": "MARGHERITA PIZZA",
+          "quantity": 1.0,
+          "amount": 10.5,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.restaurant",
+          "model": "embedding",
+          "embedding_input": "Pizzeria Da Luigi MARGHERITA PIZZA",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.533,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.533
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.37
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.357
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "dining_006",
+          "merchant": "Doner Kebab Haus",
+          "raw_name": "DONER KEBAB",
+          "quantity": 1.0,
+          "amount": 6.0,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.fast_food",
+          "model": "embedding",
+          "embedding_input": "Doner Kebab Haus DONER KEBAB",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.476,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.476
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.436
+            },
+            {
+              "category": "Groceries",
+              "score": 0.396
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "dining_007",
+          "merchant": "Sushi Express",
+          "raw_name": "SALMON MAKI",
+          "quantity": 1.0,
+          "amount": 7.5,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.restaurant",
+          "model": "embedding",
+          "embedding_input": "Sushi Express SALMON MAKI",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.383,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.383
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.34
+            },
+            {
+              "category": "Shopping",
+              "score": 0.271
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "dining_008",
+          "merchant": "Studentenwerk Mensa",
+          "raw_name": "LUNCH MENU",
+          "quantity": 1.0,
+          "amount": 4.2,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.canteen",
+          "model": "embedding",
+          "embedding_input": "Studentenwerk Mensa LUNCH MENU",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.608,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.608
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.541
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.483
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "dining_009",
+          "merchant": "Irish Pub",
+          "raw_name": "DRAFT BEER",
+          "quantity": 1.0,
+          "amount": 5.2,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.bar_nightlife",
+          "model": "embedding",
+          "embedding_input": "Irish Pub DRAFT BEER",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.428,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.428
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.41
+            },
+            {
+              "category": "Groceries",
+              "score": 0.34
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "dining_010",
+          "merchant": "Lieferando",
+          "raw_name": "DELIVERY TAKEAWAY ORDER",
+          "quantity": 1.0,
+          "amount": 18.9,
+          "currency": "EUR",
+          "gold_main_category": "dining",
+          "gold_sub_category": "dining.delivery_takeaway",
+          "model": "embedding",
+          "embedding_input": "Lieferando DELIVERY TAKEAWAY ORDER",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.473,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.473
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.453
+            },
+            {
+              "category": "Shopping",
+              "score": 0.432
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "household_001",
+          "merchant": "REWE",
+          "raw_name": "WASCHMITTEL",
+          "quantity": 1.0,
+          "amount": 5.99,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.laundry",
+          "model": "embedding",
+          "embedding_input": "REWE WASCHMITTEL",
+          "legacy_pred": "Home & Living",
+          "pred_main_category": "household",
+          "confidence": 0.685,
+          "top3": [
+            {
+              "category": "Home & Living",
+              "score": 0.685
+            },
+            {
+              "category": "Groceries",
+              "score": 0.643
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.623
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "household_002",
+          "merchant": "dm",
+          "raw_name": "DISH SOAP",
+          "quantity": 1.0,
+          "amount": 1.79,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.cleaning",
+          "model": "embedding",
+          "embedding_input": "dm DISH SOAP",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.456,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.456
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.388
+            },
+            {
+              "category": "Groceries",
+              "score": 0.377
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "household_003",
+          "merchant": "Rossmann",
+          "raw_name": "TOILET PAPER",
+          "quantity": 1.0,
+          "amount": 3.99,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.paper_goods",
+          "model": "embedding",
+          "embedding_input": "Rossmann TOILET PAPER",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.536,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.536
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.488
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.473
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "household_004",
+          "merchant": "Edeka",
+          "raw_name": "TRASH BAGS",
+          "quantity": 1.0,
+          "amount": 2.49,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.home_essentials",
+          "model": "embedding",
+          "embedding_input": "Edeka TRASH BAGS",
+          "legacy_pred": "Shopping",
+          "pred_main_category": "retail_goods",
+          "confidence": 0.482,
+          "top3": [
+            {
+              "category": "Shopping",
+              "score": 0.482
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.465
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.451
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "household_005",
+          "merchant": "Aldi Sud",
+          "raw_name": "BATTERIES AA",
+          "quantity": 1.0,
+          "amount": 4.99,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.home_essentials",
+          "model": "embedding",
+          "embedding_input": "Aldi Sud BATTERIES AA",
+          "legacy_pred": "Shopping",
+          "pred_main_category": "retail_goods",
+          "confidence": 0.494,
+          "top3": [
+            {
+              "category": "Shopping",
+              "score": 0.494
+            },
+            {
+              "category": "Transport",
+              "score": 0.435
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.428
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "household_006",
+          "merchant": "IKEA",
+          "raw_name": "LED LIGHT BULB",
+          "quantity": 1.0,
+          "amount": 3.99,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.home_essentials",
+          "model": "embedding",
+          "embedding_input": "IKEA LED LIGHT BULB",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.372,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.372
+            },
+            {
+              "category": "Shopping",
+              "score": 0.359
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.349
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "household_007",
+          "merchant": "dm",
+          "raw_name": "CLEANING SPRAY",
+          "quantity": 1.0,
+          "amount": 2.29,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.cleaning",
+          "model": "embedding",
+          "embedding_input": "dm CLEANING SPRAY",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.569,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.569
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.433
+            },
+            {
+              "category": "Groceries",
+              "score": 0.398
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "household_008",
+          "merchant": "REWE",
+          "raw_name": "ALUMINUM FOIL",
+          "quantity": 1.0,
+          "amount": 1.99,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.kitchen_supplies",
+          "model": "embedding",
+          "embedding_input": "REWE ALUMINUM FOIL",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.596,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.596
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.573
+            },
+            {
+              "category": "Groceries",
+              "score": 0.561
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "household_009",
+          "merchant": "Obi",
+          "raw_name": "PLANT SOIL",
+          "quantity": 1.0,
+          "amount": 4.49,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.garden_plants",
+          "model": "embedding",
+          "embedding_input": "Obi PLANT SOIL",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.395,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.395
+            },
+            {
+              "category": "Pet Supplies",
+              "score": 0.354
+            },
+            {
+              "category": "Shopping",
+              "score": 0.341
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "household_010",
+          "merchant": "Obi",
+          "raw_name": "SCREWDRIVER SET",
+          "quantity": 1.0,
+          "amount": 12.99,
+          "currency": "EUR",
+          "gold_main_category": "household",
+          "gold_sub_category": "household.tools_hardware",
+          "model": "embedding",
+          "embedding_input": "Obi SCREWDRIVER SET",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.508,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.508
+            },
+            {
+              "category": "Shopping",
+              "score": 0.503
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.49
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_001",
+          "merchant": "REWE",
+          "raw_name": "ZAHNCREME",
+          "quantity": 1.0,
+          "amount": 2.49,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.dental_care",
+          "model": "embedding",
+          "embedding_input": "REWE ZAHNCREME",
+          "legacy_pred": "Groceries",
+          "pred_main_category": "groceries",
+          "confidence": 0.643,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.643
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.6
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.573
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_002",
+          "merchant": "dm",
+          "raw_name": "TOOTHBRUSH",
+          "quantity": 1.0,
+          "amount": 1.99,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.dental_care",
+          "model": "embedding",
+          "embedding_input": "dm TOOTHBRUSH",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.643,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.643
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.639
+            },
+            {
+              "category": "Groceries",
+              "score": 0.631
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_003",
+          "merchant": "dm",
+          "raw_name": "SHAMPOO",
+          "quantity": 1.0,
+          "amount": 2.95,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.hair_care",
+          "model": "embedding",
+          "embedding_input": "dm SHAMPOO",
+          "legacy_pred": "Groceries",
+          "pred_main_category": "groceries",
+          "confidence": 0.611,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.611
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.606
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.579
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_004",
+          "merchant": "Rossmann",
+          "raw_name": "CONDITIONER",
+          "quantity": 1.0,
+          "amount": 2.75,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.hair_care",
+          "model": "embedding",
+          "embedding_input": "Rossmann CONDITIONER",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.54,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.54
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.51
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.438
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_005",
+          "merchant": "dm",
+          "raw_name": "DEODORANT",
+          "quantity": 1.0,
+          "amount": 1.85,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.hygiene",
+          "model": "embedding",
+          "embedding_input": "dm DEODORANT",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.586,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.586
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.531
+            },
+            {
+              "category": "Groceries",
+              "score": 0.53
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_006",
+          "merchant": "Rossmann",
+          "raw_name": "SUNSCREEN",
+          "quantity": 1.0,
+          "amount": 6.99,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.skin_care",
+          "model": "embedding",
+          "embedding_input": "Rossmann SUNSCREEN",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.486,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.486
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.413
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.393
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_007",
+          "merchant": "dm",
+          "raw_name": "FACE CREAM",
+          "quantity": 1.0,
+          "amount": 4.99,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.skin_care",
+          "model": "embedding",
+          "embedding_input": "dm FACE CREAM",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.513,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.513
+            },
+            {
+              "category": "Groceries",
+              "score": 0.488
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.485
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_008",
+          "merchant": "Muller",
+          "raw_name": "LIPSTICK",
+          "quantity": 1.0,
+          "amount": 7.99,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.cosmetics",
+          "model": "embedding",
+          "embedding_input": "Muller LIPSTICK",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.588,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.588
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.504
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.477
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_009",
+          "merchant": "Douglas",
+          "raw_name": "PERFUME",
+          "quantity": 1.0,
+          "amount": 39.99,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.fragrance",
+          "model": "embedding",
+          "embedding_input": "Douglas PERFUME",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.59,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.59
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.583
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.569
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "personal_care_010",
+          "merchant": "Hair Salon",
+          "raw_name": "HAIRCUT",
+          "quantity": 1.0,
+          "amount": 25.0,
+          "currency": "EUR",
+          "gold_main_category": "personal_care",
+          "gold_sub_category": "personal_care.grooming_services",
+          "model": "embedding",
+          "embedding_input": "Hair Salon HAIRCUT",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.566,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.566
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.341
+            },
+            {
+              "category": "Groceries",
+              "score": 0.282
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "health_001",
+          "merchant": "Apotheke",
+          "raw_name": "IBUPROFEN",
+          "quantity": 1.0,
+          "amount": 4.99,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.medicine",
+          "model": "embedding",
+          "embedding_input": "Apotheke IBUPROFEN",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.619,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.619
+            },
+            {
+              "category": "Banking & Fees",
+              "score": 0.589
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.584
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "health_002",
+          "merchant": "Apotheke",
+          "raw_name": "COUGH SYRUP",
+          "quantity": 1.0,
+          "amount": 6.49,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.medicine",
+          "model": "embedding",
+          "embedding_input": "Apotheke COUGH SYRUP",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.686,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.686
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.662
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.62
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "health_003",
+          "merchant": "dm",
+          "raw_name": "VITAMIN D",
+          "quantity": 1.0,
+          "amount": 4.95,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.supplements",
+          "model": "embedding",
+          "embedding_input": "dm VITAMIN D",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.362,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.362
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.261
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.243
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "health_004",
+          "merchant": "Rossmann",
+          "raw_name": "PROTEIN POWDER",
+          "quantity": 1.0,
+          "amount": 14.99,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.supplements",
+          "model": "embedding",
+          "embedding_input": "Rossmann PROTEIN POWDER",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.38,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.38
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.371
+            },
+            {
+              "category": "Pet Supplies",
+              "score": 0.365
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "health_005",
+          "merchant": "Apotheke",
+          "raw_name": "THERMOMETER",
+          "quantity": 1.0,
+          "amount": 8.99,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.medical_devices",
+          "model": "embedding",
+          "embedding_input": "Apotheke THERMOMETER",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.528,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.528
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.521
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.49
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "health_006",
+          "merchant": "Apotheke",
+          "raw_name": "BANDAGE",
+          "quantity": 1.0,
+          "amount": 3.49,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.medical_devices",
+          "model": "embedding",
+          "embedding_input": "Apotheke BANDAGE",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.725,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.725
+            },
+            {
+              "category": "Shopping",
+              "score": 0.677
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.676
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "health_007",
+          "merchant": "Apotheke",
+          "raw_name": "PHARMACY ORDER",
+          "quantity": 1.0,
+          "amount": 12.0,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.pharmacy",
+          "model": "embedding",
+          "embedding_input": "Apotheke PHARMACY ORDER",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.537,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.537
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.48
+            },
+            {
+              "category": "Shopping",
+              "score": 0.468
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "health_008",
+          "merchant": "Doctor Clinic",
+          "raw_name": "CONSULTATION FEE",
+          "quantity": 1.0,
+          "amount": 40.0,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.doctor_clinic",
+          "model": "embedding",
+          "embedding_input": "Doctor Clinic CONSULTATION FEE",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.467,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.467
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.331
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.318
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "health_009",
+          "merchant": "Physiotherapy Center",
+          "raw_name": "PHYSIOTHERAPY",
+          "quantity": 1.0,
+          "amount": 55.0,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.therapy",
+          "model": "embedding",
+          "embedding_input": "Physiotherapy Center PHYSIOTHERAPY",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.428,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.428
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.275
+            },
+            {
+              "category": "Shopping",
+              "score": 0.252
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "health_010",
+          "merchant": "McFit",
+          "raw_name": "GYM MEMBERSHIP",
+          "quantity": 1.0,
+          "amount": 19.99,
+          "currency": "EUR",
+          "gold_main_category": "health",
+          "gold_sub_category": "health.fitness_wellness",
+          "model": "embedding",
+          "embedding_input": "McFit GYM MEMBERSHIP",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.458,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.458
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.408
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.374
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "transport_001",
+          "merchant": "MVG",
+          "raw_name": "SUBWAY TICKET",
+          "quantity": 1.0,
+          "amount": 3.7,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.public_transport",
+          "model": "embedding",
+          "embedding_input": "MVG SUBWAY TICKET",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.538,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.538
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.332
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.319
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "transport_002",
+          "merchant": "Deutsche Bahn",
+          "raw_name": "COMMUTER TRAIN",
+          "quantity": 1.0,
+          "amount": 5.8,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.train",
+          "model": "embedding",
+          "embedding_input": "Deutsche Bahn COMMUTER TRAIN",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.642,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.642
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.321
+            },
+            {
+              "category": "Shopping",
+              "score": 0.308
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "transport_003",
+          "merchant": "Uber",
+          "raw_name": "RIDE",
+          "quantity": 1.0,
+          "amount": 14.2,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.taxi_ride_hailing",
+          "model": "embedding",
+          "embedding_input": "Uber RIDE",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.54,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.54
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.384
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.38
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "transport_004",
+          "merchant": "Bolt",
+          "raw_name": "TAXI RIDE",
+          "quantity": 1.0,
+          "amount": 11.7,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.taxi_ride_hailing",
+          "model": "embedding",
+          "embedding_input": "Bolt TAXI RIDE",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.552,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.552
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.399
+            },
+            {
+              "category": "Shopping",
+              "score": 0.35
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "transport_005",
+          "merchant": "Aral",
+          "raw_name": "FUEL",
+          "quantity": 1.0,
+          "amount": 58.0,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.fuel",
+          "model": "embedding",
+          "embedding_input": "Aral FUEL",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.369,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.369
+            },
+            {
+              "category": "Shopping",
+              "score": 0.364
+            },
+            {
+              "category": "Transport",
+              "score": 0.364
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "transport_006",
+          "merchant": "Shell",
+          "raw_name": "FUEL DIESEL",
+          "quantity": 1.0,
+          "amount": 62.4,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.fuel",
+          "model": "embedding",
+          "embedding_input": "Shell FUEL DIESEL",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.4,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.4
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.326
+            },
+            {
+              "category": "Groceries",
+              "score": 0.293
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "transport_007",
+          "merchant": "Parking Garage",
+          "raw_name": "PARKING FEE",
+          "quantity": 1.0,
+          "amount": 4.0,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.parking",
+          "model": "embedding",
+          "embedding_input": "Parking Garage PARKING FEE",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.427,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.427
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.362
+            },
+            {
+              "category": "Shopping",
+              "score": 0.352
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "transport_008",
+          "merchant": "Car Wash",
+          "raw_name": "CAR WASH",
+          "quantity": 1.0,
+          "amount": 9.99,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.car_maintenance",
+          "model": "embedding",
+          "embedding_input": "Car Wash CAR WASH",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.515,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.515
+            },
+            {
+              "category": "Transport",
+              "score": 0.311
+            },
+            {
+              "category": "Shopping",
+              "score": 0.282
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "transport_009",
+          "merchant": "MVG Rad",
+          "raw_name": "BIKE RENTAL",
+          "quantity": 1.0,
+          "amount": 2.5,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.bike_scooter",
+          "model": "embedding",
+          "embedding_input": "MVG Rad BIKE RENTAL",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.607,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.607
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.53
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.52
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "transport_010",
+          "merchant": "TIER",
+          "raw_name": "E SCOOTER",
+          "quantity": 1.0,
+          "amount": 4.8,
+          "currency": "EUR",
+          "gold_main_category": "transport",
+          "gold_sub_category": "transport.bike_scooter",
+          "model": "embedding",
+          "embedding_input": "TIER E SCOOTER",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.774,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.774
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.756
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.73
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "retail_goods_001",
+          "merchant": "Zara",
+          "raw_name": "JACKET",
+          "quantity": 1.0,
+          "amount": 49.99,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.clothing",
+          "model": "embedding",
+          "embedding_input": "Zara JACKET",
+          "legacy_pred": "Shopping",
+          "pred_main_category": "retail_goods",
+          "confidence": 0.47,
+          "top3": [
+            {
+              "category": "Shopping",
+              "score": 0.47
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.419
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.402
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "retail_goods_002",
+          "merchant": "H&M",
+          "raw_name": "T SHIRT",
+          "quantity": 1.0,
+          "amount": 12.99,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.clothing",
+          "model": "embedding",
+          "embedding_input": "H&M T SHIRT",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.515,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.515
+            },
+            {
+              "category": "Shopping",
+              "score": 0.492
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.467
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "retail_goods_003",
+          "merchant": "Deichmann",
+          "raw_name": "SNEAKERS",
+          "quantity": 1.0,
+          "amount": 39.99,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.shoes_bags_accessories",
+          "model": "embedding",
+          "embedding_input": "Deichmann SNEAKERS",
+          "legacy_pred": "Home & Living",
+          "pred_main_category": "household",
+          "confidence": 0.511,
+          "top3": [
+            {
+              "category": "Home & Living",
+              "score": 0.511
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.476
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.46
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "retail_goods_004",
+          "merchant": "Amazon",
+          "raw_name": "USB-C CABLE",
+          "quantity": 1.0,
+          "amount": 8.99,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.electronics",
+          "model": "embedding",
+          "embedding_input": "Amazon USB-C CABLE",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.376,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.376
+            },
+            {
+              "category": "Shopping",
+              "score": 0.352
+            },
+            {
+              "category": "Transport",
+              "score": 0.242
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "retail_goods_005",
+          "merchant": "MediaMarkt",
+          "raw_name": "HEADPHONES",
+          "quantity": 1.0,
+          "amount": 79.99,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.electronics",
+          "model": "embedding",
+          "embedding_input": "MediaMarkt HEADPHONES",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.435,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.435
+            },
+            {
+              "category": "Shopping",
+              "score": 0.369
+            },
+            {
+              "category": "Transport",
+              "score": 0.307
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "retail_goods_006",
+          "merchant": "Thalia",
+          "raw_name": "NOVEL",
+          "quantity": 1.0,
+          "amount": 14.0,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.books_media",
+          "model": "embedding",
+          "embedding_input": "Thalia NOVEL",
+          "legacy_pred": "Pet Supplies",
+          "pred_main_category": "pets",
+          "confidence": 0.424,
+          "top3": [
+            {
+              "category": "Pet Supplies",
+              "score": 0.424
+            },
+            {
+              "category": "Groceries",
+              "score": 0.412
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.397
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "retail_goods_007",
+          "merchant": "Copyshop Schwabing",
+          "raw_name": "NOTEBOOK",
+          "quantity": 1.0,
+          "amount": 3.49,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.stationery",
+          "model": "embedding",
+          "embedding_input": "Copyshop Schwabing NOTEBOOK",
+          "legacy_pred": "Shopping",
+          "pred_main_category": "retail_goods",
+          "confidence": 0.468,
+          "top3": [
+            {
+              "category": "Shopping",
+              "score": 0.468
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.457
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.423
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "retail_goods_008",
+          "merchant": "Decathlon",
+          "raw_name": "TENNIS RACKET",
+          "quantity": 1.0,
+          "amount": 34.99,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.sports_outdoor",
+          "model": "embedding",
+          "embedding_input": "Decathlon TENNIS RACKET",
+          "legacy_pred": "Shopping",
+          "pred_main_category": "retail_goods",
+          "confidence": 0.372,
+          "top3": [
+            {
+              "category": "Shopping",
+              "score": 0.372
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.254
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.224
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "retail_goods_009",
+          "merchant": "Spielwaren",
+          "raw_name": "Toy Car",
+          "quantity": 1.0,
+          "amount": 9.99,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.toys_games",
+          "model": "embedding",
+          "embedding_input": "Spielwaren Toy Car",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.386,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.386
+            },
+            {
+              "category": "Shopping",
+              "score": 0.383
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.33
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "retail_goods_010",
+          "merchant": "Douglas",
+          "raw_name": "LUXURY WATCH",
+          "quantity": 1.0,
+          "amount": 199.0,
+          "currency": "EUR",
+          "gold_main_category": "retail_goods",
+          "gold_sub_category": "retail_goods.luxury",
+          "model": "embedding",
+          "embedding_input": "Douglas LUXURY WATCH",
+          "legacy_pred": "Home & Living",
+          "pred_main_category": "household",
+          "confidence": 0.505,
+          "top3": [
+            {
+              "category": "Home & Living",
+              "score": 0.505
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.463
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.46
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "digital_subscriptions_001",
+          "merchant": "Netflix",
+          "raw_name": "MONTHLY SUBSCRIPTION",
+          "quantity": 1.0,
+          "amount": 12.99,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.streaming",
+          "model": "embedding",
+          "embedding_input": "Netflix MONTHLY SUBSCRIPTION",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.45,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.45
+            },
+            {
+              "category": "Transport",
+              "score": 0.2
+            },
+            {
+              "category": "Shopping",
+              "score": 0.199
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "digital_subscriptions_002",
+          "merchant": "Spotify Premium Student",
+          "raw_name": "MUSIC SUBSCRIPTION",
+          "quantity": 1.0,
+          "amount": 5.99,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.music_audio",
+          "model": "embedding",
+          "embedding_input": "Spotify Premium Student MUSIC SUBSCRIPTION",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.379,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.379
+            },
+            {
+              "category": "Transport",
+              "score": 0.222
+            },
+            {
+              "category": "Shopping",
+              "score": 0.221
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "digital_subscriptions_003",
+          "merchant": "Steam",
+          "raw_name": "GAME PURCHASE",
+          "quantity": 1.0,
+          "amount": 19.99,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.gaming",
+          "model": "embedding",
+          "embedding_input": "Steam GAME PURCHASE",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.314,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.314
+            },
+            {
+              "category": "Shopping",
+              "score": 0.305
+            },
+            {
+              "category": "Groceries",
+              "score": 0.253
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "digital_subscriptions_004",
+          "merchant": "OpenAI ChatGPT",
+          "raw_name": "CHATGPT PLUS",
+          "quantity": 1.0,
+          "amount": 20.0,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.software_apps",
+          "model": "embedding",
+          "embedding_input": "OpenAI ChatGPT CHATGPT PLUS",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.359,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.359
+            },
+            {
+              "category": "Groceries",
+              "score": 0.359
+            },
+            {
+              "category": "Banking & Fees",
+              "score": 0.331
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "digital_subscriptions_005",
+          "merchant": "Adobe",
+          "raw_name": "CREATIVE CLOUD",
+          "quantity": 1.0,
+          "amount": 29.99,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.software_apps",
+          "model": "embedding",
+          "embedding_input": "Adobe CREATIVE CLOUD",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.397,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.397
+            },
+            {
+              "category": "Shopping",
+              "score": 0.391
+            },
+            {
+              "category": "Groceries",
+              "score": 0.348
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "digital_subscriptions_006",
+          "merchant": "Apple iCloud",
+          "raw_name": "ICLOUD STORAGE",
+          "quantity": 1.0,
+          "amount": 2.99,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.cloud_storage",
+          "model": "embedding",
+          "embedding_input": "Apple iCloud ICLOUD STORAGE",
+          "legacy_pred": "Others",
+          "pred_main_category": "other",
+          "confidence": 0.254,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.254
+            },
+            {
+              "category": "Shopping",
+              "score": 0.165
+            },
+            {
+              "category": "Banking & Fees",
+              "score": 0.155
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "digital_subscriptions_007",
+          "merchant": "New York Times",
+          "raw_name": "NEWS SUBSCRIPTION",
+          "quantity": 1.0,
+          "amount": 8.0,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.news_media",
+          "model": "embedding",
+          "embedding_input": "New York Times NEWS SUBSCRIPTION",
+          "legacy_pred": "Groceries",
+          "pred_main_category": "groceries",
+          "confidence": 0.378,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.378
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.36
+            },
+            {
+              "category": "Transport",
+              "score": 0.338
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "digital_subscriptions_008",
+          "merchant": "Telekom",
+          "raw_name": "MOBILE PLAN",
+          "quantity": 1.0,
+          "amount": 19.99,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.telecom_mobile_plan",
+          "model": "embedding",
+          "embedding_input": "Telekom MOBILE PLAN",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.448,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.448
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.334
+            },
+            {
+              "category": "Shopping",
+              "score": 0.314
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "digital_subscriptions_009",
+          "merchant": "Amazon Prime",
+          "raw_name": "PRIME MEMBERSHIP",
+          "quantity": 1.0,
+          "amount": 8.99,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.membership_platform",
+          "model": "embedding",
+          "embedding_input": "Amazon Prime PRIME MEMBERSHIP",
+          "legacy_pred": "Shopping",
+          "pred_main_category": "retail_goods",
+          "confidence": 0.388,
+          "top3": [
+            {
+              "category": "Shopping",
+              "score": 0.388
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.347
+            },
+            {
+              "category": "Transport",
+              "score": 0.278
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "digital_subscriptions_010",
+          "merchant": "Disney Plus",
+          "raw_name": "STREAMING PLAN",
+          "quantity": 1.0,
+          "amount": 8.99,
+          "currency": "EUR",
+          "gold_main_category": "digital_subscriptions",
+          "gold_sub_category": "digital_subscriptions.streaming",
+          "model": "embedding",
+          "embedding_input": "Disney Plus STREAMING PLAN",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.52,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.52
+            },
+            {
+              "category": "Transport",
+              "score": 0.38
+            },
+            {
+              "category": "Shopping",
+              "score": 0.359
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "entertainment_leisure_001",
+          "merchant": "CinemaxX",
+          "raw_name": "CINEMA TICKET",
+          "quantity": 1.0,
+          "amount": 12.5,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.cinema_events",
+          "model": "embedding",
+          "embedding_input": "CinemaxX CINEMA TICKET",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.517,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.517
+            },
+            {
+              "category": "Transport",
+              "score": 0.413
+            },
+            {
+              "category": "Shopping",
+              "score": 0.336
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "entertainment_leisure_002",
+          "merchant": "Eventim",
+          "raw_name": "CONCERT TICKET",
+          "quantity": 1.0,
+          "amount": 45.0,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.cinema_events",
+          "model": "embedding",
+          "embedding_input": "Eventim CONCERT TICKET",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.481,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.481
+            },
+            {
+              "category": "Shopping",
+              "score": 0.463
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.45
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "entertainment_leisure_003",
+          "merchant": "Museum",
+          "raw_name": "EXHIBITION TICKET",
+          "quantity": 1.0,
+          "amount": 9.0,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.museums_culture",
+          "model": "embedding",
+          "embedding_input": "Museum EXHIBITION TICKET",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.446,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.446
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.388
+            },
+            {
+              "category": "Shopping",
+              "score": 0.375
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "entertainment_leisure_004",
+          "merchant": "Craft Store",
+          "raw_name": "PAINTING SUPPLIES",
+          "quantity": 1.0,
+          "amount": 18.5,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.hobbies",
+          "model": "embedding",
+          "embedding_input": "Craft Store PAINTING SUPPLIES",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.561,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.561
+            },
+            {
+              "category": "Shopping",
+              "score": 0.435
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.427
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "entertainment_leisure_005",
+          "merchant": "Bowling Center",
+          "raw_name": "BOWLING",
+          "quantity": 1.0,
+          "amount": 16.0,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.sports_activities",
+          "model": "embedding",
+          "embedding_input": "Bowling Center BOWLING",
+          "legacy_pred": "Shopping",
+          "pred_main_category": "retail_goods",
+          "confidence": 0.371,
+          "top3": [
+            {
+              "category": "Shopping",
+              "score": 0.371
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.363
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.312
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "entertainment_leisure_006",
+          "merchant": "Club Entry",
+          "raw_name": "CLUB ENTRANCE",
+          "quantity": 1.0,
+          "amount": 15.0,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.nightlife",
+          "model": "embedding",
+          "embedding_input": "Club Entry CLUB ENTRANCE",
+          "legacy_pred": "Others",
+          "pred_main_category": "other",
+          "confidence": 0.288,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.288
+            },
+            {
+              "category": "Shopping",
+              "score": 0.275
+            },
+            {
+              "category": "Banking & Fees",
+              "score": 0.27
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "entertainment_leisure_007",
+          "merchant": "Arcade",
+          "raw_name": "ARCADE TOKENS",
+          "quantity": 1.0,
+          "amount": 10.0,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.games_arcades",
+          "model": "embedding",
+          "embedding_input": "Arcade ARCADE TOKENS",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.46,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.46
+            },
+            {
+              "category": "Shopping",
+              "score": 0.456
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.451
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "entertainment_leisure_008",
+          "merchant": "Escape Room",
+          "raw_name": "ESCAPE ROOM",
+          "quantity": 1.0,
+          "amount": 28.0,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.leisure_services",
+          "model": "embedding",
+          "embedding_input": "Escape Room ESCAPE ROOM",
+          "legacy_pred": "Home & Living",
+          "pred_main_category": "household",
+          "confidence": 0.366,
+          "top3": [
+            {
+              "category": "Home & Living",
+              "score": 0.366
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.333
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.277
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "entertainment_leisure_009",
+          "merchant": "Karaoke Bar",
+          "raw_name": "KARAOKE ROOM",
+          "quantity": 1.0,
+          "amount": 22.0,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.leisure_services",
+          "model": "embedding",
+          "embedding_input": "Karaoke Bar KARAOKE ROOM",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.421,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.421
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.38
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.345
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "entertainment_leisure_010",
+          "merchant": "Climbing Gym",
+          "raw_name": "DAY PASS",
+          "quantity": 1.0,
+          "amount": 14.0,
+          "currency": "EUR",
+          "gold_main_category": "entertainment_leisure",
+          "gold_sub_category": "entertainment_leisure.sports_activities",
+          "model": "embedding",
+          "embedding_input": "Climbing Gym DAY PASS",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.348,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.348
+            },
+            {
+              "category": "Shopping",
+              "score": 0.319
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.277
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_001",
+          "merchant": "LMU Munich",
+          "raw_name": "TUITION FEE",
+          "quantity": 1.0,
+          "amount": 85.0,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.tuition_courses",
+          "model": "embedding",
+          "embedding_input": "LMU Munich TUITION FEE",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.544,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.544
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.431
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.36
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_002",
+          "merchant": "Udemy",
+          "raw_name": "ONLINE COURSE",
+          "quantity": 1.0,
+          "amount": 19.99,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.tuition_courses",
+          "model": "embedding",
+          "embedding_input": "Udemy ONLINE COURSE",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.513,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.513
+            },
+            {
+              "category": "Banking & Fees",
+              "score": 0.512
+            },
+            {
+              "category": "Groceries",
+              "score": 0.507
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_003",
+          "merchant": "Thalia",
+          "raw_name": "TEXTBOOK",
+          "quantity": 1.0,
+          "amount": 32.0,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.study_materials",
+          "model": "embedding",
+          "embedding_input": "Thalia TEXTBOOK",
+          "legacy_pred": "Groceries",
+          "pred_main_category": "groceries",
+          "confidence": 0.393,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.393
+            },
+            {
+              "category": "Shopping",
+              "score": 0.369
+            },
+            {
+              "category": "Pet Supplies",
+              "score": 0.369
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_004",
+          "merchant": "Copyshop Schwabing",
+          "raw_name": "PRINTER PAPER",
+          "quantity": 1.0,
+          "amount": 4.99,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.office_supplies",
+          "model": "embedding",
+          "embedding_input": "Copyshop Schwabing PRINTER PAPER",
+          "legacy_pred": "Personal Care",
+          "pred_main_category": "personal_care",
+          "confidence": 0.479,
+          "top3": [
+            {
+              "category": "Personal Care",
+              "score": 0.479
+            },
+            {
+              "category": "Shopping",
+              "score": 0.452
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.445
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_005",
+          "merchant": "Tax Advisor",
+          "raw_name": "PROFESSIONAL SERVICE",
+          "quantity": 1.0,
+          "amount": 120.0,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.professional_services",
+          "model": "embedding",
+          "embedding_input": "Tax Advisor PROFESSIONAL SERVICE",
+          "legacy_pred": "Others",
+          "pred_main_category": "other",
+          "confidence": 0.184,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.184
+            },
+            {
+              "category": "Transport",
+              "score": 0.178
+            },
+            {
+              "category": "Banking & Fees",
+              "score": 0.155
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_006",
+          "merchant": "MediaMarkt",
+          "raw_name": "WORK KEYBOARD",
+          "quantity": 1.0,
+          "amount": 49.99,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.work_equipment",
+          "model": "embedding",
+          "embedding_input": "MediaMarkt WORK KEYBOARD",
+          "legacy_pred": "Entertainment & Subscriptions",
+          "pred_main_category": "digital_subscriptions",
+          "confidence": 0.367,
+          "top3": [
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.367
+            },
+            {
+              "category": "Shopping",
+              "score": 0.295
+            },
+            {
+              "category": "Transport",
+              "score": 0.272
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_007",
+          "merchant": "Conference Center",
+          "raw_name": "CONFERENCE TICKET",
+          "quantity": 1.0,
+          "amount": 199.0,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.conferences",
+          "model": "embedding",
+          "embedding_input": "Conference Center CONFERENCE TICKET",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.448,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.448
+            },
+            {
+              "category": "Shopping",
+              "score": 0.362
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.328
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_008",
+          "merchant": "Exam Office",
+          "raw_name": "CERTIFICATION EXAM",
+          "quantity": 1.0,
+          "amount": 75.0,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.certifications",
+          "model": "embedding",
+          "embedding_input": "Exam Office CERTIFICATION EXAM",
+          "legacy_pred": "Others",
+          "pred_main_category": "other",
+          "confidence": 0.292,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.292
+            },
+            {
+              "category": "Banking & Fees",
+              "score": 0.266
+            },
+            {
+              "category": "Shopping",
+              "score": 0.266
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_009",
+          "merchant": "Stationery Store",
+          "raw_name": "PEN SET",
+          "quantity": 1.0,
+          "amount": 5.99,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.office_supplies",
+          "model": "embedding",
+          "embedding_input": "Stationery Store PEN SET",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.468,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.468
+            },
+            {
+              "category": "Shopping",
+              "score": 0.457
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.444
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "education_work_010",
+          "merchant": "Coursera",
+          "raw_name": "SPECIALIZATION COURSE",
+          "quantity": 1.0,
+          "amount": 39.0,
+          "currency": "EUR",
+          "gold_main_category": "education_work",
+          "gold_sub_category": "education_work.tuition_courses",
+          "model": "embedding",
+          "embedding_input": "Coursera SPECIALIZATION COURSE",
+          "legacy_pred": "Health & Wellness",
+          "pred_main_category": "health",
+          "confidence": 0.341,
+          "top3": [
+            {
+              "category": "Health & Wellness",
+              "score": 0.341
+            },
+            {
+              "category": "Shopping",
+              "score": 0.336
+            },
+            {
+              "category": "Transport",
+              "score": 0.324
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "pets_001",
+          "merchant": "Fressnapf",
+          "raw_name": "CAT FOOD",
+          "quantity": 1.0,
+          "amount": 12.49,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_food",
+          "model": "embedding",
+          "embedding_input": "Fressnapf CAT FOOD",
+          "legacy_pred": "Pet Supplies",
+          "pred_main_category": "pets",
+          "confidence": 0.52,
+          "top3": [
+            {
+              "category": "Pet Supplies",
+              "score": 0.52
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.499
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.387
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "pets_002",
+          "merchant": "Fressnapf",
+          "raw_name": "DOG FOOD",
+          "quantity": 1.0,
+          "amount": 18.99,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_food",
+          "model": "embedding",
+          "embedding_input": "Fressnapf DOG FOOD",
+          "legacy_pred": "Pet Supplies",
+          "pred_main_category": "pets",
+          "confidence": 0.546,
+          "top3": [
+            {
+              "category": "Pet Supplies",
+              "score": 0.546
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.485
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.373
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "pets_003",
+          "merchant": "dm",
+          "raw_name": "CAT LITTER",
+          "quantity": 1.0,
+          "amount": 6.49,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_care_supplies",
+          "model": "embedding",
+          "embedding_input": "dm CAT LITTER",
+          "legacy_pred": "Groceries",
+          "pred_main_category": "groceries",
+          "confidence": 0.511,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.511
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.457
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.447
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "pets_004",
+          "merchant": "Amazon",
+          "raw_name": "DOG LEASH",
+          "quantity": 1.0,
+          "amount": 9.99,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_care_supplies",
+          "model": "embedding",
+          "embedding_input": "Amazon DOG LEASH",
+          "legacy_pred": "Pet Supplies",
+          "pred_main_category": "pets",
+          "confidence": 0.373,
+          "top3": [
+            {
+              "category": "Pet Supplies",
+              "score": 0.373
+            },
+            {
+              "category": "Shopping",
+              "score": 0.352
+            },
+            {
+              "category": "Groceries",
+              "score": 0.307
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "pets_005",
+          "merchant": "Veterinary Clinic",
+          "raw_name": "VET BILL",
+          "quantity": 1.0,
+          "amount": 65.0,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.veterinary",
+          "model": "embedding",
+          "embedding_input": "Veterinary Clinic VET BILL",
+          "legacy_pred": "Pet Supplies",
+          "pred_main_category": "pets",
+          "confidence": 0.469,
+          "top3": [
+            {
+              "category": "Pet Supplies",
+              "score": 0.469
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.36
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.272
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "pets_006",
+          "merchant": "Pet Groomer",
+          "raw_name": "PET GROOMING",
+          "quantity": 1.0,
+          "amount": 35.0,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_services",
+          "model": "embedding",
+          "embedding_input": "Pet Groomer PET GROOMING",
+          "legacy_pred": "Pet Supplies",
+          "pred_main_category": "pets",
+          "confidence": 0.538,
+          "top3": [
+            {
+              "category": "Pet Supplies",
+              "score": 0.538
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.412
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.392
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "pets_007",
+          "merchant": "Fressnapf",
+          "raw_name": "FISH FOOD",
+          "quantity": 1.0,
+          "amount": 4.99,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_food",
+          "model": "embedding",
+          "embedding_input": "Fressnapf FISH FOOD",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.474,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.474
+            },
+            {
+              "category": "Pet Supplies",
+              "score": 0.468
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.367
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "pets_008",
+          "merchant": "Fressnapf",
+          "raw_name": "BIRD SEED",
+          "quantity": 1.0,
+          "amount": 3.99,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_food",
+          "model": "embedding",
+          "embedding_input": "Fressnapf BIRD SEED",
+          "legacy_pred": "Pet Supplies",
+          "pred_main_category": "pets",
+          "confidence": 0.526,
+          "top3": [
+            {
+              "category": "Pet Supplies",
+              "score": 0.526
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.403
+            },
+            {
+              "category": "Groceries",
+              "score": 0.329
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "pets_009",
+          "merchant": "Amazon",
+          "raw_name": "CAT TOY",
+          "quantity": 1.0,
+          "amount": 7.99,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_care_supplies",
+          "model": "embedding",
+          "embedding_input": "Amazon CAT TOY",
+          "legacy_pred": "Shopping",
+          "pred_main_category": "retail_goods",
+          "confidence": 0.457,
+          "top3": [
+            {
+              "category": "Shopping",
+              "score": 0.457
+            },
+            {
+              "category": "Groceries",
+              "score": 0.428
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.417
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "pets_010",
+          "merchant": "Pet Boarding",
+          "raw_name": "PET BOARDING",
+          "quantity": 1.0,
+          "amount": 45.0,
+          "currency": "EUR",
+          "gold_main_category": "pets",
+          "gold_sub_category": "pets.pet_services",
+          "model": "embedding",
+          "embedding_input": "Pet Boarding PET BOARDING",
+          "legacy_pred": "Pet Supplies",
+          "pred_main_category": "pets",
+          "confidence": 0.485,
+          "top3": [
+            {
+              "category": "Pet Supplies",
+              "score": 0.485
+            },
+            {
+              "category": "Transport",
+              "score": 0.378
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.334
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "financial_admin_001",
+          "merchant": "Commerzbank",
+          "raw_name": "ACCOUNT FEE",
+          "quantity": 1.0,
+          "amount": 4.9,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.bank_fee",
+          "model": "embedding",
+          "embedding_input": "Commerzbank ACCOUNT FEE",
+          "legacy_pred": "Banking & Fees",
+          "pred_main_category": "financial_admin",
+          "confidence": 0.432,
+          "top3": [
+            {
+              "category": "Banking & Fees",
+              "score": 0.432
+            },
+            {
+              "category": "Transport",
+              "score": 0.429
+            },
+            {
+              "category": "Shopping",
+              "score": 0.428
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "financial_admin_002",
+          "merchant": "ATM",
+          "raw_name": "ATM FEE",
+          "quantity": 1.0,
+          "amount": 2.5,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.atm_fee",
+          "model": "embedding",
+          "embedding_input": "ATM ATM FEE",
+          "legacy_pred": "Banking & Fees",
+          "pred_main_category": "financial_admin",
+          "confidence": 0.354,
+          "top3": [
+            {
+              "category": "Banking & Fees",
+              "score": 0.354
+            },
+            {
+              "category": "Groceries",
+              "score": 0.322
+            },
+            {
+              "category": "Transport",
+              "score": 0.319
+            }
+          ],
+          "correct": true
+        },
+        {
+          "id": "financial_admin_003",
+          "merchant": "Tax Office",
+          "raw_name": "TAX PAYMENT",
+          "quantity": 1.0,
+          "amount": 300.0,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.taxes",
+          "model": "embedding",
+          "embedding_input": "Tax Office TAX PAYMENT",
+          "legacy_pred": "Others",
+          "pred_main_category": "other",
+          "confidence": 0.104,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.104
+            },
+            {
+              "category": "Transport",
+              "score": 0.102
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.101
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "financial_admin_004",
+          "merchant": "City Munich",
+          "raw_name": "TRAFFIC FINE",
+          "quantity": 1.0,
+          "amount": 30.0,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.fines_penalties",
+          "model": "embedding",
+          "embedding_input": "City Munich TRAFFIC FINE",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.548,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.548
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.329
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.323
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "financial_admin_005",
+          "merchant": "REWE",
+          "raw_name": "PFAND",
+          "quantity": 1.0,
+          "amount": 0.25,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.deposits_refunds",
+          "model": "embedding",
+          "embedding_input": "REWE PFAND",
+          "legacy_pred": "Groceries",
+          "pred_main_category": "groceries",
+          "confidence": 0.732,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.732
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.656
+            },
+            {
+              "category": "Food & Beverage",
+              "score": 0.63
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "financial_admin_006",
+          "merchant": "Edeka",
+          "raw_name": "RABATT",
+          "quantity": 1.0,
+          "amount": -1.0,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.discounts_adjustments",
+          "model": "embedding",
+          "embedding_input": "Edeka RABATT",
+          "legacy_pred": "Groceries",
+          "pred_main_category": "groceries",
+          "confidence": 0.55,
+          "top3": [
+            {
+              "category": "Groceries",
+              "score": 0.55
+            },
+            {
+              "category": "Home & Living",
+              "score": 0.507
+            },
+            {
+              "category": "Banking & Fees",
+              "score": 0.506
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "financial_admin_007",
+          "merchant": "Lieferando",
+          "raw_name": "DELIVERY FEE",
+          "quantity": 1.0,
+          "amount": 2.99,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.service_delivery_fees",
+          "model": "embedding",
+          "embedding_input": "Lieferando DELIVERY FEE",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.545,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.545
+            },
+            {
+              "category": "Shopping",
+              "score": 0.508
+            },
+            {
+              "category": "Transport",
+              "score": 0.483
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "financial_admin_008",
+          "merchant": "Restaurant",
+          "raw_name": "TIP",
+          "quantity": 1.0,
+          "amount": 3.0,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.service_delivery_fees",
+          "model": "embedding",
+          "embedding_input": "Restaurant TIP",
+          "legacy_pred": "Food & Beverage",
+          "pred_main_category": "dining",
+          "confidence": 0.524,
+          "top3": [
+            {
+              "category": "Food & Beverage",
+              "score": 0.524
+            },
+            {
+              "category": "Personal Care",
+              "score": 0.393
+            },
+            {
+              "category": "Health & Wellness",
+              "score": 0.39
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "financial_admin_009",
+          "merchant": "Visa Card",
+          "raw_name": "CARD FEE",
+          "quantity": 1.0,
+          "amount": 1.5,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.card_fee",
+          "model": "embedding",
+          "embedding_input": "Visa Card CARD FEE",
+          "legacy_pred": "Transport",
+          "pred_main_category": "transport",
+          "confidence": 0.324,
+          "top3": [
+            {
+              "category": "Transport",
+              "score": 0.324
+            },
+            {
+              "category": "Shopping",
+              "score": 0.29
+            },
+            {
+              "category": "Entertainment & Subscriptions",
+              "score": 0.251
+            }
+          ],
+          "correct": false
+        },
+        {
+          "id": "financial_admin_010",
+          "merchant": "Bank Loan",
+          "raw_name": "LOAN PAYMENT",
+          "quantity": 1.0,
+          "amount": 200.0,
+          "currency": "EUR",
+          "gold_main_category": "financial_admin",
+          "gold_sub_category": "financial_admin.loan_payment",
+          "model": "embedding",
+          "embedding_input": "Bank Loan LOAN PAYMENT",
+          "legacy_pred": "Others",
+          "pred_main_category": "other",
+          "confidence": 0.193,
+          "top3": [
+            {
+              "category": "Banking & Fees",
+              "score": 0.193
+            },
+            {
+              "category": "Shopping",
+              "score": 0.17
+            },
+            {
+              "category": "Transport",
+              "score": 0.169
+            }
+          ],
+          "correct": false
+        }
+      ]
+    }
+  },
+  "duration_seconds": 12.7
+}
