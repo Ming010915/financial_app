@@ -1,0 +1,349 @@
+id,date,merchant,amount,currency,source,type,original_category,gold_category,mapping_note
+235276e4-a42b-4bb1-81a4-490b02c82c4e,2026-01-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+441dd61c-961d-43de-8d26-8dfad0b15665,2026-01-01,Edeka,20.93,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+f8c627c5-ca3e-49a2-9479-2557257505d1,2026-01-01,Studentenwerk München (Miete),500.96,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+82f60f65-994d-442b-8251-0d3a78795d16,2026-01-01,Flixbus,21.51,EUR,receipt,expense,Transport,Transport,daily mobility
+aca9b423-40b1-4956-8f0b-e2cb6c6fbc35,2026-01-02,Döner Kebab Haus,4.4,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+886d0a22-6f34-43d4-8f02-08e33fb49976,2026-01-04,Deutsche Bahn,79.9,EUR,receipt,expense,Travel,Transport,old taxonomy has no travel class; mapped to transport
+de6e5821-1cbc-49e3-9f56-9430d9053d23,2026-01-05,Telekom (MagentaMobil Young),12.16,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+03b8789e-3b44-4b26-8e11-d35cab21ec2b,2026-01-06,Döner Kebab Haus,6.82,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+06864008-9023-41bd-9f7e-475094931b96,2026-01-06,Haarschneiderei,17.18,EUR,receipt,expense,Personal Care,Personal Care,personal care merchant
+858cbac2-0bde-469e-91d8-05fdd88dc3e1,2026-01-06,Kultfabrik-Nachfolger,33.42,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+6cd9ce93-28fc-4302-87db-4f9823eb7068,2026-01-08,Burger King,2.85,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+031395b0-2bb9-4036-9116-f7f96b3c146e,2026-01-08,Decathlon,37.1,EUR,receipt,expense,Shopping,Shopping,general retail
+54724490-3102-4fb6-8fa6-cae2ab58afa9,2026-01-10,Netflix,12.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+f770718f-7599-49ad-b6a2-3a37bcb000cb,2026-01-10,Theresien-Apotheke,12.27,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+25d4532b-4908-4e57-b23c-110658b142a9,2026-01-10,Aldi Süd,27.8,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+ed7ca7f0-fd78-4fc1-aa4b-324f060750f8,2026-01-12,Studentenwerk Mensa,7.52,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+b150aecb-8ae4-43cd-b120-84d2c3b294ff,2026-01-12,Deutsche Bahn,29.15,EUR,receipt,expense,Transport,Transport,daily mobility
+2333c1dc-cd37-4f11-b35a-7d047266eb8a,2026-01-14,McDonald's,11.62,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+01fdb6c0-f6ac-47ae-8654-166e2f2d6e9b,2026-01-15,ARD ZDF Deutschlandradio Beitragsservice,56.94,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+209737a3-d16f-4cfe-95a1-92cac7872658,2026-01-15,Techniker Krankenkasse,120.41,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+aac84ba6-e994-4ab6-8f79-f8f9fad7a315,2026-01-16,Decathlon,45.04,EUR,receipt,expense,Shopping,Shopping,general retail
+d0979d11-52bf-4a55-9603-3d6383f8328e,2026-01-16,CinemaxX,12.48,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+5ba0d1f5-2299-478c-b83c-ec7f97b8088a,2026-01-16,Kultfabrik-Nachfolger,22.68,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+86e98917-fb8d-4dec-8295-a3b310b34f27,2026-01-18,Rossmann,15.71,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+4e2f8f96-4f50-485b-b674-e1bb722bb63a,2026-01-18,Starbucks,12.21,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+b14875ef-c2be-4567-9e7d-c001ca990064,2026-01-19,Aldi Süd,16.07,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+7910949b-dec3-48b4-a89f-a2de36da75df,2026-01-20,MVG Rad,5.4,EUR,bank_statement,expense,Transport,Transport,daily mobility
+086bc0c3-1a5b-44dd-a4ad-c71cefde4b32,2026-01-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+b1e5517f-6a4d-48a2-b100-27e0947f5493,2026-01-22,McDonald's,10.24,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+0cca0bea-12bd-47a6-a5d1-086de52585b4,2026-01-25,Starbucks,2.62,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+80a6dabe-f13c-49bf-8d38-d8c5f0aa3eb9,2026-01-26,Lidl,34.82,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+286cae2d-c76b-40c3-bc99-c8fcb51b03f0,2026-01-28,Dean & David,4.98,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+e333513f-e16f-41e7-a375-fb9ef0e914ba,2026-01-29,Lime,2.97,EUR,bank_statement,expense,Transport,Transport,daily mobility
+acf38aea-c7fc-4146-8003-da74d586277c,2026-01-30,Pizzeria Da Luigi,13.36,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+0e088dab-b5e3-471d-8590-daf7badca932,2026-02-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+a16ee069-3c77-4699-9f97-3181795baabb,2026-02-01,Studentenwerk München (Miete),520.68,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+ed4d0b91-67f6-4416-8158-cf32dae63988,2026-02-02,Edeka,17.37,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+8272ba63-e279-4e48-b617-10142102e2a6,2026-02-02,Studentenwerk Mensa,6.96,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+2b65b800-accd-4157-a072-980d30dee712,2026-02-03,Theresien-Apotheke,18.14,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+777d3d6c-72c1-4c22-bbb4-8aff76148858,2026-02-04,Pizzeria Da Luigi,10.47,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+b830dc25-2009-4b5a-8beb-46bdab89ffd8,2026-02-05,Augustiner Bräustuben,27.58,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+8f90e875-8ffd-4c54-8538-f224712b2d0d,2026-02-05,Telekom (MagentaMobil Young),11.79,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+5d1f5296-a4ce-421f-8a8b-85b536b79c56,2026-02-06,Backwerk,4.02,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+e842cf80-74e2-4e56-8500-711797cafafe,2026-02-08,Burger King,8.89,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+6ec5a763-9f95-4b85-969f-346456435c25,2026-02-09,Saturn,42.57,EUR,receipt,expense,Electronics,Shopping,electronics are retail goods in the old taxonomy
+c67a8e11-8c4c-4f7a-99d0-b5f1781d47aa,2026-02-09,Rossmann,12.41,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+8fa3a242-3c79-4e63-9dc2-3a651627653c,2026-02-10,Netflix,12.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+cd95108d-32ef-4540-82aa-96568f994516,2026-02-11,Aldi Süd,22.95,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+83549bbb-02f9-4dfb-a9e6-40b540de8c63,2026-02-12,CinemaxX,9.73,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+fc273ff5-93bf-4ba2-ad07-c40fbb9f4131,2026-02-12,Subway,1.25,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+86b5720f-6d19-486a-a1a3-f45c1c435b4a,2026-02-12,Deutsche Bahn,27.48,EUR,receipt,expense,Transport,Transport,daily mobility
+0b24c0f5-9f80-480f-b177-d7cb3bd050b8,2026-02-14,Döner Kebab Haus,11.54,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+1917d2f8-4827-41c4-bcdd-c2524a84ee1e,2026-02-15,Techniker Krankenkasse,117.63,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+eee5d67e-a647-4f3d-9fc0-8e6198350b5d,2026-02-18,Edeka,25.04,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+819c63b9-b7d4-49c1-ba5c-b38bbed10e28,2026-02-18,Studentenwerk Mensa,8.43,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+b7effdb9-68ed-4b0e-a2e6-34f18d019a81,2026-02-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+df5c755b-6545-461c-ab29-3fd0ed2bcd1f,2026-02-21,Dean & David,9.33,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+31d0c658-fc63-479c-837d-e35e7a4d057c,2026-02-23,TIER,3.34,EUR,bank_statement,expense,Transport,Transport,daily mobility
+2002c554-dc59-4525-b367-8007eaefa74d,2026-02-23,Haarschneiderei,29.46,EUR,receipt,expense,Personal Care,Personal Care,personal care merchant
+4e56c06c-1e87-4aa5-b02a-2beb44778a99,2026-02-24,Edeka,13.44,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+d60c6d6a-aa2c-4cf6-b8d6-f4776593e96e,2026-02-25,Studentenwerk Mensa,4.85,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+67275f73-b59e-4abc-8e2b-3d45798beb4f,2026-02-27,Studentenwerk Mensa,10.61,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+c0751d87-3c51-4995-b710-6b5173033bd9,2026-02-28,Theresien-Apotheke,10.66,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+e1cc26dc-d530-43eb-9ec2-752884d4b79e,2026-03-01,Studentenwerk München (Miete),496.27,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+2dad0d63-b2b3-4add-8e8f-19264b2567cf,2026-03-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+8d03266b-cde8-4601-854c-e6bc2c3b19c8,2026-03-02,Flixbus,39.98,EUR,receipt,expense,Travel,Transport,old taxonomy has no travel class; mapped to transport
+563ad717-5657-481c-a4d0-4ba3c94f2cb7,2026-03-02,Hostel Prague Inn,98.0,EUR,receipt,expense,Travel,Transport,old taxonomy has no travel class; mapped to transport
+6d21a0fb-f410-4974-9561-e7aef3f249b4,2026-03-02,Lidl,28.25,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+bf4ac0d5-0607-4793-886b-90c3472f028f,2026-03-03,Studentenwerk Mensa,4.91,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+f3525409-0382-45a6-b043-4763ea374938,2026-03-05,Primark,51.31,EUR,receipt,expense,Shopping,Shopping,general retail
+cc6bc361-98d4-4456-bc1d-e8ed8b936075,2026-03-05,Telekom (MagentaMobil Young),12.3,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+b1ee9a13-6500-4f4f-a65b-923f406b6157,2026-03-06,Starbucks,7.68,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+173849d0-59fa-407b-a974-bd9785a6bba8,2026-03-08,Starbucks,2.95,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+9defcd14-d5b1-47a8-8bf7-5a03174b417d,2026-03-08,Kultfabrik-Nachfolger,34.82,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+781b5375-a7d7-4d37-86dc-bf6f2a2b456d,2026-03-10,Dean & David,10.21,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+d08e02dd-9038-41d0-bf24-aac6a271af57,2026-03-10,MVG Rad,3.07,EUR,bank_statement,expense,Transport,Transport,daily mobility
+9c7e42cf-409d-4074-af6e-ef4d36855b47,2026-03-10,Netflix,12.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+ed574564-d3e4-4c88-92a0-956435301bf0,2026-03-11,Edeka,24.62,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+5c8b66da-775a-4b0d-b07f-f8db45d7e7e0,2026-03-11,Kultfabrik-Nachfolger,19.03,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+254ab08f-80d5-4fb2-9897-e141e8b0b9d0,2026-03-12,Backwerk,3.59,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+ccb6a9bc-2a10-45fb-954f-051a10592674,2026-03-14,Augustiner Bräustuben,22.81,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+06099ed6-b0a6-4c0a-a822-1bf1c0f3577f,2026-03-15,Pizzeria Da Luigi,9.98,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+43786fe3-a93f-4ce6-af76-4551b0cc1663,2026-03-15,Techniker Krankenkasse,121.34,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+b70b1655-6a10-48c4-b615-a7606ac35613,2026-03-16,H&M,79.27,EUR,receipt,expense,Shopping,Shopping,general retail
+4a6bf75e-871b-4b82-8584-4a4ec9aee64a,2026-03-18,Aldi Süd,15.5,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+1e8e8ffc-be82-40cd-b618-183c9646f4ed,2026-03-18,Augustiner Bräustuben,15.89,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+ebdd1a9c-4122-4c82-88c0-a4a6b6084874,2026-03-19,Vapiano,6.66,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+a0a8223c-d30a-45b8-b5b6-1895cd53dbee,2026-03-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+e85131a3-12c6-40ee-bbd1-eb13de2b1cd4,2026-03-20,Deutsche Bahn,30.72,EUR,receipt,expense,Transport,Transport,daily mobility
+5f2cc285-ae93-4f76-9f56-a265614274be,2026-03-22,Döner Kebab Haus,7.33,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+cd2bc3d3-ef53-4634-ae19-9fe97aeb378f,2026-03-24,Theresien-Apotheke,10.39,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+5c0e2f0d-3c33-4afa-aae7-a04a647b0a8d,2026-03-24,Rossmann,12.06,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+2fcdb4f2-689b-4a73-9c60-cee7adff8fd8,2026-03-26,Studentenwerk Mensa,3.14,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+3961f351-8d62-4ca9-a0d2-6a3aef3b9300,2026-03-27,Rewe,22.4,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+ead10445-de26-40fe-9469-88c32c8af174,2026-03-28,Subway,1.5,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+837c5bdb-b151-466e-a138-3c83686745cd,2026-03-31,Studentenwerk Mensa,5.26,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+f01c2be6-622d-410b-a495-7ee837e01271,2026-04-01,Studentenwerk München (Miete),516.65,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+49604ad8-498f-40fa-857e-1c97831838d7,2026-04-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+71801e1f-6974-4ae1-b735-f9bc1dec8e17,2026-04-04,McDonald's,2.7,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+ddb17e1d-3155-4efd-8b22-314605d3663a,2026-04-04,Lidl,21.8,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+4c55ddf7-1ec1-4b79-a583-ba1335daa21d,2026-04-05,Deutsche Bahn,31.73,EUR,receipt,expense,Transport,Transport,daily mobility
+c819a7a9-0a19-4c27-9ccb-e4da01e42863,2026-04-05,Telekom (MagentaMobil Young),12.4,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+7d0b841b-bf1e-47bb-bc4f-d3ce80b59adf,2026-04-07,Döner Kebab Haus,9.44,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+94c6a6e5-865a-49a6-8279-db0ed6577838,2026-04-10,Studentenwerk Mensa,6.91,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+4309b34a-7bd7-4fab-a6a4-2e60b2b1770c,2026-04-10,Netflix,7.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+59ba5293-b31f-41de-a559-76af3bffc175,2026-04-11,Rewe,20.96,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+f8a17bd4-d50f-4736-8ea7-6943b7395001,2026-04-13,McDonald's,9.5,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+cf458016-f6bd-45e7-bf9a-795a0cdec9e6,2026-04-15,ARD ZDF Deutschlandradio Beitragsservice,55.59,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+6b773a05-2452-45cd-befe-4763783023d7,2026-04-15,Techniker Krankenkasse,120.9,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+9cca127a-ac41-4d31-bf9d-f2a92bb2c9aa,2026-04-16,Haarschneiderei,27.28,EUR,receipt,expense,Personal Care,Personal Care,personal care merchant
+6cb62543-8923-4ae4-bc7e-e614fa7b75ab,2026-04-16,Kultfabrik-Nachfolger,19.51,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+7a585653-f5bb-4da1-ba2a-b073abb1a94a,2026-04-16,Rossmann,6.45,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+14f4dd46-911f-49e5-adf7-3fc383f77fe4,2026-04-16,Pizzeria Da Luigi,13.42,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+a33be009-6959-414c-ae04-26a52a7fcdc2,2026-04-17,denn's Biomarkt,12.1,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+2bf4fb03-d42f-4180-a0c1-525758bf0551,2026-04-18,Döner Kebab Haus,8.77,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+4a1e8e01-2dbb-4a48-a1f9-2e5d1ca94bc9,2026-04-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+66f3b1fd-95ae-4b9f-a7d5-d54aff84cfb1,2026-04-21,Pizzeria Da Luigi,10.68,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+2ddf6680-a22e-46f0-a250-c10d30d5efc4,2026-04-21,Deutsche Bahn,37.56,EUR,receipt,expense,Transport,Transport,daily mobility
+46934bb0-16fe-4a74-9298-a68fe435cecd,2026-04-23,Dean & David,4.85,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+7a34e879-9e5c-449a-831c-3223c58ea944,2026-04-26,Lidl,10.54,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+28fd54dc-a175-4e63-943c-387ed1c9adc4,2026-04-27,Backwerk,8.08,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+041fe272-2a76-4a80-8166-27d074a5ce92,2026-05-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+cfe00334-b09e-4178-9a2c-ec36245c4e41,2026-05-01,McDonald's,13.35,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+1f841af9-e008-4268-bf1b-ae64504ecc3e,2026-05-01,Studentenwerk München (Miete),504.15,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+500f5f0d-677f-4592-adf8-c1821403e5d6,2026-05-03,Rewe,22.26,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+c8b8891a-a6fc-41ac-a3bd-78f49f7b5e55,2026-05-03,McDonald's,10.81,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+bf02163e-eb2c-4cbf-95fe-5beb4586f06e,2026-05-03,Saturn,24.42,EUR,receipt,expense,Electronics,Shopping,electronics are retail goods in the old taxonomy
+c1b2965d-5fa8-4220-a871-2a2aec2267ba,2026-05-05,Telekom (MagentaMobil Young),10.68,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+7f470e87-a85e-42d9-b53c-bedb96bf466a,2026-05-06,TIER,1.6,EUR,bank_statement,expense,Transport,Transport,daily mobility
+54ddadbe-fe03-4095-b74e-8f01d59334f5,2026-05-06,McDonald's,4.2,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+8f19e554-b978-4881-af7b-3bc61db96e35,2026-05-08,Backwerk,1.96,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+3bfe4773-af8a-4380-8983-4eb99144db57,2026-05-09,denn's Biomarkt,18.68,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+1e191f8b-f2e7-418b-9fc3-d32a85837969,2026-05-10,Netflix,7.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+83ad9d12-a284-49d0-8926-bb2757bc4a74,2026-05-12,Studentenwerk Mensa,6.46,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+0f3d6c74-e858-408a-9e53-42758433cb93,2026-05-15,Techniker Krankenkasse,123.13,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+2dbaaadc-b28e-418b-8694-e09d95248e64,2026-05-15,Aldi Süd,16.61,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+dc07decc-4623-440a-bd51-ca42d84e4f3d,2026-05-15,Pizzeria Da Luigi,10.28,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+2440a783-5ce2-458f-8335-d7b5961afc42,2026-05-16,Theresien-Apotheke,12.79,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+9b469e35-8dc8-48d3-a6e0-9aaf63a776e1,2026-05-16,Theresien-Apotheke,10.25,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+4bdaaf3b-ed6b-447b-9099-ef9eda8fa985,2026-05-17,H&M,29.57,EUR,receipt,expense,Shopping,Shopping,general retail
+c5dea2f6-ed9a-49ff-8948-543f8020ab08,2026-05-17,Döner Kebab Haus,7.52,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+c4a86479-59f3-4808-8e20-6899fa25cac3,2026-05-18,Lime,5.02,EUR,bank_statement,expense,Transport,Transport,daily mobility
+5a9f06cc-1123-4126-b24d-495a09262e00,2026-05-19,Döner Kebab Haus,2.76,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+8ba789ed-cd93-4bca-be68-dd193eb7dc58,2026-05-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+b785cedf-05a4-4002-8bb0-db0c50961e13,2026-05-23,Aldi Süd,11.65,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+76c4cdab-bf49-4767-996b-b432c9794b4e,2026-05-23,Backwerk,9.08,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+c05f9504-fdc7-4385-a6e3-9fd29c873c75,2026-05-24,dm-drogerie markt,4.55,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+c59bd46a-11bd-4b27-948d-35d9c1a2043e,2026-05-26,Vapiano,8.9,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+e5903061-1f9b-4aa8-92e1-1a181a58804f,2026-05-28,Döner Kebab Haus,3.98,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+0c6b2a13-f3fe-40e8-86b9-b49815140cb5,2026-05-30,Starbucks,13.2,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+107598b1-0acd-46ac-bcbe-a61ada7c6aaf,2026-06-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+0f6dc3c1-726f-4d8b-9b44-8684101cef19,2026-06-01,Studentenwerk München (Miete),528.23,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+ba8220e5-f6bd-4551-9704-c91186bcd603,2026-06-01,Rewe,17.65,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+8448303e-83f5-4e0f-a976-e9d07b665c69,2026-06-01,Studentenwerk Mensa,12.09,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+50dad1fd-80f3-48be-9a83-75a635a8e069,2026-06-02,Flixbus,11.74,EUR,receipt,expense,Transport,Transport,daily mobility
+6709b651-f407-4590-9232-e20f8eafcfb9,2026-06-05,Telekom (MagentaMobil Young),12.47,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+ee68af05-dd0f-406c-81a1-25cbd3961673,2026-06-05,Backwerk,3.19,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+6bb7b657-63e9-456c-901a-7c2b0108a575,2026-06-08,Theresien-Apotheke,17.4,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+ade91a59-75a5-42a7-81bc-233308331447,2026-06-09,Backwerk,2.25,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+96f37c2a-8b36-4cb1-817b-1fcaa4437caf,2026-06-10,Lidl,14.21,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+2bdb91fc-3d54-49f0-9ea7-8e670f06fa46,2026-06-10,Netflix,7.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+374cb88e-7a01-43dc-84f2-805d247528eb,2026-06-11,Pizzeria Da Luigi,9.07,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+faf45a1a-3e25-4932-8a96-a09d45227e9e,2026-06-13,Kultfabrik-Nachfolger,39.4,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+ed31a109-b0d7-4110-bc6f-5b73daf81831,2026-06-14,Studentenwerk Mensa,3.42,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+3ff9cb31-09ae-4ab0-abd9-2044a6572b91,2026-06-15,Techniker Krankenkasse,116.21,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+2217378f-8df3-4813-b0aa-6feae83f01ed,2026-06-16,Haarschneiderei,28.21,EUR,receipt,expense,Personal Care,Personal Care,personal care merchant
+9e8373fc-cb12-4bea-9319-5d9e1dff6fb6,2026-06-17,TIER,2.0,EUR,bank_statement,expense,Transport,Transport,daily mobility
+4a00e635-8bab-4276-b076-e5e66192d6a5,2026-06-18,CinemaxX,10.7,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+8528d3e0-bb02-4d0c-953e-727d929b6e92,2026-06-18,Studentenwerk Mensa,10.62,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+810f80b2-dfee-4d58-8acf-02c1ea201540,2026-06-18,Aldi Süd,6.39,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+d7b00a99-cbcc-4656-84fe-4e38e73018c0,2026-06-18,dm-drogerie markt,17.22,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+853419a2-b4fd-4645-b3db-bd9d4ff80eff,2026-06-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+70256e04-244b-429d-ae3d-771328f5e04b,2026-06-20,Döner Kebab Haus,1.84,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+83c98f04-6506-40f3-ae2c-565a9da6435c,2026-06-23,Subway,1.43,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+57adcdc9-e69a-4e43-88d8-8aa4d4023c23,2026-06-24,Edeka,14.33,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+be886254-b2aa-416e-bf3e-12629dbe1970,2026-06-25,Deutsche Bahn,30.34,EUR,receipt,expense,Transport,Transport,daily mobility
+9211440f-a389-4b66-8e06-f5a00b9081b9,2026-06-27,Döner Kebab Haus,6.21,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+4893e010-8d68-4737-88e3-2c93bde1635a,2026-06-30,Studentenwerk Mensa,6.85,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+df09faaf-b54d-4e69-ae48-8e94acb68dad,2025-07-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+dfe0b58a-e069-4b20-91d7-d68ff4aa652d,2025-07-01,Studentenwerk München (Miete),527.31,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+33e4efd6-cb33-45ab-b8c3-e075a09b50cc,2025-07-02,Rewe,10.31,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+e66b2eaf-5b5a-4cc7-bcb6-886ffdb24564,2025-07-04,Studentenwerk Mensa,5.58,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+6d2a5f11-bc6d-4291-87cd-c9372e69c449,2025-07-05,Telekom (MagentaMobil Young),14.69,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+550d1e66-84b7-420a-a955-bebf1fc2b218,2025-07-07,Studentenwerk Mensa,9.66,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+98a062db-fc27-47e2-81de-4a2db553f083,2025-07-08,Lidl,26.4,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+ba0f923f-7e56-4f1a-8a60-7d1c6568c84c,2025-07-09,TIER,2.09,EUR,bank_statement,expense,Transport,Transport,daily mobility
+7fa3591f-8cd9-454f-8752-63d269153889,2025-07-10,Netflix,7.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+0340b1e4-c8ba-47ad-9cff-a67fa1ceb8fa,2025-07-10,Kultfabrik-Nachfolger,29.99,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+25516069-c88f-42c9-953f-667f7db82d92,2025-07-11,Backwerk,6.08,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+94ae4000-53ae-476a-8ba5-0680615ebf53,2025-07-13,Döner Kebab Haus,10.16,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+54f4ccad-a716-495b-a967-00c9800bef3a,2025-07-14,Rossmann,14.75,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+4452c7dd-9c86-4c2e-b532-4a349b9870f3,2025-07-15,ARD ZDF Deutschlandradio Beitragsservice,55.98,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+7470e812-9856-4c10-aed4-37f83d7b6eba,2025-07-15,Techniker Krankenkasse,117.95,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+9c0c21dc-7a29-4f82-ba57-267e1497f6db,2025-07-16,Dean & David,9.72,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+941a7241-ead5-4b3e-a145-20e8dad5ca96,2025-07-16,Rewe,20.03,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+3f0219b6-635e-49a8-8f3e-4979e7638d70,2025-07-18,McDonald's,17.93,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+894446ee-9e41-4f13-bb56-14cb6d73bc09,2025-07-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+a8682d0c-bd67-4897-aba9-af43aff9fbe2,2025-07-20,Backwerk,7.83,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+1bba7255-9cf2-4dfa-8b0e-0dc55bef3bf4,2025-07-22,Zara,53.5,EUR,receipt,expense,Shopping,Shopping,general retail
+3f24232d-26ae-438d-b9b9-afb287e804b0,2025-07-24,Studentenwerk Mensa,6.74,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+4db35537-608d-403a-8296-31c0e43280df,2025-07-24,Lidl,24.71,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+ba9cbb2b-4c1c-47ff-b791-366fdd6dcece,2025-07-25,TIER,3.0,EUR,bank_statement,expense,Transport,Transport,daily mobility
+47f68aaa-8eb0-4285-8601-1b5e65eb80c4,2025-07-27,Starbucks,5.72,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+f4e43c42-e15b-477f-8019-e96305680cd2,2025-07-30,Döner Kebab Haus,1.93,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+eefe6a7a-673d-4a95-9bf3-5f416de6b4c6,2025-08-01,Studentenwerk München (Miete),527.04,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+ed9248dc-317e-4816-a189-08ce28a44521,2025-08-01,Döner Kebab Haus,10.59,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+a86463af-d044-4c38-a363-0442d07ae8d4,2025-08-01,Lidl,15.56,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+8d576138-b074-4d0f-a49a-335143c72d61,2025-08-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+00ecd5a5-9b24-42be-a0d1-f205d2023ebe,2025-08-02,Decathlon,33.9,EUR,receipt,expense,Shopping,Shopping,general retail
+aeb38c47-3233-4722-871d-ba3623dc15a8,2025-08-05,Studentenwerk Mensa,4.21,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+55477be6-7bfc-44c8-afca-976589ba51ac,2025-08-05,Telekom (MagentaMobil Young),10.88,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+a306dffb-a6b5-4522-b468-afefb61783cc,2025-08-05,dm-drogerie markt,16.52,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+2a2d2835-e90e-4137-b443-d3b3cced8eba,2025-08-08,Aldi Süd,18.24,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+1a3b56c4-8747-4837-9748-83e37e5ff121,2025-08-08,Döner Kebab Haus,2.49,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+3cf5c9ab-374a-43b9-82cc-2f6b7cac91fa,2025-08-09,Flixbus,25.67,EUR,receipt,expense,Transport,Transport,daily mobility
+56096cfd-f54e-4807-81cd-6eaf8f777f65,2025-08-10,Döner Kebab Haus,8.49,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+d3c40225-e61f-4533-8406-98422eb21e8e,2025-08-10,Netflix,12.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+bc00ee1a-3f87-4f03-a353-49a9c4036ed0,2025-08-12,Haarschneiderei,23.63,EUR,receipt,expense,Personal Care,Personal Care,personal care merchant
+8dbd0a19-1734-4dc1-812f-f48375bb0fad,2025-08-12,Kultfabrik-Nachfolger,22.19,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+558a7bf1-1eb6-44a9-aa1b-b66e8bf2c970,2025-08-13,Pizzeria Da Luigi,17.92,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+a617ec20-31ca-4a30-a342-8803e459d305,2025-08-14,Saturn,44.61,EUR,receipt,expense,Electronics,Shopping,electronics are retail goods in the old taxonomy
+ff222134-fc37-4839-a1f0-08605be19259,2025-08-15,McDonald's,12.75,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+c4f218e7-7ebe-42a6-8ea7-9e5ada41eea6,2025-08-15,Techniker Krankenkasse,116.97,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+59ae083b-ad05-4953-8f81-ee09f732ede4,2025-08-16,Edeka,12.31,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+0a74dda1-3f6c-4214-869b-0e0da31f4c60,2025-08-17,McDonald's,2.45,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+2709f311-9e2d-4a17-b552-cb336d01c813,2025-08-19,Dean & David,4.86,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+d1e1ae44-3561-4398-a3ca-b0786f01ea35,2025-08-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+c2047e24-40dc-4e5b-bf7c-458703ff4ec9,2025-08-22,Edeka,10.17,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+d3b8dba1-428e-4677-9f0b-d2efb267d120,2025-08-22,Studentenwerk Mensa,3.12,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+b2b70b6d-a32f-406a-ae9b-8012b714da88,2025-08-23,Kultfabrik-Nachfolger,19.96,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+683af48f-f478-494d-9768-94cc15e4ece9,2025-08-24,Lime,6.21,EUR,bank_statement,expense,Transport,Transport,daily mobility
+9e41e7e2-b2c4-4ac1-a5fc-cffd49f0e44b,2025-08-25,Studentenwerk Mensa,7.72,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+7b74bd9d-87f0-4c15-9b54-601115ff308b,2025-08-28,Theresien-Apotheke,7.7,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+2af9b812-8a69-47b8-8593-a923845e0645,2025-08-28,Aldi Süd,15.66,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+0dca9343-354b-4a76-85cb-3f09c778efa2,2025-08-29,Subway,10.15,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+663a3069-f502-476d-a4f7-e17bb9a49b1d,2025-08-31,McDonald's,11.12,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+f38b7b1a-e0ce-45c9-9098-d78f69991a3a,2025-08-31,H&M,68.48,EUR,receipt,expense,Shopping,Shopping,general retail
+282f09f6-36f6-4c4f-9610-ae8be3521b2f,2025-09-01,Studentenwerk München (Miete),534.83,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+6e2a1fd1-2928-446d-a7af-599dcd794260,2025-09-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+6ffb8ddc-b9e8-490e-8ffa-8c44e3424916,2025-09-02,Studentenwerk Mensa,7.22,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+92d005a8-781b-4f95-9877-6723710028b6,2025-09-05,Lime,3.35,EUR,bank_statement,expense,Transport,Transport,daily mobility
+018278ff-0aa5-48fc-b8b6-0fdf3c24621c,2025-09-05,Döner Kebab Haus,7.91,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+0cdc97ad-1cea-4e19-9433-48019b600eb0,2025-09-05,Telekom (MagentaMobil Young),12.68,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+c1ab06b6-6208-4ffa-ac0a-4dafd8a1633c,2025-09-05,Edeka,16.4,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+ee25154a-874d-4a72-885e-a5fcbe62ee9c,2025-09-07,McDonald's,4.52,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+431dd269-d0e7-4300-a09d-eb8bab454b08,2025-09-08,Booking.com,142.5,EUR,receipt,expense,Travel,Transport,old taxonomy has no travel class; mapped to transport
+d829af97-ec0f-4ed4-904b-42bb03921b88,2025-09-08,Ryanair,64.98,EUR,receipt,expense,Travel,Transport,old taxonomy has no travel class; mapped to transport
+c93bc7dc-2fbe-4770-bdd3-7aa2cc7bb314,2025-09-10,Netflix,12.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+d542ec3f-59b4-4a66-b97d-4c67d4b36fd2,2025-09-10,Pizzeria Da Luigi,9.9,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+f8a0cfb0-dd91-4914-9e9b-648efab7e362,2025-09-12,Edeka,22.02,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+7e4110d0-424f-459b-ac15-2ffdd28c439d,2025-09-12,Studentenwerk Mensa,3.06,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+ec7def00-86db-42fd-b029-66beda4d5968,2025-09-14,Backwerk,5.66,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+a8ce19b4-6ab9-45b6-804d-f0446c62e39c,2025-09-15,Techniker Krankenkasse,115.04,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+248ab064-dc10-4b47-b3b4-f716f24be540,2025-09-16,Subway,2.9,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+48f943b0-b534-4830-81b4-b3592abc7d5d,2025-09-16,Rossmann,15.26,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+e2b8b107-6f03-49ae-89ba-f9b7bf6143d1,2025-09-19,Studentenwerk Mensa,4.21,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+dbd59ec0-c88e-4d3a-aff6-fab45b6c9537,2025-09-19,Lime,5.31,EUR,bank_statement,expense,Transport,Transport,daily mobility
+f2b1f837-96bf-4017-a4db-babdd38b6e86,2025-09-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+05711552-88bd-48bb-86f0-e58eec5ddcb8,2025-09-20,Augustiner Bräustuben,25.86,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+1311cedf-4671-4cc1-810a-a591021d6220,2025-09-21,Lidl,16.66,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+153b343c-b1dd-48f9-ac4d-66a8c36a5912,2025-09-22,Backwerk,5.7,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+0bf404ef-5472-4f13-ac3b-03e4ed0605c2,2025-09-24,Dean & David,18.94,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+aff8944e-9b59-4f8c-b63e-c1d7f39ddc3d,2025-09-25,Zara,16.48,EUR,receipt,expense,Shopping,Shopping,general retail
+bca8cfd5-8d21-4023-9404-0cb100c33f60,2025-09-26,Döner Kebab Haus,11.78,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+ae605a37-75eb-4bd1-947a-c7e37cbbbf98,2025-09-29,Studentenwerk Mensa,7.5,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+f0513110-593e-4de5-9c82-267105d8eaa9,2025-09-29,Edeka,14.04,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+4f54194c-949c-4e6f-b758-0bae8f36fcf6,2025-10-01,Studentenwerk München (Miete),499.82,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+7908f809-202c-4557-972d-b2c63e6e48c2,2025-10-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+11d1d774-7206-4bd8-9a4a-ac471e1cf9e4,2025-10-02,CinemaxX,9.91,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+4ce542cc-4cbd-4946-bcce-538ac6baa78f,2025-10-02,Lime,4.36,EUR,bank_statement,expense,Transport,Transport,daily mobility
+159dae73-9b82-437d-9f83-5ac90476a74c,2025-10-02,Döner Kebab Haus,2.39,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+83fa7532-0ca2-411d-a390-15e576682659,2025-10-05,Telekom (MagentaMobil Young),12.89,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+490cb1f3-b2a3-4e0f-ab9d-74a6efb67bd2,2025-10-05,Studentenwerk Mensa,6.7,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+30e75b3a-5f17-4323-b8b4-9613ba77c493,2025-10-05,Aldi Süd,16.29,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+7ed0c12d-4a0e-47c7-a1b5-95806332d31d,2025-10-07,Backwerk,2.73,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+be733a32-5799-4e86-9b6e-69fdab635555,2025-10-08,Haarschneiderei,28.68,EUR,receipt,expense,Personal Care,Personal Care,personal care merchant
+a14103da-b173-4d45-bdb3-c3d720ad7872,2025-10-10,Netflix,12.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+2be50082-2a65-405b-bc45-dc37c31dd54b,2025-10-11,Kultfabrik-Nachfolger,32.6,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+14692348-7176-4acb-8b74-c2dfc4525854,2025-10-11,Backwerk,3.88,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+425b0614-4546-4147-b0ce-e8900239bcdc,2025-10-13,Lidl,22.55,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+9d511078-789d-412d-943e-96ded884c6e5,2025-10-15,McDonald's,2.4,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+2ec1ceaa-79ba-4606-bdcb-f0d21d799a60,2025-10-15,Augustiner Bräustuben,29.77,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+0306ddcd-fcb3-403b-8014-7cb78c2e3b69,2025-10-15,Techniker Krankenkasse,118.21,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+626687ad-14c3-4c66-abd5-d430affdf16c,2025-10-15,ARD ZDF Deutschlandradio Beitragsservice,55.21,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+cd892f7f-f945-42c1-9a2c-d88c0880b4d9,2025-10-16,dm-drogerie markt,7.66,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+3725ff7f-ec8d-49c2-8e31-996a7ed038e9,2025-10-17,MVG Rad,5.5,EUR,bank_statement,expense,Transport,Transport,daily mobility
+69a33462-deb8-42db-890c-e919463cf897,2025-10-19,Backwerk,7.42,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+7f064b0d-0fbb-4705-a25c-60c351dc57fa,2025-10-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+a35f9154-4f2b-4673-955a-2d596d51b438,2025-10-21,Aldi Süd,24.45,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+d2b72116-dbab-430d-ad3b-10cb7a8ffc89,2025-10-23,Döner Kebab Haus,5.81,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+bf943b48-a9b8-4e61-8a1b-a0a99254348d,2025-10-24,Decathlon,71.53,EUR,receipt,expense,Shopping,Shopping,general retail
+990b54d4-a4fd-47f0-adab-3f52f3abc55b,2025-10-25,Pizzeria Da Luigi,8.93,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+246f5d6c-2c62-4df7-9874-231aed16d8c5,2025-10-29,Starbucks,14.38,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+5e2de9e0-15eb-4cac-b0df-b6f0654468ce,2025-10-30,Aldi Süd,30.25,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+d286d256-207a-4dac-9881-f0f7f50d6fe0,2025-10-31,TIER,2.09,EUR,bank_statement,expense,Transport,Transport,daily mobility
+2b987515-e9df-49fe-a2ca-0dd2b667c0dd,2025-11-01,Dean & David,9.07,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+344211bb-8465-4b5d-bb52-6028af1e5d6d,2025-11-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+90106a9c-3cb1-49e4-a651-83de8f3ab7a0,2025-11-01,Studentenwerk München (Miete),523.82,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+d59eb90b-d181-4844-9c0e-743f118f3108,2025-11-04,Döner Kebab Haus,6.82,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+bbce77f2-9a78-4cd2-aa6e-3d2fc341cfe6,2025-11-05,Telekom (MagentaMobil Young),12.99,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+65c79d0b-4839-4654-bfbd-3d32a179d3a7,2025-11-07,Backwerk,1.72,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+b34b7659-8a52-4aa7-a100-ae1e47e1bde0,2025-11-07,Zara,33.91,EUR,receipt,expense,Shopping,Shopping,general retail
+c85f48c5-5735-43cf-b5b3-3cb93b07f28b,2025-11-08,Edeka,20.1,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+77d61425-1fe9-4c47-be44-7fb4d2ecb45a,2025-11-10,dm-drogerie markt,21.22,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+3d05ff45-4920-418d-8a71-f591f4603d04,2025-11-10,Netflix,12.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+ed2d8a72-2f0a-4659-9c81-1d62d163af60,2025-11-10,Studentenwerk Mensa,8.31,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+f8739636-b17b-498a-a5f6-c8a2d3a2aadf,2025-11-12,Lime,6.1,EUR,bank_statement,expense,Transport,Transport,daily mobility
+0119afed-5129-443b-9dc0-1babeec1c0de,2025-11-12,McDonald's,11.54,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+5c298093-fffb-47ae-b0f9-5517dc48a2e1,2025-11-14,Lidl,21.12,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+2cd513b0-f8c9-4e29-a40a-77cfc92bf9b3,2025-11-15,Techniker Krankenkasse,120.47,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+b9ef19ac-5a1c-4899-af62-680137fc719c,2025-11-16,Subway,16.34,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+ecef4e4a-d152-47bd-b709-c1c58b015827,2025-11-19,Backwerk,8.49,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+cc893639-047d-45e6-86f2-5e34e20b81d2,2025-11-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+f2784c49-bb18-4617-8917-f47483055c78,2025-11-20,Aldi Süd,21.32,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+4ad20969-9d25-4780-9983-e3afb0c77b2c,2025-11-22,Augustiner Bräustuben,19.03,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+f4b54d7e-a173-4965-b71b-b84a72ef4206,2025-11-23,Deutsche Bahn,54.1,EUR,receipt,expense,Transport,Transport,daily mobility
+2129d309-2f91-46e0-966b-177a90120e79,2025-11-23,Starbucks,4.64,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+16f3f9a8-6a75-4ddb-86eb-93413c81c3e0,2025-11-26,Lidl,32.38,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+2f6a9df2-d358-4ea4-b431-a29c749cb142,2025-11-26,Backwerk,4.53,EUR,manual,expense,Dining,Food & Beverage,prepared food and drinks
+8436632d-fdce-44d7-8b0a-3411c583a94b,2025-11-28,MediaMarkt,112.57,EUR,receipt,expense,Electronics,Shopping,electronics are retail goods in the old taxonomy
+68dea547-41f5-46eb-b4b3-273fdd4b304a,2025-11-29,Backwerk,6.03,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+99de4a4b-0320-4ad0-92e7-368064ed03b7,2025-12-01,McFit,19.9,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+c52fdcc9-2c14-4d39-802d-bd053357494b,2025-12-01,Studentenwerk München (Miete),540.79,EUR,bank_statement,expense,Housing,Home & Living,old taxonomy has no housing class; mapped to home and living
+de4b81d8-863f-4b6e-ae2b-789315378926,2025-12-01,Augustiner Bräustuben,34.83,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+f030fd73-f403-4377-b15c-0dad08d570d7,2025-12-01,Studentenwerk Mensa,8.39,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+c7fb17d1-01f7-4762-ad56-775fdf5084f8,2025-12-02,Lidl,29.17,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+563655a7-37e7-4b3c-a6a8-d2c2c5cc8e9b,2025-12-04,Backwerk,3.9,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+1e8bb027-8f19-4b47-9c09-b6e4d5f2e249,2025-12-05,Telekom (MagentaMobil Young),14.94,EUR,bank_statement,expense,Utilities,Home & Living,old taxonomy has no utilities class; mapped to home and living
+10dc34f1-349c-4751-a21f-ea3ce760bef8,2025-12-06,MVG Rad,6.09,EUR,bank_statement,expense,Transport,Transport,daily mobility
+382cf760-dd82-493c-b73c-90bc5dfd7ede,2025-12-06,Döner Kebab Haus,5.7,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+7fd6ed29-45e8-49cd-8b0d-c14b33acc1c0,2025-12-09,Studentenwerk Mensa,6.55,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+998cda8f-f508-4539-b4a7-7109a4b2bd5d,2025-12-10,dm-drogerie markt,28.34,EUR,receipt,expense,Health,Health & Wellness,"health, pharmacy, fitness, or wellness"
+2b5df0c6-d9f6-4201-84b0-f642c2eae377,2025-12-10,Netflix,7.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+4794ab2a-805d-45ae-8fd5-0640b4a4d812,2025-12-10,Rewe,17.53,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+e2743c36-2f15-4f76-a866-bb2bdcc71bd7,2025-12-12,Studentenwerk Mensa,9.08,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+cc833144-18be-4162-9856-f4da247b185b,2025-12-14,Studentenwerk Mensa,11.64,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+994f9c68-ee14-4572-b92a-c63369788572,2025-12-15,Techniker Krankenkasse,115.18,EUR,bank_statement,expense,Insurance,Banking & Fees,old taxonomy has no insurance class; mapped to financial/admin fees
+d01f8e24-2e5b-4ef4-9bca-e32eb345040e,2025-12-17,Backwerk,4.11,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+b77690b0-08f2-4726-b47b-1644958d2dbc,2025-12-19,Aldi Süd,27.38,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+d541908c-acdc-4040-bc55-0d2e645ab2db,2025-12-19,Deutsche Bahn,79.9,EUR,receipt,expense,Travel,Transport,old taxonomy has no travel class; mapped to transport
+fa727905-c712-4655-bca8-4c40175273ba,2025-12-20,Spotify Premium Student,5.99,EUR,bank_statement,expense,Subscriptions,Entertainment & Subscriptions,subscription or recurring entertainment service
+813deaff-11d3-4691-a554-71e4c42397b2,2025-12-20,McDonald's,2.19,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+b095f6d9-7768-4d59-b9f2-81353a31c715,2025-12-21,TIER,4.4,EUR,bank_statement,expense,Transport,Transport,daily mobility
+3caf4531-2e43-4693-b36e-29fa503a7a50,2025-12-24,Burger King,13.74,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+c9fdda46-c3d4-4340-8397-74f09e035502,2025-12-25,Edeka,19.64,EUR,receipt,expense,Groceries,Groceries,supermarket and grocery merchant
+d03f3b8e-2a83-4d31-b5fe-548dea649c1d,2025-12-28,Studentenwerk Mensa,2.75,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
+76c0c1b7-ae8d-4dc5-84e0-9b1363bf0d5b,2025-12-30,Augustiner Bräustuben,19.85,EUR,receipt,expense,Entertainment,Entertainment & Subscriptions,leisure or entertainment merchant
+6e1363ea-6962-4663-bbbb-d12053abe0a4,2025-12-30,Studentenwerk Mensa,7.2,EUR,receipt,expense,Dining,Food & Beverage,prepared food and drinks
