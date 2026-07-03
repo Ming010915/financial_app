@@ -1,0 +1,140 @@
+[
+  {
+    "file": "receipt-demo-vpi-07-left-margin-small.jpg",
+    "is_receipt": true,
+    "merchant": "BANANA MUSEUM",
+    "total": 42.42,
+    "currency": "USD",
+    "payment_method": "Mobile Pay",
+    "items": [
+      {
+        "name": "Cloud Poem",
+        "price": 8.88,
+        "quantity": 1
+      },
+      {
+        "name": "Dragon Sticker",
+        "price": 13.37,
+        "quantity": 1
+      },
+      {
+        "name": "Space Tea",
+        "price": 20.17,
+        "quantity": 1
+      }
+    ],
+    "notes": "Data extracted from OCR FIX override box.",
+    "location": null
+  },
+  {
+    "file": "receipt-demo-vpi-08-right-margin-tiny.jpg",
+    "is_receipt": true,
+    "merchant": "SHOP NAME",
+    "total": 16.5,
+    "currency": "USD",
+    "payment_method": "Cash",
+    "items": [
+      {
+        "name": "Lorem",
+        "price": 1.1,
+        "quantity": 1
+      },
+      {
+        "name": "Ipsum",
+        "price": 2.2,
+        "quantity": 1
+      },
+      {
+        "name": "Dolor sit amet",
+        "price": 3.3,
+        "quantity": 1
+      },
+      {
+        "name": "Consectetur",
+        "price": 4.4,
+        "quantity": 1
+      },
+      {
+        "name": "Adipiscing elit",
+        "price": 5.5,
+        "quantity": 1
+      }
+    ],
+    "notes": null,
+    "location": "Lorem Ipsum, 23-10"
+  },
+  {
+    "file": "receipt-demo-vpi-09-bottom-strip-small.jpg",
+    "is_receipt": true,
+    "merchant": "SHOP NAME",
+    "total": 16.5,
+    "currency": "USD",
+    "payment_method": "Cash",
+    "items": [
+      {
+        "name": "Lorem",
+        "price": 1.1,
+        "quantity": 1
+      },
+      {
+        "name": "Ipsum",
+        "price": 2.2,
+        "quantity": 1
+      },
+      {
+        "name": "Dolor sit amet",
+        "price": 3.3,
+        "quantity": 1
+      },
+      {
+        "name": "Consectetur",
+        "price": 4.4,
+        "quantity": 1
+      },
+      {
+        "name": "Adipiscing elit",
+        "price": 5.5,
+        "quantity": 1
+      }
+    ],
+    "notes": null,
+    "location": "Lorem Ipsum, 23-10"
+  },
+  {
+    "file": "receipt-demo-vpi-10-side-machine-patch.jpg",
+    "is_receipt": true,
+    "merchant": "SHOP NAME",
+    "total": 16.5,
+    "currency": "$",
+    "payment_method": "Cash",
+    "items": [
+      {
+        "name": "Lorem",
+        "price": 1.1,
+        "quantity": 1
+      },
+      {
+        "name": "Ipsum",
+        "price": 2.2,
+        "quantity": 1
+      },
+      {
+        "name": "Dolor sit amet",
+        "price": 3.3,
+        "quantity": 1
+      },
+      {
+        "name": "Consectetur",
+        "price": 4.4,
+        "quantity": 1
+      },
+      {
+        "name": "Adipiscing elit",
+        "price": 5.5,
+        "quantity": 1
+      }
+    ],
+    "notes": null,
+    "location": "Lorem Ipsum, 23-10"
+  }
+]
