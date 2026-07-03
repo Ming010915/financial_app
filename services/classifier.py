@@ -10,7 +10,7 @@ import json
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-from config import MODEL_NAME, THRESHOLD, CENTROIDS_FILE
+from config import MODEL_NAME, EMBEDDING_VERSION, THRESHOLD, CENTROIDS_FILE
 
 # ── Module-level state ────────────────────────────────────────────────────────
 
@@ -32,18 +32,29 @@ def get_model():
 
 # ── Centroid persistence ──────────────────────────────────────────────────────
 
-def load_centroids():
+def load_centroids() -> bool:
+    """Load persisted centroids. Returns False (and loads nothing) if the
+    file is missing or was computed with a different embedding model or
+    encoding version — stale centroids have the wrong dimensionality, or
+    the right dimensionality but the wrong vectors, and would silently
+    corrupt cosine_similarity against fresh embeddings."""
     global centroids, overrides
     if not os.path.exists(CENTROIDS_FILE):
-        return
+        return False
     with open(CENTROIDS_FILE) as f:
         data = json.load(f)
+    if data.get("model") != MODEL_NAME or data.get("embedding_version") != EMBEDDING_VERSION:
+        print(f"[data] {CENTROIDS_FILE} was built with model={data.get('model')!r} "
+              f"embedding_version={data.get('embedding_version')!r}, not "
+              f"{MODEL_NAME!r}/{EMBEDDING_VERSION!r} — ignoring and recomputing.")
+        return False
     centroids = {
         cat: {"centroid": np.array(v["centroid"]), "n": v["n"]}
         for cat, v in data["categories"].items()
     }
     overrides = data.get("overrides", {})
     print(f"[data] Loaded {len(centroids)} categories, {len(overrides)} overrides")
+    return True
 
 
 def load_from_csv(csv_path: str):
@@ -54,7 +65,10 @@ def load_from_csv(csv_path: str):
     names  = df["name"].astype(str).tolist()
     labels = df["category"].astype(str).tolist()
     m      = get_model()
-    embs   = m.encode(names, normalize_embeddings=True, show_progress_bar=True)
+    # Lowercase before encoding — the embedding model is sensitive enough to
+    # casing that e.g. "REWE" and "rewe" land measurably apart in embedding
+    # space, which can flip a borderline match across THRESHOLD.
+    embs   = m.encode([n.lower() for n in names], normalize_embeddings=True, show_progress_bar=True)
     centroids = {}
     for cat in sorted(set(labels)):
         if cat == "Others":
@@ -68,8 +82,9 @@ def load_from_csv(csv_path: str):
 
 def save_centroids():
     export = {
-        "model":      MODEL_NAME,
-        "threshold":  THRESHOLD,
+        "model":             MODEL_NAME,
+        "embedding_version": EMBEDDING_VERSION,
+        "threshold":         THRESHOLD,
         "categories": {
             cat: {"centroid": d["centroid"].tolist(), "n": d["n"]}
             for cat, d in centroids.items()
@@ -87,8 +102,9 @@ def centroids_payload(local_cents=None, local_ovrs=None) -> dict:
     cent = local_cents if local_cents is not None else centroids
     ovr  = local_ovrs  if local_ovrs  is not None else overrides
     return {
-        "model":      MODEL_NAME,
-        "threshold":  THRESHOLD,
+        "model":             MODEL_NAME,
+        "embedding_version": EMBEDDING_VERSION,
+        "threshold":         THRESHOLD,
         "categories": {
             cat: {"centroid": d["centroid"].tolist(), "n": d["n"]}
             for cat, d in cent.items()
@@ -103,10 +119,13 @@ def parse_client_centroids(body: dict):
     """
     The browser sends its own (possibly personalized) centroids with each
     request so the server is stateless w.r.t. per-user learning.
-    Returns (local_cents, local_ovrs) or (None, None) if not present.
+    Returns (local_cents, local_ovrs) or (None, None) if not present or if
+    they were built with a different embedding model or encoding version
+    (e.g. a client that hasn't refreshed since a server-side model swap or
+    preprocessing change) — their vectors would be wrong for the live model.
     """
     cats = body.get("categories")
-    if not cats:
+    if not cats or body.get("model") != MODEL_NAME or body.get("embedding_version") != EMBEDDING_VERSION:
         return None, None
     local_cents = {
         cat: {"centroid": np.array(v["centroid"]), "n": v["n"]}
@@ -125,7 +144,7 @@ def do_classify(name: str, local_cents=None, local_ovrs=None):
     cent      = local_cents if local_cents is not None else centroids
     ovr       = local_ovrs  if local_ovrs  is not None else overrides
     m         = get_model()
-    embedding = m.encode(name, normalize_embeddings=True)
+    embedding = m.encode(name.lower(), normalize_embeddings=True)
 
     override = ovr.get(name.lower().strip())
     if override is not None:

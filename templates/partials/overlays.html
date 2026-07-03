@@ -101,6 +101,58 @@
   </div>
 </div>
 
+<!-- ── Reset Everything (type-to-confirm) ───────────────────────────────────── -->
+<div id="reset-everything-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center px-6"
+     style="background:rgba(0,0,0,0.45)">
+  <div class="bg-white rounded-3xl shadow-xl w-full max-w-xs p-6 space-y-4 fade-in">
+    <div class="text-base font-bold text-red-600">Reset everything?</div>
+    <div class="text-sm text-[#44474a]">This will permanently delete all expenses, budgets, categories, receipts and preferences stored in this browser. This cannot be undone.</div>
+    <div>
+      <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Type <span class="font-mono font-bold text-red-600">RESET</span> to confirm</label>
+      <input id="reset-everything-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+             oninput="onResetEverythingInput()"
+             class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-white" />
+    </div>
+    <div class="grid grid-cols-2 gap-2 pt-1">
+      <button onclick="cancelResetEverything()"
+              class="py-2.5 rounded-2xl border border-[#c5c6ca] text-sm font-semibold text-[#44474a] hover:bg-[#f8f9fa] transition-colors">
+        Cancel
+      </button>
+      <button id="reset-everything-ok" onclick="executeResetEverything()" disabled
+              class="py-2.5 rounded-2xl text-sm font-semibold text-white transition-colors bg-red-300 cursor-not-allowed">
+        Reset
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Snooze Recurring Reminder ─────────────────────────────────────────────── -->
+<div id="snooze-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center px-6"
+     style="background:rgba(0,0,0,0.45)">
+  <div class="bg-white rounded-3xl shadow-xl w-full max-w-xs p-6 space-y-4 fade-in">
+    <div class="text-base font-bold text-[#191c1d]">Remind me later</div>
+    <div class="text-sm text-[#44474a]">Snooze this reminder for:</div>
+    <div class="grid grid-cols-3 gap-2">
+      <button onclick="snoozeConfirm(1)"
+              class="py-2 rounded-xl border border-[#c5c6ca] text-sm font-semibold text-[#191c1d] hover:bg-[#f8f9fa] transition-colors">1 day</button>
+      <button onclick="snoozeConfirm(3)"
+              class="py-2 rounded-xl border border-[#c5c6ca] text-sm font-semibold text-[#191c1d] hover:bg-[#f8f9fa] transition-colors">3 days</button>
+      <button onclick="snoozeConfirm(7)"
+              class="py-2 rounded-xl border border-[#c5c6ca] text-sm font-semibold text-[#191c1d] hover:bg-[#f8f9fa] transition-colors">1 week</button>
+    </div>
+    <div class="flex items-center gap-2">
+      <input id="snooze-custom-days" type="number" inputmode="numeric" min="1" max="90" placeholder="Custom days"
+             class="flex-1 min-w-0 px-3 py-2.5 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+      <button onclick="snoozeConfirmCustom()"
+              class="px-4 py-2.5 bg-[#006b55] hover:bg-[#004d3f] text-white rounded-xl text-sm font-bold transition-colors flex-shrink-0">Set</button>
+    </div>
+    <button onclick="snoozeCancel()"
+            class="w-full py-2.5 rounded-2xl border border-[#c5c6ca] text-sm font-semibold text-[#44474a] hover:bg-[#f8f9fa] transition-colors">
+      Cancel
+    </button>
+  </div>
+</div>
+
 <!-- ── Notifications Panel ────────────────────────────────────────────────────── -->
 <div id="notifications-overlay" class="hidden fixed inset-0 z-40 flex items-end justify-center"
      style="background:rgba(0,0,0,0.5)">
@@ -223,7 +275,10 @@
                   class="w-7 h-7 rounded-full bg-[#f8f9fa] flex items-center justify-center text-[#44474a] hover:bg-[#e8e9ea] transition-colors text-sm font-bold">✕</button>
         </div>
         <div id="det-merchant" class="text-2xl font-bold text-[#191c1d] mb-1"></div>
-        <div id="det-amount" class="text-3xl font-bold text-[#006b55] mb-5"></div>
+        <div class="mb-5">
+          <div id="det-amount" class="text-3xl font-bold text-[#006b55]"></div>
+          <div id="det-amount-converted" class="hidden text-sm font-medium text-gray-400 mt-0.5"></div>
+        </div>
         <div class="space-y-2.5 mb-5">
           <div class="flex items-center gap-3 text-sm text-[#44474a]">
             <span class="text-base">📅</span>
@@ -244,6 +299,28 @@
           <div class="flex items-center gap-3 text-sm text-[#44474a]">
             <span class="text-base" id="det-source-icon">💳</span>
             <span id="det-source"></span>
+          </div>
+        </div>
+        <div id="det-receipt-strip" class="hidden mb-5">
+          <button type="button" onclick="toggleDetReceipt()"
+                  class="w-full flex items-center justify-between px-3 py-2 bg-[#e6f4f1] rounded-2xl text-sm font-semibold text-[#006b55]">
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82V15.18a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+              View original receipt
+            </span>
+            <svg id="det-receipt-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div id="det-receipt-panel" class="hidden mt-2 rounded-2xl overflow-hidden bg-[#edeeef] relative h-[50vh]" style="touch-action:none;">
+            <img id="det-receipt-img" src="" alt="Receipt" class="w-full h-full object-contain block"
+                 style="transform-origin:center center; will-change:transform; user-select:none; -webkit-user-drag:none;" />
+            <div id="det-receipt-pdf" class="hidden w-full h-full py-10 flex flex-col items-center gap-2 overflow-y-auto">
+              <svg class="w-14 h-14 text-[#006b55]" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 21H5a2 2 0 01-2-2V5a2 2 0 012-2h10l4 4v12a2 2 0 01-2 2h-2"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-5h1.5a1.5 1.5 0 010 3H9m4 2v-5h2m-2 2.5h1.5M17 17v-5"/>
+              </svg>
+              <p id="det-receipt-pdf-name" class="text-xs text-[#44474a] font-medium truncate max-w-xs"></p>
+            </div>
+            <span id="det-receipt-hint" class="absolute bottom-2 left-2 text-[10px] text-white/90 bg-black/40 px-2 py-0.5 rounded-full pointer-events-none">Pinch to zoom</span>
           </div>
         </div>
         <div id="det-items-section" class="hidden mb-5">
@@ -282,8 +359,10 @@
             <div class="relative">
               <span id="edit-cur-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
               <input id="edit-amount" type="number" step="0.01"
+                     oninput="updateEditAmountHint()"
                      class="w-full pl-7 pr-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
             </div>
+            <p id="edit-amount-converted" class="hidden mt-1 text-xs text-gray-400"></p>
           </div>
           <div>
             <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">CCY</label>
@@ -298,6 +377,7 @@
           <span class="text-xs text-[#44474a] flex-shrink-0">1 <span id="edit-rate-from"></span> =</span>
           <span id="edit-rate-sym" class="text-xs font-semibold text-[#191c1d] flex-shrink-0"></span>
           <input id="edit-rate" type="number" step="any" min="0" placeholder="0.000000"
+                 oninput="updateEditAmountHint()"
                  class="flex-1 min-w-0 px-2 py-1 border border-[#6dfad2] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
           <span id="edit-rate-note" class="text-[10px] text-emerald-500 flex-shrink-0"></span>
         </div>
@@ -317,7 +397,7 @@
           <div class="flex items-center gap-2 mb-1 px-1">
             <span class="flex-1 text-[10px] text-[#44474a]">Name</span>
             <span class="w-12 text-[10px] text-[#44474a] text-center">Qty</span>
-            <span class="w-20 text-[10px] text-[#44474a] text-center">Price</span>
+            <span class="w-24 text-[10px] text-[#44474a] text-center">Price</span>
             <span class="w-7"></span>
           </div>
           <div id="edit-items-list" class="space-y-2"></div>

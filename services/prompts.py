@@ -65,7 +65,7 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
         "TOTAL & CURRENCY:\n"
         "- Use the FINAL grand total actually paid AFTER tax, discounts, and tips — usually "
         "labeled 'Total', 'Amount Due', 'Grand Total', 'Betrag', 'Summe', or similar. Do NOT use "
-        "the subtotal, the tax line, or any single item price.\n"
+        "the subtotal or any single item price.\n"
         "- Infer currency from the symbol (€ → EUR, $ → USD, £ → GBP) or explicit code; default "
         "to the currency consistent with the rest of the receipt.\n"
         "\n"
@@ -74,13 +74,33 @@ def build_receipt_prompt(payment_methods: list[str]) -> str:
         "due date. Normalize to YYYY-MM-DD (interpret day/month order from the receipt's locale).\n"
         "\n"
         "ITEMS:\n"
-        "- List the purchased line items with their individual prices and quantities. Exclude subtotal, tax, "
+        "- List the purchased line items with their individual prices and quantities. Exclude subtotal, "
         "tip, rounding, and total lines. If a price is unreadable use null.\n"
+        "- TAX: If a tax/VAT/GST amount is printed as its own line (e.g. 'Tax', 'VAT', 'GST', "
+        "'MwSt', 'USt', 'TVA'), add it as its own item with that label as 'name', the tax amount "
+        "as 'price', and 'quantity' 1 — do NOT fold it into another item or drop it. If multiple "
+        "tax lines are shown (e.g. separate rates), add one item per line (or sum them into a "
+        "single 'Tax' item). If tax is already baked into the item prices with no separate line "
+        "printed, do not invent one.\n"
         "- Set 'quantity' to the number of units for that line (integer). Default to 1 if not shown.\n"
+        "- Watch for quantity lines written as 'N * unit' or 'N x unit' (e.g. '2 * 3,29' or '2 x 3,29 = 6,58'), "
+        "often shown on a separate line below the item name. Here N is the quantity (2) and the unit price is 3,29 — "
+        "set 'quantity' to N, not 1.\n"
         "- 'price' is the total for the line (quantity × unit price). If only the unit price is visible "
         "and quantity > 1, multiply to get the line total.\n"
-        "- Do NOT produce duplicate entries for the same item — if the same item appears multiple times "
-        "on the receipt, emit it once with the combined quantity and total price.\n"
+        "- Merge duplicate lines ONLY when they share the same item name AND the same unit price — "
+        "emit them once with the combined quantity and total price.\n"
+        "- If the same item name appears with a DIFFERENT unit price, keep them as separate entries "
+        "(do NOT merge them), since they are priced differently.\n"
+        "- DISCOUNTS: Do NOT create a separate item for a discount, coupon, markdown, or price "
+        "reduction line (e.g. 'Rabatt', 'Discount', 'Coupon', a lone negative amount right after an "
+        "item). If it clearly applies to the item directly above it, subtract it from that item's "
+        "'price' instead (so 'price' is what was actually paid for it), and append a short tag to "
+        "'notes' with JUST the item name and discount amount, nothing else — e.g. 'Milk -€0.50'. "
+        "If a discount applies to the whole receipt rather than one item, append a short tag like "
+        "'Discount -€2.00' instead; 'total' should already reflect the final amount paid. "
+        "Never explain HOW you computed a price or WHY a field has its value — 'notes' is for short "
+        "factual tags only, not reasoning or narration.\n"
         "\n"
         "GENERAL:\n"
         "- If any field is unclear, unreadable, or absent, use null (or an empty list for items) "
@@ -271,7 +291,13 @@ TRANSACTION_SCHEMA = {
         "notes": {
             "type": "string",
             "nullable": True,
-            "description": "Any extra context or notes",
+            "description": (
+                "Short factual tags only, comma-separated, e.g. 'Milk -€0.50, Eggs -€0.30'. "
+                "Used mainly to record per-item discount amounts (the discount itself must already "
+                "be subtracted into that item's price, not listed as its own item). Leave empty/null "
+                "if there is nothing unusual to flag. NEVER write full sentences, explanations of "
+                "how a value was calculated, or restate other fields (payment method, total, date, etc.)."
+            ),
         },
         "event_hint": {
             "type": "string",

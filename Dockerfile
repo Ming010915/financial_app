@@ -19,7 +19,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Pre-download the sentence-transformer model into the image's HF cache.
 RUN python -c "from sentence_transformers import SentenceTransformer; \
-    SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')"
+    SentenceTransformer('microsoft/harrier-oss-v1-0.6b')"
 
 # Copy the application code.
 COPY . .

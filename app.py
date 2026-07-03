@@ -641,13 +641,12 @@ def initialize():
     classifier.get_model()
     print("  Model ready.")
 
-    if os.path.exists(CENTROIDS_FILE):
-        classifier.load_centroids()
-    elif os.path.exists(MONTHLY_SPENDING_DATASET):
+    loaded = classifier.load_centroids()
+    if not loaded and os.path.exists(MONTHLY_SPENDING_DATASET):
         classifier.load_from_csv(MONTHLY_SPENDING_DATASET)
         classifier.save_centroids()
         print(f"[data] Base model saved to {CENTROIDS_FILE}")
-    else:
+    elif not loaded:
         print("[data] No data source found — starting with empty centroids.")
 
     print(f"  Categories ({len(classifier.centroids)}): {list(classifier.centroids.keys())}")
