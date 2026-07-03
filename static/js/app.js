@@ -51,6 +51,11 @@ function getIncomeEmojis() {
   return s ? JSON.parse(s) : {};
 }
 function saveIncomeEmojis(map) { kvSet('flo_income_emojis', JSON.stringify(map)); }
+function getRemovedIncomeCategories() {
+  const s = kvGet('flo_income_removed');
+  return s ? JSON.parse(s) : [];
+}
+function saveRemovedIncomeCategories(list) { kvSet('flo_income_removed', JSON.stringify(list)); }
 function getRecurring() {
   const s = kvGet('flo_recurring');
   return s ? JSON.parse(s) : [];
@@ -746,8 +751,9 @@ function catEmoji(cat) {
 function isExpenseEntry(e)  { return !e.type || e.type === 'expense'; }
 function isIncomeEntry(e)   { return e.type === 'income'; }
 function getAllIncomeCategories() {
-  const custom = getCustomIncomeCategories();
-  return [...new Set([...INCOME_CATEGORIES, ...custom])];
+  const custom  = getCustomIncomeCategories();
+  const removed = new Set(getRemovedIncomeCategories());
+  return [...new Set([...INCOME_CATEGORIES, ...custom])].filter(c => !removed.has(c));
 }
 function incomeCatColor(cat){ return INCOME_CAT_COLOR[cat] || _hashColor(cat || ""); }
 function incomeCatEmoji(cat){
@@ -795,6 +801,10 @@ function timeAgo(dateStr) {
 
 function esc(s) {
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function sanitizeCategoryName(s) {
+  return String(s).replace(/[\x00-\x1f\x7f]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function setAmountSymbol(sym) {
@@ -1273,7 +1283,7 @@ function toggleInlineAddCategory() {
 }
 
 function saveInlineCategory() {
-  const name  = document.getElementById('iac-name')?.value.trim();
+  const name  = sanitizeCategoryName(document.getElementById('iac-name')?.value || '');
   const emoji = (document.getElementById('iac-emoji')?.value || '').trim() || '📦';
   if (!name) { showToast('Enter a category name', true); return; }
   const data = getCentroids();
@@ -1708,13 +1718,17 @@ function renderCatButtons(selected) {
     const col      = catColor(cat);
     const isChosen = cat === selected;
     return `
-      <button type="button" onclick="selectCategory('${esc(cat)}')"
+      <button type="button" data-cat="${esc(cat)}"
               class="cat-chip px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all ${isChosen ? "selected" : "opacity-60"}"
               style="background:${col}">
         ${catEmoji(cat)} ${esc(cat)}
       </button>`;
   }).join("");
   state.selectedCategory = selected;
+  el.onclick = (e) => {
+    const btn = e.target.closest("[data-cat]");
+    if (btn) selectCategory(btn.dataset.cat);
+  };
 }
 
 function selectCategory(cat) { renderCatButtons(cat); }
@@ -3468,7 +3482,7 @@ async function saveExpense() {
           original_category: state.originalCategory || "",
           ...getCentroids(),
         }),
-      }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids(d.centroids); }).catch(() => {});
+      }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids({ ...getCentroids(), ...d.centroids }); }).catch(() => {});
     }
 
     const expense = {
@@ -4395,7 +4409,7 @@ async function saveEdit() {
       fetch("/api/learn", {
         method: "POST", headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ merchant, category, original_category: oldCat, ...getCentroids() }),
-      }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids(d.centroids); }).catch(() => {});
+      }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids({ ...getCentroids(), ...d.centroids }); }).catch(() => {});
     }
 
     const updatedExp = {
@@ -5120,18 +5134,27 @@ function loadOverrides() {
   list.innerHTML = entries.length
     ? entries.map(([merchant, cat]) => `
         <div class="flex items-center gap-3 px-4 py-3">
-          <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${merchant}</span>
-          <select onchange="updateOverride('${merchant.replace(/'/g, "\\'")}', this.value)"
+          <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(merchant)}</span>
+          <select data-merchant="${esc(merchant)}" data-role="override"
                   class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#006b55]">
-            ${allCats.map(c => `<option value="${c}"${c === cat ? " selected" : ""}>${c}</option>`).join("")}
+            ${allCats.map(c => `<option value="${esc(c)}"${c === cat ? " selected" : ""}>${esc(c)}</option>`).join("")}
           </select>
-          <button onclick="deleteOverride('${merchant.replace(/'/g, "\\'")}')"
+          <button data-merchant="${esc(merchant)}" data-role="delete-override"
                   class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>
         </div>`).join("")
     : `<div class="px-4 py-6 text-sm text-gray-400 text-center">No overrides yet.</div>`;
 
   const catSel = document.getElementById("new-override-category");
-  catSel.innerHTML = allCats.map(c => `<option value="${c}">${c}</option>`).join("");
+  catSel.innerHTML = allCats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+
+  list.onchange = (e) => {
+    const sel = e.target.closest('[data-role="override"]');
+    if (sel) updateOverride(sel.dataset.merchant, sel.value);
+  };
+  list.onclick = (e) => {
+    const btn = e.target.closest('[data-role="delete-override"]');
+    if (btn) deleteOverride(btn.dataset.merchant);
+  };
 }
 
 function loadCategoriesView() {
@@ -5148,20 +5171,34 @@ function loadCategoriesView() {
         const tag     = isCustom
           ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="color:${isDark()?"#6dfad2":"#006b55"};background:${isDark()?"#1e1e1e":"#f0fdf9"}">custom</span>`
           : `<span class="text-[10px] text-[#c5c6ca]">built-in</span>`;
-        const emojiEl = `<input type="text" value="${esc(emoji)}"
+        const isProtected = cat === "Others";
+        const emojiEl = `<input type="text" value="${esc(emoji)}" data-cat="${esc(cat)}" data-role="emoji"
                     title="Tap to change emoji"
-                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0"
-                    onchange="updateCategoryEmoji('${cat.replace(/'/g, "\\'")}', this.value)" />`;
+                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0" />`;
+        const nameEl = `<input type="text" value="${esc(cat)}" data-cat="${esc(cat)}" data-role="name"
+                    title="${isProtected ? "The Others category can't be renamed" : "Tap to rename"}" ${isProtected ? "readonly" : ""}
+                    class="flex-1 min-w-0 px-1 py-0.5 text-sm font-medium border border-transparent rounded-lg bg-transparent focus:outline-none ${isProtected ? "text-gray-400 cursor-default" : "text-gray-700 hover:border-[#c5c6ca] focus:border-[#006b55] focus:bg-white cursor-pointer"}" />`;
         return `
           <div class="flex items-center gap-3 px-4 py-3">
             ${emojiEl}
-            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(cat)}</span>
+            ${nameEl}
             ${tag}
-            <button onclick="deleteCategory('${cat.replace(/'/g, "\\'")}')"
+            <button data-cat="${esc(cat)}" data-role="delete"
                     class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>
           </div>`;
       }).join("")
     : `<div class="px-4 py-6 text-sm text-gray-400 text-center">No categories yet.</div>`;
+
+  list.onchange = (e) => {
+    const emojiInput = e.target.closest('[data-role="emoji"]');
+    if (emojiInput) { updateCategoryEmoji(emojiInput.dataset.cat, emojiInput.value); return; }
+    const nameInput = e.target.closest('[data-role="name"]');
+    if (nameInput) renameCategory(nameInput.dataset.cat, nameInput.value);
+  };
+  list.onclick = (e) => {
+    const btn = e.target.closest('[data-role="delete"]');
+    if (btn) deleteCategory(btn.dataset.cat);
+  };
 }
 
 function updateCategoryEmoji(cat, newEmoji) {
@@ -5175,10 +5212,68 @@ function updateCategoryEmoji(cat, newEmoji) {
   showToast("Emoji updated!");
 }
 
+function renameCategory(oldName, newInput) {
+  if (oldName === "Others") { loadCategoriesView(); return; }
+  const name = sanitizeCategoryName(newInput);
+  if (!name || name === oldName) { loadCategoriesView(); return; }
+  const dup = getAllCategories().some(c => c !== oldName && c.toLowerCase() === name.toLowerCase());
+  if (dup) { showToast("Category already exists.", true); loadCategoriesView(); return; }
+
+  const emoji = catEmoji(oldName);
+  const data  = getCentroids() || { categories: {}, custom_categories: [], custom_category_emojis: {}, overrides: {} };
+
+  if (data.categories?.[oldName]) {
+    data.categories[name] = data.categories[oldName];
+    delete data.categories[oldName];
+  }
+  data.custom_categories = (data.custom_categories || []).filter(c => c !== oldName);
+  data.custom_categories.push(name);
+
+  data.custom_category_emojis = data.custom_category_emojis || {};
+  delete data.custom_category_emojis[oldName];
+  data.custom_category_emojis[name] = emoji;
+
+  data.overrides = data.overrides || {};
+  Object.keys(data.overrides).forEach(m => {
+    if (data.overrides[m] === oldName) data.overrides[m] = name;
+  });
+  saveCentroids(data);
+
+  const expenses = getExpenses();
+  let changed = false;
+  expenses.forEach(e => {
+    if (isExpenseEntry(e) && e.category === oldName) { e.category = name; changed = true; }
+  });
+  if (changed) saveExpenses(expenses);
+
+  const budgets = getCustomBudgets();
+  let budgetsChanged = false;
+  budgets.forEach(b => {
+    if (b.type === "category" && b.category === oldName) {
+      if (b.name === oldName) b.name = name;
+      b.category = name;
+      budgetsChanged = true;
+    }
+  });
+  if (budgetsChanged) saveCustomBudgets(budgets);
+
+  const recurring = getRecurring();
+  let recurringChanged = false;
+  recurring.forEach(r => {
+    if (r.category === oldName) { r.category = name; recurringChanged = true; }
+  });
+  if (recurringChanged) saveRecurring(recurring);
+
+  loadCategoriesView();
+  loadCategoriesIntoButtons();
+  loadOverrides();
+  showToast(`Renamed to "${name}".`);
+}
+
 function addCustomCategory() {
   const nameInput  = document.getElementById("new-category-name");
   const emojiInput = document.getElementById("new-category-emoji");
-  const name  = nameInput.value.trim();
+  const name  = sanitizeCategoryName(nameInput.value);
   const emoji = (emojiInput?.value || "").trim() || "📦";
   if (!name) return;
   const data = getCentroids();
@@ -5229,18 +5324,24 @@ function loadIncomeCategoriesSection() {
         const tag      = isCustom
           ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="color:${isDark()?"#6dfad2":"#006b55"};background:${isDark()?"#1e1e1e":"#f0fdf9"}">custom</span>`
           : `<span class="text-[10px] text-[#c5c6ca]">built-in</span>`;
+        const isProtected = cat === "Other Income";
+        const safeCat  = cat.replace(/'/g, "\\'");
         const emojiEl = `<input type="text" value="${esc(emoji)}"
                     title="Tap to change emoji"
                     class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0"
-                    onchange="updateIncomeCategoryEmoji('${cat.replace(/'/g, "\\'")}', this.value)" />`;
+                    onchange="updateIncomeCategoryEmoji('${safeCat}', this.value)" />`;
+        const nameEl = `<input type="text" value="${esc(cat)}"
+                    title="${isProtected ? "The Other Income category can't be renamed" : "Tap to rename"}" ${isProtected ? "readonly" : ""}
+                    class="flex-1 min-w-0 px-1 py-0.5 text-sm font-medium border border-transparent rounded-lg bg-transparent focus:outline-none ${isProtected ? "text-gray-400 cursor-default" : "text-gray-700 hover:border-[#c5c6ca] focus:border-[#006b55] focus:bg-white cursor-pointer"}"
+                    onchange="renameIncomeCategory('${safeCat}', this.value)" />`;
         const delBtn = isCustom
-          ? `<button onclick="deleteIncomeCategory('${cat.replace(/'/g, "\\'")}')"
+          ? `<button onclick="deleteIncomeCategory('${safeCat}')"
                      class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>`
           : `<div class="w-7 h-7 flex-shrink-0"></div>`;
         return `
           <div class="flex items-center gap-3 px-4 py-3">
             ${emojiEl}
-            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(cat)}</span>
+            ${nameEl}
             ${tag}
             ${delBtn}
           </div>`;
@@ -5255,6 +5356,42 @@ function updateIncomeCategoryEmoji(cat, newEmoji) {
   saveIncomeEmojis(map);
   loadIncomeCategoriesSection();
   showToast("Emoji updated!");
+}
+
+function renameIncomeCategory(oldName, newInput) {
+  if (oldName === "Other Income") { loadIncomeCategoriesSection(); return; }
+  const name = sanitizeCategoryName(newInput);
+  if (!name || name === oldName) { loadIncomeCategoriesSection(); return; }
+  const dup = getAllIncomeCategories().some(c => c !== oldName && c.toLowerCase() === name.toLowerCase());
+  if (dup) { showToast("Income category already exists.", true); loadIncomeCategoriesSection(); return; }
+
+  const emoji = incomeCatEmoji(oldName);
+
+  if (INCOME_CATEGORIES.includes(oldName)) {
+    const removed = getRemovedIncomeCategories();
+    removed.push(oldName);
+    saveRemovedIncomeCategories(removed);
+  } else {
+    saveCustomIncomeCategories(getCustomIncomeCategories().filter(c => c !== oldName));
+  }
+  const custom = getCustomIncomeCategories();
+  custom.push(name);
+  saveCustomIncomeCategories(custom);
+
+  const emojiMap = getIncomeEmojis();
+  delete emojiMap[oldName];
+  emojiMap[name] = emoji;
+  saveIncomeEmojis(emojiMap);
+
+  const expenses = getExpenses();
+  let changed = false;
+  expenses.forEach(e => {
+    if (isIncomeEntry(e) && e.category === oldName) { e.category = name; changed = true; }
+  });
+  if (changed) saveExpenses(expenses);
+
+  loadIncomeCategoriesSection();
+  showToast(`Renamed to "${name}".`);
 }
 
 function addCustomIncomeCategory() {
