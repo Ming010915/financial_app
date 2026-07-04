@@ -2,10 +2,15 @@
 function getExpenses() {
   return JSON.parse(kvGet('flo_expenses') || '[]');
 }
-function saveExpenses(exps) {
+function saveExpenses(exps, { keepAiCache = false } = {}) {
   kvSet('flo_expenses', JSON.stringify(exps));
-  kvDelete('flo_ai_overview_cache');
+  // The AI overview is built from the monthly category-spending breakdown, so
+  // only invalidate its cache when spending actually changed. Callers that make
+  // a summary-irrelevant edit (e.g. merchant/notes only) can pass keepAiCache.
+  if (!keepAiCache) kvDelete('flo_ai_overview_cache');
 }
+// Fields that feed the monthly spending breakdown the AI overview summarises.
+const AI_OVERVIEW_FIELDS = ['amount', 'category', 'date', 'currency', 'rate', 'type'];
 function getCentroids() {
   const raw = kvGet('flo_centroids');
   return raw ? JSON.parse(raw) : null;
@@ -211,23 +216,18 @@ function kvDelete(key)       { delete _kvCache[key]; idbKvDelete(key); }
 async function hydrateKvCache() {
   Object.assign(_kvCache, await idbKvGetAll());
 
-  const legacyKeys = [
-    'flo_expenses', 'flo_centroids', 'flo_payment_methods', 'flo_payment_emojis',
-    'flo_custom_currencies', 'flo_budget', 'flo_custom_budgets', 'flo_pending_scans',
-    'flo_income_categories', 'flo_income_emojis', 'flo_recurring', 'flo_home_layout',
-    'flo_summaries', 'flo_ai_overview_cache', 'defaultCurrency', 'darkMode',
-  ];
+  // Migrate every leftover localStorage entry into IndexedDB. This is generic on
+  // purpose: anything the app ever stored in-browser — current keys, the
+  // `flo_rates_*` exchange-rate caches, and any keys from older versions — gets
+  // copied over without needing a hand-maintained allow-list. Entries already in
+  // _kvCache (i.e. already in IDB) win, so a stale localStorage copy never
+  // clobbers a value that was migrated on an earlier load.
+  const migrated = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith('flo_rates_')) legacyKeys.push(key);
-  }
-
-  const migrated = [];
-  for (const key of legacyKeys) {
-    if (!(key in _kvCache)) {
-      const raw = localStorage.getItem(key);
-      if (raw !== null) { _kvCache[key] = raw; idbKvSet(key, raw); migrated.push(key); }
-    }
+    if (!key || key in _kvCache) continue;
+    const raw = localStorage.getItem(key);
+    if (raw !== null) { _kvCache[key] = raw; idbKvSet(key, raw); migrated.push(key); }
   }
   migrated.forEach(key => localStorage.removeItem(key));
 }
@@ -4505,8 +4505,13 @@ async function saveEdit() {
       updated_at:     new Date().toISOString(),
     };
 
+    // Only regenerate the AI overview when a summary-relevant field changed.
+    const affectsOverview = !oldExp || AI_OVERVIEW_FIELDS.some(
+      f => (oldExp[f] ?? null) !== (updatedExp[f] ?? null)
+    );
+
     const expenses = getExpenses().map(e => e.id === id ? updatedExp : e);
-    saveExpenses(expenses);
+    saveExpenses(expenses, { keepAiCache: !affectsOverview });
     state.expenseMap[id] = updatedExp;
 
     cancelEdit();
