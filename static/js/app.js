@@ -862,6 +862,8 @@ function refreshAllCurrencySelects() {
   populateCurrencySelect("s-currency", defaultCurrency);
   const fCur = document.getElementById("f-currency");
   if (fCur) populateCurrencySelect("f-currency", fCur.value || defaultCurrency);
+  const editCur = document.getElementById("edit-currency");
+  if (editCur) populateCurrencySelect("edit-currency", editCur.value || defaultCurrency);
   renderCustomCurrenciesSettings();
 }
 
@@ -1215,36 +1217,29 @@ function loadCustomBudgetSelect(selectId, currentBudgetId) {
                                               : document.getElementById('edit-budget-wrap');
   const budgets = getCustomBudgets().filter(b => b.type === 'event' && !isBudgetArchived(b));
   if (!sel) return;
-  if (budgets.length === 0) {
-    if (selectId === 'f-budget-tag') {
-      if (wrap) wrap.classList.remove('hidden');
-      sel.innerHTML = '<option value="">— No event budget —</option>';
-    } else {
-      if (wrap) wrap.classList.add('hidden');
-    }
-    return;
-  }
   if (wrap) wrap.classList.remove('hidden');
   sel.innerHTML = '<option value="">— No event budget —</option>'
     + budgets.map(b => `<option value="${b.id}"${b.id === currentBudgetId ? ' selected' : ''}>${esc(b.name)}</option>`).join('');
 }
 
-function toggleInlineEventBudget() {
-  const form = document.getElementById('inline-event-budget-form');
+function toggleInlineEventBudget(ctx = 'add') {
+  const formId = ctx === 'edit' ? 'edit-inline-event-budget-form' : 'inline-event-budget-form';
+  const form = document.getElementById(formId);
   if (!form) return;
   form.classList.toggle('hidden');
   if (!form.classList.contains('hidden')) {
     const defCur = kvGet('defaultCurrency') || 'EUR';
-    const sym = document.getElementById('ief-sym');
+    const sym = document.getElementById(ctx === 'edit' ? 'edit-ief-sym' : 'ief-sym');
     if (sym) sym.textContent = curSym(defCur);
-    document.getElementById('ief-name')?.focus();
+    document.getElementById(ctx === 'edit' ? 'edit-ief-name' : 'ief-name')?.focus();
   }
 }
 
-function saveInlineEventBudget() {
-  const name   = document.getElementById('ief-name')?.value.trim();
-  const amount = parseFloat(document.getElementById('ief-amount')?.value);
-  if (!name)                { showToast('Enter a budget name', true); return; }
+function saveInlineEventBudget(ctx = 'add') {
+  const p      = ctx === 'edit' ? 'edit-ief-' : 'ief-';
+  const name   = document.getElementById(`${p}name`)?.value.trim();
+  const amount = parseFloat(document.getElementById(`${p}amount`)?.value);
+  if (!name)                  { showToast('Enter a budget name', true); return; }
   if (!amount || amount <= 0) { showToast('Enter a valid amount', true); return; }
 
   const budget = {
@@ -1253,8 +1248,8 @@ function saveInlineEventBudget() {
     type:      'event',
     category:  null,
     amount,
-    startDate: document.getElementById('ief-start')?.value || null,
-    endDate:   document.getElementById('ief-end')?.value   || null,
+    startDate: document.getElementById(`${p}start`)?.value || null,
+    endDate:   document.getElementById(`${p}end`)?.value   || null,
     color:     '#006b55',
     createdAt: new Date().toISOString(),
   };
@@ -1263,55 +1258,74 @@ function saveInlineEventBudget() {
   budgets.push(budget);
   saveCustomBudgets(budgets);
 
-  loadCustomBudgetSelect('f-budget-tag', budget.id);
+  loadCustomBudgetSelect(ctx === 'edit' ? 'edit-budget-tag' : 'f-budget-tag', budget.id);
   renderCustomBudgetsHome();
 
-  document.getElementById('ief-name').value   = '';
-  document.getElementById('ief-amount').value = '';
-  if (document.getElementById('ief-start')) document.getElementById('ief-start').value = '';
-  if (document.getElementById('ief-end'))   document.getElementById('ief-end').value   = '';
-  document.getElementById('inline-event-budget-form')?.classList.add('hidden');
+  document.getElementById(`${p}name`).value   = '';
+  document.getElementById(`${p}amount`).value = '';
+  if (document.getElementById(`${p}start`)) document.getElementById(`${p}start`).value = '';
+  if (document.getElementById(`${p}end`))   document.getElementById(`${p}end`).value   = '';
+  document.getElementById(ctx === 'edit' ? 'edit-inline-event-budget-form' : 'inline-event-budget-form')?.classList.add('hidden');
 
   showToast('Event budget created!');
 }
 
-function toggleInlineAddCategory() {
-  const form = document.getElementById('inline-add-category-form');
+function toggleInlineAddCategory(ctx = 'add') {
+  const formId = ctx === 'edit' ? 'edit-inline-add-category-form' : 'inline-add-category-form';
+  const form = document.getElementById(formId);
   if (!form) return;
   form.classList.toggle('hidden');
-  if (!form.classList.contains('hidden')) document.getElementById('iac-name')?.focus();
+  if (!form.classList.contains('hidden')) document.getElementById(ctx === 'edit' ? 'edit-iac-name' : 'iac-name')?.focus();
 }
 
-function saveInlineCategory() {
-  const name  = sanitizeCategoryName(document.getElementById('iac-name')?.value || '');
-  const emoji = (document.getElementById('iac-emoji')?.value || '').trim() || '📦';
+function saveInlineCategory(ctx = 'add') {
+  const p     = ctx === 'edit' ? 'edit-iac-' : 'iac-';
+  const name  = sanitizeCategoryName(document.getElementById(`${p}name`)?.value || '');
+  const emoji = (document.getElementById(`${p}emoji`)?.value || '').trim() || '📦';
   if (!name) { showToast('Enter a category name', true); return; }
-  const data = getCentroids();
-  if (!data) { showToast('No model loaded yet.', true); return; }
-  if (getAllCategories().includes(name)) { showToast('Category already exists.', true); return; }
-  data.custom_categories = data.custom_categories || [];
-  data.custom_categories.push(name);
-  data.custom_category_emojis = data.custom_category_emojis || {};
-  data.custom_category_emojis[name] = emoji;
-  saveCentroids(data);
-  document.getElementById('iac-name').value  = '';
-  document.getElementById('iac-emoji').value = '';
-  document.getElementById('inline-add-category-form')?.classList.add('hidden');
-  state.categories = getAllCategories();
-  renderCatButtons(name);
+
+  const isIncomeCtx = ctx === 'edit' ? !!state.editIsIncome : !!state.isIncome;
+
+  if (isIncomeCtx) {
+    if (getAllIncomeCategories().includes(name)) { showToast('Category already exists.', true); return; }
+    const list = getCustomIncomeCategories();
+    list.push(name);
+    saveCustomIncomeCategories(list);
+    const emojis = getIncomeEmojis();
+    emojis[name] = emoji;
+    saveIncomeEmojis(emojis);
+    if (ctx === 'edit') renderEditIncomeCatButtons(name); else renderIncomeCatButtons(name);
+  } else {
+    const data = getCentroids();
+    if (!data) { showToast('No model loaded yet.', true); return; }
+    if (getAllCategories().includes(name)) { showToast('Category already exists.', true); return; }
+    data.custom_categories = data.custom_categories || [];
+    data.custom_categories.push(name);
+    data.custom_category_emojis = data.custom_category_emojis || {};
+    data.custom_category_emojis[name] = emoji;
+    saveCentroids(data);
+    state.categories = getAllCategories();
+    if (ctx === 'edit') renderEditCatButtons(name); else renderCatButtons(name);
+  }
+
+  document.getElementById(`${p}name`).value  = '';
+  document.getElementById(`${p}emoji`).value = '';
+  document.getElementById(ctx === 'edit' ? 'edit-inline-add-category-form' : 'inline-add-category-form')?.classList.add('hidden');
   showToast(`"${emoji} ${name}" added.`);
 }
 
-function toggleInlineAddPayment() {
-  const form = document.getElementById('inline-add-payment-form');
+function toggleInlineAddPayment(ctx = 'add') {
+  const formId = ctx === 'edit' ? 'edit-inline-add-payment-form' : 'inline-add-payment-form';
+  const form = document.getElementById(formId);
   if (!form) return;
   form.classList.toggle('hidden');
-  if (!form.classList.contains('hidden')) document.getElementById('iap-name')?.focus();
+  if (!form.classList.contains('hidden')) document.getElementById(ctx === 'edit' ? 'edit-iap-name' : 'iap-name')?.focus();
 }
 
-function saveInlinePayment() {
-  const name  = (document.getElementById('iap-name')?.value || '').trim();
-  const emoji = (document.getElementById('iap-emoji')?.value || '').trim() || '💳';
+function saveInlinePayment(ctx = 'add') {
+  const p     = ctx === 'edit' ? 'edit-iap-' : 'iap-';
+  const name  = (document.getElementById(`${p}name`)?.value || '').trim();
+  const emoji = (document.getElementById(`${p}emoji`)?.value || '').trim() || '💳';
   if (!name) { showToast('Enter a payment method name', true); return; }
   const methods = getPaymentMethods();
   if (methods.includes(name)) { showToast('Method already exists.', true); return; }
@@ -1320,33 +1334,40 @@ function saveInlinePayment() {
   const emojis = getPaymentEmojis();
   emojis[name] = emoji;
   savePaymentEmojis(emojis);
-  document.getElementById('iap-name').value  = '';
-  document.getElementById('iap-emoji').value = '';
-  document.getElementById('inline-add-payment-form')?.classList.add('hidden');
-  selectPayment(name, 'payment-buttons');
+  document.getElementById(`${p}name`).value  = '';
+  document.getElementById(`${p}emoji`).value = '';
+  document.getElementById(ctx === 'edit' ? 'edit-inline-add-payment-form' : 'inline-add-payment-form')?.classList.add('hidden');
+  selectPayment(name, ctx === 'edit' ? 'edit-payment-buttons' : 'payment-buttons');
   showToast(`"${emoji} ${name}" added.`);
 }
 
-function toggleInlineAddCurrency() {
-  const wrap = document.getElementById('inline-add-currency-wrap');
+function toggleInlineAddCurrency(ctx = 'add') {
+  const wrapId = ctx === 'edit' ? 'edit-inline-add-currency-wrap' : 'inline-add-currency-wrap';
+  const wrap = document.getElementById(wrapId);
   if (!wrap) return;
   wrap.classList.toggle('hidden');
-  if (!wrap.classList.contains('hidden')) document.getElementById('icu-code')?.focus();
+  if (!wrap.classList.contains('hidden')) document.getElementById(ctx === 'edit' ? 'edit-icu-code' : 'icu-code')?.focus();
 }
 
-function saveInlineCurrency() {
-  const code = (document.getElementById('icu-code')?.value || '').trim().toUpperCase();
+function saveInlineCurrency(ctx = 'add') {
+  const codeId = ctx === 'edit' ? 'edit-icu-code' : 'icu-code';
+  const code = (document.getElementById(codeId)?.value || '').trim().toUpperCase();
   if (!code) { showToast('Enter a currency code', true); return; }
   const builtinCodes = BUILTIN_CURRENCIES.map(c => c.code);
   const customs = getCustomCurrencies();
   if (builtinCodes.includes(code) || customs.includes(code)) { showToast('Currency already exists.', true); return; }
   customs.push(code);
   saveCustomCurrencies(customs);
-  document.getElementById('icu-code').value = '';
-  document.getElementById('inline-add-currency-wrap')?.classList.add('hidden');
+  document.getElementById(codeId).value = '';
+  document.getElementById(ctx === 'edit' ? 'edit-inline-add-currency-wrap' : 'inline-add-currency-wrap')?.classList.add('hidden');
   refreshAllCurrencySelects();
-  const sel = document.getElementById('f-currency');
-  if (sel) { sel.value = code; updateCurrencySymbol(); }
+  if (ctx === 'edit') {
+    const sel = document.getElementById('edit-currency');
+    if (sel) { sel.value = code; updateEditCurrencyRate(code); }
+  } else {
+    const sel = document.getElementById('f-currency');
+    if (sel) { sel.value = code; updateCurrencySymbol(); }
+  }
   showToast(`${code} added.`);
 }
 
@@ -1594,7 +1615,7 @@ function setRecurringMode(item, confirmMode = false) {
   const recurDayWrap = document.getElementById('f-recur-day-wrap');
   if (recurDayWrap) recurDayWrap.classList.remove('hidden');
   document.getElementById('f-location-wrap').classList.add('hidden');
-  document.getElementById('items-section').classList.add('hidden');
+  document.getElementById('items-wrapper')?.classList.add('hidden');
   const rateRow = document.getElementById('f-rate-row');
   if (rateRow) rateRow.style.display = 'none';
 
@@ -1958,8 +1979,7 @@ function clearScanView() {
 function clearScan() {
   state.isVoice = false;
   clearScanView();
-  document.getElementById("items-section").classList.add("hidden");
-  document.getElementById("items-list").innerHTML = "";
+  renderAddFormItems();
   document.getElementById("save-label").textContent = "Add Expense";
   document.getElementById("cat-confidence").classList.add("hidden");
   resetForm();
@@ -2631,10 +2651,12 @@ function resetForm() {
   state.selectedCategory = null;
   state.originalCategory = null;
   state.selectedPayment  = null;
+  state.receiptItems     = [];
   renderCatButtons(null);
   renderPaymentButtons(null, "payment-buttons");
   loadCustomBudgetSelect('f-budget-tag', null);
   document.querySelector('#f-budget-wrap .voice-budget-hint')?.remove();
+  renderAddFormItems();
   checkAmountMismatch();
   updateAmountConvertedHint();
 
@@ -2646,6 +2668,8 @@ function resetForm() {
   if (dayInput) dayInput.value = '';
   document.getElementById('recur-scope-toggle-wrap')?.classList.add('hidden');
   document.getElementById('f-location-wrap').classList.remove('hidden');
+  ['inline-add-currency-wrap', 'inline-add-category-form', 'inline-add-payment-form', 'inline-event-budget-form']
+    .forEach(id => document.getElementById(id)?.classList.add('hidden'));
   const backBtn = document.getElementById('add-back-btn');
   if (backBtn) backBtn.setAttribute('onclick', "showView('add-method')");
 }
@@ -2810,7 +2834,7 @@ function renderAddFormItems() {
   const el = document.getElementById("items-list");
   if (!el) return;
   if (!state.receiptItems || state.receiptItems.length === 0) {
-    el.innerHTML = "";
+    el.innerHTML = `<div class="text-xs text-gray-400 text-center py-2 border border-dashed border-gray-200 rounded-xl">No items — tap "+ Add item" to add one</div>`;
     return;
   }
   const code = document.getElementById("f-currency")?.value || "EUR";
@@ -2858,7 +2882,6 @@ function updateFormItemHint(i) {
 function addFormItem() {
   state.receiptItems = state.receiptItems || [];
   state.receiptItems.push({ name: "", price: null, quantity: 1 });
-  document.getElementById("items-section")?.classList.remove("hidden");
   renderAddFormItems();
   const rows = document.querySelectorAll("#items-list > div");
   if (rows.length) rows[rows.length - 1].querySelector("input[type=text]")?.focus();
@@ -2984,10 +3007,7 @@ function populateFormFromReceipt(data) {
   confEl.className   = `text-xs ${(data.confidence||0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
   confEl.classList.remove("hidden");
 
-  if (state.receiptItems.length > 0) {
-    document.getElementById("items-section").classList.remove("hidden");
-    renderAddFormItems();
-  }
+  renderAddFormItems();
   checkAmountMismatch();
   updateAmountConvertedHint();
   document.getElementById("save-label").textContent = "Confirm & Save";
@@ -3357,10 +3377,7 @@ function populateFormFromVoice(data) {
     confEl.classList.remove("hidden");
   }
 
-  if (!isIncome && state.receiptItems.length > 0) {
-    document.getElementById("items-section").classList.remove("hidden");
-    renderAddFormItems();
-  }
+  if (!isIncome) renderAddFormItems();
   updateAmountConvertedHint();
 
   // Auto-select event budget when Gemini matched one by name
@@ -3543,6 +3560,8 @@ let _historySelType     = null;
 let _historySort        = 'date_desc';
 let _historyCustomFrom  = '';
 let _historyCustomTo    = '';
+let _historyShowArchivedCats  = false;
+let _historyShowArchivedPmts  = false;
 let _histViewMode       = 'list';
 let _historyFiltered    = [];
 let _historyShownDays   = 5;
@@ -3599,6 +3618,8 @@ function clearHistoryFilters() {
   _historyCustomFrom = '';
   _historyCustomTo = '';
   _historyShownDays = 5;
+  _historyShowArchivedCats = false;
+  _historyShowArchivedPmts = false;
   renderHistoryFilterSheet();
   updateHistoryFilterBadge();
   filterHistory();
@@ -3609,34 +3630,70 @@ function renderHistoryFilterSheet() {
     HISTORY_SORT_OPTS.map(o => o.key),
     k => _historySort === k,
     () => '#006b55',
-    k => `selectHistorySort('${k}')`,
+    k => () => selectHistorySort(k),
     k => HISTORY_SORT_OPTS.find(o => o.key === k)?.label || k
   );
 
+  const activeCatSet  = new Set(getAllCategories());
+  const usedCats      = [...new Set(_historySorted.map(e => e.category).filter(Boolean))];
+  const activeCats    = usedCats.filter(c => activeCatSet.has(c)).sort();
+  const archivedCats  = usedCats.filter(c => !activeCatSet.has(c)).sort();
+
   _renderHFChips('hf-cat',
-    ['All', ...[...new Set(_historySorted.map(e => e.category).filter(Boolean))].sort()],
-    cat => cat === 'All' ? _historySelCats.size === 0 : _historySelCats.has(cat),
-    cat => cat === 'All' ? '#006b55' : catColor(cat),
-    cat => `selectHistoryCat('${esc(cat)}')`,
-    cat => cat === 'All' ? 'All' : catEmoji(cat) + ' ' + esc(cat)
+    ['All', ...activeCats, ...(archivedCats.length ? ['Archived'] : [])],
+    cat => cat === 'Archived' ? _historyShowArchivedCats : (cat === 'All' ? _historySelCats.size === 0 : _historySelCats.has(cat)),
+    cat => cat === 'All' || cat === 'Archived' ? '#006b55' : catColor(cat),
+    cat => () => cat === 'Archived' ? toggleArchivedCats() : selectHistoryCat(cat),
+    cat => cat === 'All' ? 'All' : cat === 'Archived' ? '🗄️ Archived' : catEmoji(cat) + ' ' + esc(cat)
   );
 
-  const methods = [...new Set(_historySorted.map(e => e.payment_method).filter(Boolean))].sort();
+  const archivedCatEl = document.getElementById('hf-cat-archived');
+  if (archivedCatEl) {
+    archivedCatEl.classList.toggle('hidden', !_historyShowArchivedCats || !archivedCats.length);
+    if (_historyShowArchivedCats) {
+      _renderHFChips('hf-cat-archived',
+        archivedCats,
+        cat => _historySelCats.has(cat),
+        cat => catColor(cat),
+        cat => () => selectHistoryCat(cat),
+        cat => '🗑️ ' + esc(cat)
+      );
+    }
+  }
+
+  const methods = [...new Set(_historySorted.map(e => e.payment_method).filter(Boolean))];
+  const activePmtSet   = new Set(getPaymentMethods());
+  const activeMethods  = methods.filter(m => activePmtSet.has(m)).sort();
+  const archivedMethods = methods.filter(m => !activePmtSet.has(m)).sort();
   const pmSection = document.getElementById('hf-payment')?.closest('div.mb-4');
   if (pmSection) pmSection.style.display = methods.length ? '' : 'none';
   _renderHFChips('hf-payment',
-    ['All', ...methods],
-    m => m === 'All' ? _historySelPayments.size === 0 : _historySelPayments.has(m),
+    ['All', ...activeMethods, ...(archivedMethods.length ? ['Archived'] : [])],
+    m => m === 'Archived' ? _historyShowArchivedPmts : (m === 'All' ? _historySelPayments.size === 0 : _historySelPayments.has(m)),
     () => '#006b55',
-    m => `selectHistoryPayment('${esc(m)}')`,
-    m => m === 'All' ? 'All' : paymentIcon(m) + ' ' + esc(m)
+    m => () => m === 'Archived' ? toggleArchivedPmts() : selectHistoryPayment(m),
+    m => m === 'All' ? 'All' : m === 'Archived' ? '🗄️ Archived' : paymentIcon(m) + ' ' + esc(m)
   );
+
+  const archivedPmtEl = document.getElementById('hf-payment-archived');
+  if (archivedPmtEl) {
+    archivedPmtEl.classList.toggle('hidden', !_historyShowArchivedPmts || !archivedMethods.length);
+    if (_historyShowArchivedPmts) {
+      _renderHFChips('hf-payment-archived',
+        archivedMethods,
+        m => _historySelPayments.has(m),
+        () => '#8a8d91',
+        m => () => selectHistoryPayment(m),
+        m => '🗑️ ' + esc(m)
+      );
+    }
+  }
 
   _renderHFChips('hf-time',
     ['All', ...HISTORY_TIME_OPTS.map(o => o.key)],
     k => k === 'All' ? !_historySelTime : _historySelTime === k,
     () => '#006b55',
-    k => `selectHistoryTime('${k}')`,
+    k => () => selectHistoryTime(k),
     k => k === 'All' ? 'All' : HISTORY_TIME_OPTS.find(o => o.key === k)?.label || k
   );
 
@@ -3653,7 +3710,7 @@ function renderHistoryFilterSheet() {
     ['All', 'expense', 'income'],
     k => k === 'All' ? !_historySelType : _historySelType === k,
     k => k === 'income' ? '#16a34a' : '#006b55',
-    k => `selectHistoryType('${k}')`,
+    k => () => selectHistoryType(k),
     k => k === 'All' ? 'All' : k === 'income' ? '📥 Income' : '📤 Expenses'
   );
 
@@ -3666,7 +3723,7 @@ function renderHistoryFilterSheet() {
       ['All', ...budgetIds],
       id => id === 'All' ? _historySelBudgets.size === 0 : _historySelBudgets.has(id),
       id => id === 'All' ? '#006b55' : (budgetMap[id]?.color || '#006b55'),
-      id => `selectHistoryBudget('${id}')`,
+      id => () => selectHistoryBudget(id),
       id => id === 'All' ? 'All' : esc(budgetMap[id]?.name || id)
     );
   }
@@ -3675,18 +3732,23 @@ function renderHistoryFilterSheet() {
 function _renderHFChips(elId, items, isActiveFn, colorFn, onclickFn, labelFn) {
   const el = document.getElementById(elId);
   if (!el) return;
-  el.innerHTML = items.map(item => {
+  el.innerHTML = '';
+  items.forEach(item => {
     const isActive = isActiveFn(item);
     const col      = colorFn(item);
     const bg       = isActive ? col : (isDark() ? '#1e1e1e' : '#f8f9fa');
     const text     = isActive ? 'white' : (isDark() ? '#b0b0b0' : '#44474a');
     const border   = isActive ? col : (isDark() ? '#333333' : '#e8e9ea');
-    return `<button type="button" onclick="${onclickFn(item)}"
-      class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
-      style="background:${bg};color:${text};border-color:${border}">
-      ${labelFn(item)}
-    </button>`;
-  }).join('');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all';
+    btn.style.background = bg;
+    btn.style.color = text;
+    btn.style.borderColor = border;
+    btn.innerHTML = labelFn(item);
+    btn.addEventListener('click', onclickFn(item));
+    el.appendChild(btn);
+  });
 }
 
 function updateHistoryFilterBadge() {
@@ -3728,6 +3790,16 @@ function selectHistoryPayment(method) {
   renderHistoryFilterSheet();
   updateHistoryFilterBadge();
   filterHistory();
+}
+
+function toggleArchivedCats() {
+  _historyShowArchivedCats = !_historyShowArchivedCats;
+  renderHistoryFilterSheet();
+}
+
+function toggleArchivedPmts() {
+  _historyShowArchivedPmts = !_historyShowArchivedPmts;
+  renderHistoryFilterSheet();
 }
 
 function selectHistoryTime(key) {
@@ -4221,6 +4293,7 @@ function openEdit() {
   updateRateRow("edit", cur, defCur, exp.rate ?? null);
 
   const editIncome = isIncomeEntry(exp);
+  state.editIsIncome = editIncome;
   const titleEl    = document.getElementById("edit-mode-title");
   const mLabelEl   = document.getElementById("edit-merchant-label");
   const locWrapEl  = document.getElementById("edit-location-wrap");
@@ -4246,6 +4319,9 @@ function openEdit() {
   state.editItemsCurrency = cur.toUpperCase();
   renderEditItems();
   updateEditAmountHint();
+
+  ['edit-inline-add-currency-wrap', 'edit-inline-add-category-form', 'edit-inline-add-payment-form', 'edit-inline-event-budget-form']
+    .forEach(id => document.getElementById(id)?.classList.add('hidden'));
 
   document.getElementById("det-view-mode").classList.add("hidden");
   document.getElementById("det-edit-mode").classList.remove("hidden");
@@ -4618,7 +4694,7 @@ function renderPieChart(breakdown, defCur = "EUR") {
       datasets: [{
         data:            entries.map(([, amt]) => amt),
         backgroundColor: entries.map(([cat]) => catColor(cat)),
-        borderWidth:     2,
+        borderWidth:     entries.length > 1 ? 2 : 0,
         borderColor:     dark ? "#141414" : "#ffffff",
         hoverOffset:     6,
       }],
@@ -5458,20 +5534,33 @@ function loadPaymentMethodsView() {
         const tag     = isCustom
           ? `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="color:${isDark()?"#6dfad2":"#006b55"};background:${isDark()?"#1e1e1e":"#f0fdf9"}">custom</span>`
           : `<span class="text-[10px] text-[#c5c6ca]">built-in</span>`;
-        const emojiEl = `<input type="text" value="${esc(emoji)}"
+        const emojiEl = `<input type="text" value="${esc(emoji)}" data-method="${esc(m)}" data-role="emoji"
                     title="Tap to change emoji"
-                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0"
-                    onchange="updatePaymentMethodEmoji('${m.replace(/'/g, "\\'")}', this.value)" />`;
+                    class="w-9 h-9 text-center text-xl border border-transparent hover:border-[#c5c6ca] focus:border-[#006b55] rounded-xl p-0.5 bg-transparent focus:outline-none focus:bg-white cursor-pointer flex-shrink-0" />`;
+        const nameEl = `<input type="text" value="${esc(m)}" data-method="${esc(m)}" data-role="name"
+                    title="Tap to rename"
+                    class="flex-1 min-w-0 px-1 py-0.5 text-sm font-medium border border-transparent rounded-lg bg-transparent focus:outline-none text-gray-700 hover:border-[#c5c6ca] focus:border-[#006b55] focus:bg-white cursor-pointer" />`;
         return `
           <div class="flex items-center gap-3 px-4 py-3">
             ${emojiEl}
-            <span class="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">${esc(m)}</span>
+            ${nameEl}
             ${tag}
-            <button onclick="deletePaymentMethod('${m.replace(/'/g, "\\'")}')"
+            <button data-method="${esc(m)}" data-role="delete"
                     class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm">✕</button>
           </div>`;
       }).join("")
     : `<div class="px-4 py-6 text-sm text-gray-400 text-center">No payment methods.</div>`;
+
+  list.onchange = (e) => {
+    const emojiInput = e.target.closest('[data-role="emoji"]');
+    if (emojiInput) { updatePaymentMethodEmoji(emojiInput.dataset.method, emojiInput.value); return; }
+    const nameInput = e.target.closest('[data-role="name"]');
+    if (nameInput) renamePaymentMethod(nameInput.dataset.method, nameInput.value);
+  };
+  list.onclick = (e) => {
+    const btn = e.target.closest('[data-role="delete"]');
+    if (btn) deletePaymentMethod(btn.dataset.method);
+  };
 }
 
 function updatePaymentMethodEmoji(method, newEmoji) {
@@ -5479,9 +5568,45 @@ function updatePaymentMethodEmoji(method, newEmoji) {
   const emojis = getPaymentEmojis();
   emojis[method] = emoji;
   savePaymentEmojis(emojis);
+  loadPaymentMethodsView();
   renderPaymentButtons(state.selectedPayment, "payment-buttons");
   if (state.editPayment !== undefined) renderPaymentButtons(state.editPayment, "edit-payment-buttons");
   showToast("Emoji updated!");
+}
+
+function renamePaymentMethod(oldName, newInput) {
+  const name = sanitizeCategoryName(newInput);
+  if (!name || name === oldName) { loadPaymentMethodsView(); return; }
+  const dup = getPaymentMethods().some(m => m !== oldName && m.toLowerCase() === name.toLowerCase());
+  if (dup) { showToast("Payment method already exists.", true); loadPaymentMethodsView(); return; }
+
+  const emoji = paymentIcon(oldName);
+  const methods = getPaymentMethods().map(m => m === oldName ? name : m);
+  savePaymentMethods(methods);
+
+  const emojis = getPaymentEmojis();
+  delete emojis[oldName];
+  emojis[name] = emoji;
+  savePaymentEmojis(emojis);
+
+  const expenses = getExpenses();
+  let changed = false;
+  expenses.forEach(e => {
+    if (e.payment_method === oldName) { e.payment_method = name; changed = true; }
+  });
+  if (changed) saveExpenses(expenses);
+
+  const recurring = getRecurring();
+  let recurringChanged = false;
+  recurring.forEach(r => {
+    if (r.payment_method === oldName) { r.payment_method = name; recurringChanged = true; }
+  });
+  if (recurringChanged) saveRecurring(recurring);
+
+  loadPaymentMethodsView();
+  renderPaymentButtons(state.selectedPayment, "payment-buttons");
+  if (state.editPayment !== undefined) renderPaymentButtons(state.editPayment, "edit-payment-buttons");
+  showToast(`Renamed to "${name}".`);
 }
 
 function addCustomPaymentMethod() {
@@ -5579,6 +5704,7 @@ function onImportFile(event) {
       const existing    = getExpenses();
       const existingIds = new Set(existing.map(e => e.id));
       const newOnes     = imported.filter(e => e.id && e.merchant && !existingIds.has(e.id));
+      newOnes.forEach(e => { if (e.category) e.category = sanitizeCategoryName(e.category); });
 
       // Auto-add expense categories missing from settings
       const knownExpCats = new Set(getAllCategories());
@@ -5612,6 +5738,20 @@ function onImportFile(event) {
         saveCustomIncomeCategories(list);
       }
 
+      // Auto-add payment methods missing from settings
+      const knownMethods = new Set(getPaymentMethods().map(m => m.toLowerCase()));
+      const newMethods   = [...new Set(
+        newOnes.filter(e => e.payment_method && !knownMethods.has(e.payment_method.toLowerCase()))
+               .map(e => e.payment_method)
+      )];
+      if (newMethods.length) {
+        const methods = getPaymentMethods();
+        for (const m of newMethods) {
+          if (!methods.map(x => x.toLowerCase()).includes(m.toLowerCase())) methods.push(m);
+        }
+        savePaymentMethods(methods);
+      }
+
       const allExpenses = [...existing, ...newOnes];
       saveExpenses(allExpenses);
       rebuildSummariesFromExpenses(allExpenses);
@@ -5620,6 +5760,7 @@ function onImportFile(event) {
       const addedParts = [];
       if (newExpCats.length) addedParts.push(`${newExpCats.length} expense categor${newExpCats.length !== 1 ? "ies" : "y"}`);
       if (newIncCats.length) addedParts.push(`${newIncCats.length} income categor${newIncCats.length !== 1 ? "ies" : "y"}`);
+      if (newMethods.length) addedParts.push(`${newMethods.length} payment method${newMethods.length !== 1 ? "s" : ""}`);
       let msg = `Imported ${newOnes.length} expense${newOnes.length !== 1 ? "s" : ""}`;
       if (addedParts.length) msg += `. Added ${addedParts.join(" and ")}`;
       showToast(msg);
