@@ -618,9 +618,11 @@ def api_get_overview():
     except (ValueError, _json.JSONDecodeError):
         return jsonify({"error": "retrieved_json must be a JSON array"}), 400
 
+    budget_context = request.args.get("budget_context", "").strip() or "No budgets set."
+
     # ── generate ──────────────────────────────────────────────────────────────
     try:
-        overview = summary.generate_overview(current_text, retrieved, "")
+        overview = summary.generate_overview(current_text, retrieved, budget_context, "")
 
     except Exception as exc:
         return jsonify({"error": f"Failed to generate overview: {exc}"}), 500

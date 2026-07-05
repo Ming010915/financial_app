@@ -37,12 +37,17 @@ def project_to_full_month(spending: dict[str, float], days_elapsed: int, days_in
  
 
  # ── Public API ────────────────────────────────────────────────────────────────  
-def generate_overview(current_text: str, retrieved_summaries: list[dict[str, str]], api_key: str = "") -> str:
+def generate_overview(
+    current_text: str,
+    retrieved_summaries: list[dict[str, str]],
+    budget_context: str = "No budgets set.",
+    api_key: str = "",
+) -> str:
     historical_context = "\n".join(
         f"- {s['period']}: {s['text']}" for s in retrieved_summaries
     ) or "No historical data available yet."
 
-    prompt = build_overview_prompt(current_text, historical_context)
+    prompt = build_overview_prompt(current_text, historical_context, budget_context)
  
     client   = get_genai_client()
     response = generate_with_fallback(

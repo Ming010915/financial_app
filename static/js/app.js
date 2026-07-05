@@ -10,7 +10,7 @@ function saveExpenses(exps, { keepAiCache = false } = {}) {
   if (!keepAiCache) kvDelete('flo_ai_overview_cache');
 }
 // Fields that feed the monthly spending breakdown the AI overview summarises.
-const AI_OVERVIEW_FIELDS = ['amount', 'category', 'date', 'currency', 'rate', 'type'];
+const AI_OVERVIEW_FIELDS = ['amount', 'category', 'date', 'currency', 'rate', 'type', 'budgetId'];
 function getCentroids() {
   const raw = kvGet('flo_centroids');
   return raw ? JSON.parse(raw) : null;
@@ -37,13 +37,13 @@ function getBudget() {
   const v = kvGet('flo_budget');
   return v ? parseFloat(v) : null;
 }
-function saveBudget(amount) { kvSet('flo_budget', String(amount)); }
-function clearBudget()      { kvDelete('flo_budget'); }
+function saveBudget(amount) { kvSet('flo_budget', String(amount)); kvDelete('flo_ai_overview_cache'); }
+function clearBudget()      { kvDelete('flo_budget'); kvDelete('flo_ai_overview_cache'); }
 function getCustomBudgets() {
   const s = kvGet('flo_custom_budgets');
   return s ? JSON.parse(s) : [];
 }
-function saveCustomBudgets(b) { kvSet('flo_custom_budgets', JSON.stringify(b)); }
+function saveCustomBudgets(b) { kvSet('flo_custom_budgets', JSON.stringify(b)); kvDelete('flo_ai_overview_cache'); }
 function getPendingScans()  { return JSON.parse(kvGet('flo_pending_scans') || '[]'); }
 function savePendingScans(s){ kvSet('flo_pending_scans', JSON.stringify(s)); }
 function getCustomIncomeCategories() {
@@ -1142,6 +1142,11 @@ function isBudgetArchived(budget) {
   return new Date().toISOString().slice(0, 10) > budget.endDate;
 }
 
+function isBudgetUpcoming(budget) {
+  if (budget.type !== 'event' || !budget.startDate) return false;
+  return new Date().toISOString().slice(0, 10) < budget.startDate;
+}
+
 function _budgetRowHtml(b, archived = false) {
   const defCur    = kvGet('defaultCurrency') || 'EUR';
   const spent     = computeCustomBudgetSpent(b);
@@ -1210,11 +1215,16 @@ function renderCustomBudgetsHome() {
   list.innerHTML = html;
 }
 
-function loadCustomBudgetSelect(selectId, currentBudgetId) {
+function loadCustomBudgetSelect(selectId, currentBudgetId, entryDate = null) {
   const sel     = document.getElementById(selectId);
   const wrap    = selectId === 'f-budget-tag' ? document.getElementById('f-budget-wrap')
                                               : document.getElementById('edit-budget-wrap');
-  const budgets = getCustomBudgets().filter(b => b.type === 'event' && !isBudgetArchived(b));
+  const budgets = getCustomBudgets().filter(b => b.type === 'event' && !isBudgetArchived(b)
+    // Only offer budgets whose date range actually covers this entry's date —
+    // computeCustomBudgetSpent excludes out-of-range entries even if tagged,
+    // so listing them here would silently fail to count towards the budget.
+    && (!entryDate || !b.startDate || entryDate >= b.startDate)
+    && (!entryDate || !b.endDate   || entryDate <= b.endDate));
   if (!sel) return;
   if (wrap) wrap.classList.remove('hidden');
   sel.innerHTML = '<option value="">— No event budget —</option>'
@@ -1257,7 +1267,8 @@ function saveInlineEventBudget(ctx = 'add') {
   budgets.push(budget);
   saveCustomBudgets(budgets);
 
-  loadCustomBudgetSelect(ctx === 'edit' ? 'edit-budget-tag' : 'f-budget-tag', budget.id);
+  const entryDate = document.getElementById(ctx === 'edit' ? 'edit-date' : 'f-date')?.value || null;
+  loadCustomBudgetSelect(ctx === 'edit' ? 'edit-budget-tag' : 'f-budget-tag', budget.id, entryDate);
   renderCustomBudgetsHome();
 
   document.getElementById(`${p}name`).value   = '';
@@ -2702,7 +2713,7 @@ function resetForm() {
   state.isVoice          = false;
   renderCatButtons(null);
   renderPaymentButtons(null, "payment-buttons");
-  loadCustomBudgetSelect('f-budget-tag', null);
+  loadCustomBudgetSelect('f-budget-tag', null, document.getElementById('f-date').value);
   document.querySelector('#f-budget-wrap .voice-budget-hint')?.remove();
   renderAddFormItems();
   checkAmountMismatch();
@@ -3047,7 +3058,10 @@ function populateFormFromReceipt(data) {
     // of leaving them stale in the old currency (which broke the sum check).
     state.formItemsCurrency = code;
   }
-  if (data.date)     document.getElementById("f-date").value     = data.date;
+  if (data.date) {
+    document.getElementById("f-date").value = data.date;
+    loadCustomBudgetSelect('f-budget-tag', document.getElementById('f-budget-tag').value, data.date);
+  }
   if (data.location) document.getElementById("f-location").value = data.location;
   if (data.notes)    document.getElementById("f-notes").value    = data.notes;
 
@@ -3410,7 +3424,10 @@ function populateFormFromVoice(data) {
     updateRateRow("f", code, defCur, null);
     state.formItemsCurrency = code;
   }
-  if (data.date)     document.getElementById("f-date").value     = data.date;
+  if (data.date) {
+    document.getElementById("f-date").value = data.date;
+    if (!isIncome) loadCustomBudgetSelect('f-budget-tag', document.getElementById('f-budget-tag').value, data.date);
+  }
   if (data.location && !isIncome) document.getElementById("f-location").value = data.location;
 
   const pm = data.payment_method && getPaymentMethods().includes(data.payment_method) ? data.payment_method : null;
@@ -3625,6 +3642,7 @@ let _historyCustomFrom  = '';
 let _historyCustomTo    = '';
 let _historyShowArchivedCats  = false;
 let _historyShowArchivedPmts  = false;
+let _historyShowArchivedBudgets = false;
 let _histViewMode       = 'list';
 let _historyFiltered    = [];
 let _historyShownDays   = 5;
@@ -3683,6 +3701,7 @@ function clearHistoryFilters() {
   _historyShownDays = 5;
   _historyShowArchivedCats = false;
   _historyShowArchivedPmts = false;
+  _historyShowArchivedBudgets = false;
   renderHistoryFilterSheet();
   updateHistoryFilterBadge();
   filterHistory();
@@ -3766,7 +3785,7 @@ function renderHistoryFilterSheet() {
     const fromEl = document.getElementById('hf-custom-from');
     const toEl   = document.getElementById('hf-custom-to');
     if (fromEl) fromEl.value = _historyCustomFrom;
-    if (toEl)   toEl.value   = _historyCustomTo;
+    if (toEl)   { toEl.value = _historyCustomTo; toEl.min = _historyCustomFrom || ''; }
   }
 
   _renderHFChips('hf-type',
@@ -3779,16 +3798,32 @@ function renderHistoryFilterSheet() {
 
   const budgetMap = Object.fromEntries(getCustomBudgets().map(b => [b.id, b]));
   const budgetIds = [...new Set(_historySorted.map(e => e.budgetId).filter(Boolean))];
+  const activeBudgetIds   = budgetIds.filter(id => !isBudgetArchived(budgetMap[id] || {}));
+  const archivedBudgetIds = budgetIds.filter(id => isBudgetArchived(budgetMap[id] || {}));
   const budgetSection = document.getElementById('hf-budget')?.closest('div.mb-4');
   if (budgetSection) budgetSection.style.display = budgetIds.length ? '' : 'none';
   if (budgetIds.length) {
     _renderHFChips('hf-budget',
-      ['All', ...budgetIds],
-      id => id === 'All' ? _historySelBudgets.size === 0 : _historySelBudgets.has(id),
-      id => id === 'All' ? '#006b55' : (budgetMap[id]?.color || '#006b55'),
-      id => () => selectHistoryBudget(id),
-      id => id === 'All' ? 'All' : esc(budgetMap[id]?.name || id)
+      ['All', ...activeBudgetIds, ...(archivedBudgetIds.length ? ['Archived'] : [])],
+      id => id === 'Archived' ? _historyShowArchivedBudgets : (id === 'All' ? _historySelBudgets.size === 0 : _historySelBudgets.has(id)),
+      id => id === 'All' || id === 'Archived' ? '#006b55' : (budgetMap[id]?.color || '#006b55'),
+      id => () => id === 'Archived' ? toggleArchivedBudgets() : selectHistoryBudget(id),
+      id => id === 'All' ? 'All' : id === 'Archived' ? '🗄️ Archived' : esc(budgetMap[id]?.name || id)
     );
+  }
+
+  const archivedBudgetEl = document.getElementById('hf-budget-archived');
+  if (archivedBudgetEl) {
+    archivedBudgetEl.classList.toggle('hidden', !_historyShowArchivedBudgets || !archivedBudgetIds.length);
+    if (_historyShowArchivedBudgets) {
+      _renderHFChips('hf-budget-archived',
+        archivedBudgetIds,
+        id => _historySelBudgets.has(id),
+        id => budgetMap[id]?.color || '#8a8d91',
+        id => () => selectHistoryBudget(id),
+        id => '🗑️ ' + esc(budgetMap[id]?.name || id)
+      );
+    }
   }
 }
 
@@ -3862,6 +3897,11 @@ function toggleArchivedCats() {
 
 function toggleArchivedPmts() {
   _historyShowArchivedPmts = !_historyShowArchivedPmts;
+  renderHistoryFilterSheet();
+}
+
+function toggleArchivedBudgets() {
+  _historyShowArchivedBudgets = !_historyShowArchivedBudgets;
   renderHistoryFilterSheet();
 }
 
@@ -4376,7 +4416,7 @@ function openEdit() {
 
   const editBudgetWrap = document.getElementById('edit-budget-wrap');
   if (editBudgetWrap) editBudgetWrap.classList.toggle('hidden', editIncome);
-  if (!editIncome) loadCustomBudgetSelect('edit-budget-tag', exp.budgetId || null);
+  if (!editIncome) loadCustomBudgetSelect('edit-budget-tag', exp.budgetId || null, exp.date || null);
 
   state.editItems         = (exp.items || []).map(i => ({ name: i.name || "", price: i.price ?? null, quantity: i.quantity ?? 1 }));
   state.editItemsCurrency = cur.toUpperCase();
@@ -4627,7 +4667,39 @@ function retrieveSimilarSummaries(spending, daysElapsed, daysInMonth, nResults =
     .map(({ period, text }) => ({ period, text }));
 }
 
+function _buildBudgetContext(breakdown, defCur) {
+  const lines = [];
+
+  const budget = getBudget();
+  if (budget) {
+    const spent     = Object.values(breakdown).reduce((s, v) => s + v, 0);
+    const remaining = budget - spent;
+    lines.push(
+      `Overall monthly budget: ${fmtAmount(spent, defCur)} of ${fmtAmount(budget, defCur)} spent ` +
+      `(${remaining >= 0 ? fmtAmount(remaining, defCur) + ' left' : fmtAmount(Math.abs(remaining), defCur) + ' over'}).`
+    );
+  }
+
+  const customBudgets = getCustomBudgets().filter(b => !isBudgetArchived(b) && !isBudgetUpcoming(b));
+  for (const b of customBudgets) {
+    const spent     = computeCustomBudgetSpent(b);
+    const remaining = b.amount - spent;
+    const scope     = b.type === 'category'
+      ? `${b.category}, this month`
+      : (b.startDate || b.endDate ? `${b.startDate || '?'} to ${b.endDate || '?'}` : 'one-time');
+    lines.push(
+      `${b.name} (${scope}): ${fmtAmount(spent, defCur)} of ${fmtAmount(b.amount, defCur)} spent ` +
+      `(${remaining >= 0 ? fmtAmount(remaining, defCur) + ' left' : fmtAmount(Math.abs(remaining), defCur) + ' over'}).`
+    );
+  }
+
+  return lines.join("\n") || "No budgets set.";
+}
+
 // ── Summary (charts) ──────────────────────────────────────────────────────────
+let _lastSummaryBreakdown = null;
+let _lastSummaryDefCur    = null;
+
 async function loadSummary() {
   await loadRates();
   const data   = computeSummary();
@@ -4636,14 +4708,25 @@ async function loadSummary() {
   document.getElementById("sum-today").textContent = fmtAmount(data.today_total, defCur);
   renderPieChart(data.category_breakdown, defCur);
   renderBarChart(data.daily_chart, defCur);
+  _lastSummaryBreakdown = data.category_breakdown;
+  _lastSummaryDefCur    = defCur;
   loadAiOverview(data.category_breakdown, defCur);
 }
 
-async function loadAiOverview(breakdown, defCur) {
+function refreshAiOverview() {
+  if (!_lastSummaryBreakdown) return;
+  const btn = document.getElementById("ai-overview-refresh");
+  if (btn) { btn.disabled = true; btn.classList.add("animate-spin"); }
+  kvDelete('flo_ai_overview_cache');
+  loadAiOverview(_lastSummaryBreakdown, _lastSummaryDefCur, { force: true })
+    .finally(() => { if (btn) { btn.disabled = false; btn.classList.remove("animate-spin"); } });
+}
+
+async function loadAiOverview(breakdown, defCur, { force = false } = {}) {
   const el = document.getElementById("ai-overview-text");
   if (!el) return;
 
-  const cached = JSON.parse(kvGet('flo_ai_overview_cache') || 'null');
+  const cached = !force && JSON.parse(kvGet('flo_ai_overview_cache') || 'null');
   if (cached) {
     document.getElementById("ai-overview-card").classList.remove("hidden");
     el.textContent = cached.overview;
@@ -4677,13 +4760,19 @@ async function loadAiOverview(breakdown, defCur) {
   const spendingJson  = JSON.stringify(breakdown);
 
   try {
-    const retrieved = retrieveSimilarSummaries(breakdown, daysElapsed, daysInMonth);
+    // Keep the historical-summary store in sync with actual past-month expenses —
+    // it's otherwise only populated via CSV import, so manually-entered months
+    // would never show up as comparison history.
+    rebuildSummariesFromExpenses(getExpenses());
+    const retrieved     = retrieveSimilarSummaries(breakdown, daysElapsed, daysInMonth);
+    const budgetContext = _buildBudgetContext(breakdown, defCur);
 
     const params = new URLSearchParams({
       spending_json:  spendingJson,
       days_elapsed:   daysElapsed,
       days_in_month:  daysInMonth,
       retrieved_json: JSON.stringify(retrieved),
+      budget_context: budgetContext,
     });
 
     const r = await fetch(`/api/summary/overview?${params}`);
@@ -5168,7 +5257,7 @@ function saveCustomBudgetFromForm() {
   document.getElementById('cb-name').value   = '';
   document.getElementById('cb-amount').value = '';
   if (document.getElementById('cb-start')) document.getElementById('cb-start').value = '';
-  if (document.getElementById('cb-end'))   document.getElementById('cb-end').value   = '';
+  if (document.getElementById('cb-end'))   { document.getElementById('cb-end').value = ''; document.getElementById('cb-end').min = ''; }
 
   loadCustomBudgetsPrefs();
   renderCustomBudgetsHome();
@@ -5208,7 +5297,10 @@ function editCustomBudget(id) {
   document.getElementById('ecb-name').value   = budget.name || '';
   document.getElementById('ecb-amount').value = budget.amount || '';
   if (document.getElementById('ecb-start')) document.getElementById('ecb-start').value = budget.startDate || '';
-  if (document.getElementById('ecb-end'))   document.getElementById('ecb-end').value   = budget.endDate   || '';
+  if (document.getElementById('ecb-end')) {
+    document.getElementById('ecb-end').value = budget.endDate || '';
+    document.getElementById('ecb-end').min   = budget.startDate || '';
+  }
   if (catSel && budget.category) catSel.value = budget.category;
 
   const isCategory = _cbEditType === 'category';
@@ -6006,6 +6098,26 @@ async function hydrateCentroids() {
   } catch (e) { console.warn("base centroid fetch failed:", e); }
 }
 
+// Prevents picking an end date earlier than the paired start date on any
+// start/end date-range input pair.
+function linkDateRange(startId, endId) {
+  const startEl = document.getElementById(startId);
+  const endEl   = document.getElementById(endId);
+  if (!startEl || !endEl) return;
+  startEl.addEventListener('change', () => {
+    endEl.min = startEl.value || '';
+    if (startEl.value && endEl.value && endEl.value < startEl.value) {
+      endEl.value = startEl.value;
+    }
+  });
+  endEl.addEventListener('change', () => {
+    if (startEl.value && endEl.value && endEl.value < startEl.value) {
+      endEl.value = startEl.value;
+    }
+  });
+  endEl.min = startEl.value || '';
+}
+
 async function init() {
   await hydrateKvCache(); // must resolve before anything below reads kv-backed data
 
@@ -6065,6 +6177,11 @@ async function init() {
                          document.getElementById('view-home')?.classList.contains('active');
     btn.classList.toggle('hidden', !onScrollable || scroller.scrollTop < 200);
   });
+  linkDateRange('cb-start', 'cb-end');
+  linkDateRange('ecb-start', 'ecb-end');
+  linkDateRange('ief-start', 'ief-end');
+  linkDateRange('edit-ief-start', 'edit-ief-end');
+  linkDateRange('hf-custom-from', 'hf-custom-to');
   _initReceiptZoom();
   _initVerifyZoom();
   _initRefZoom();
