@@ -187,6 +187,12 @@ def api_scan_receipt():
         return jsonify({"success": True, "data": data})
     except receipt.NotAReceiptError as e:
         return jsonify({"error": str(e), "error_code": "not_a_receipt"}), 422
+    except receipt.SuspiciousReceiptError as e:
+        return jsonify({
+            "error": str(e),
+            "error_code": "suspicious_visual_injection",
+            "reasons": e.reasons,
+        }), 422
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
     except Exception as e:

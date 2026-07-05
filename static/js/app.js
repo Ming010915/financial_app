@@ -2057,11 +2057,13 @@ async function _runBackgroundScan(id, file, abort) {
     const scans = getPendingScans();
     const scan  = scans.find(s => s.id === id);
     if (scan) {
-      if (e.errorCode === 'not_a_receipt') {
+      if (e.errorCode === 'not_a_receipt' || e.errorCode === 'suspicious_visual_injection') {
         scan.status       = 'not_receipt';
+        scan.errorCode    = e.errorCode;
         scan.errorMessage = e.message;
       } else {
         scan.status       = 'error';
+        scan.errorCode    = e.errorCode || null;
         scan.errorMessage = e.message || 'Analysis failed';
       }
       savePendingScans(scans);
@@ -2069,8 +2071,10 @@ async function _runBackgroundScan(id, file, abort) {
     delete _pendingScansAborts[id];
 
     updateNotificationBadge();
-    if (e.errorCode === 'not_a_receipt') {
-      showToast('Not a receipt — tap to view', true);
+    if (e.errorCode === 'not_a_receipt' || e.errorCode === 'suspicious_visual_injection') {
+      showToast(e.errorCode === 'suspicious_visual_injection'
+        ? 'Suspicious receipt — tap to view'
+        : 'Not a receipt — tap to view', true);
     } else {
       showToast('Scan failed: ' + (e.message || 'unknown error'), true);
     }
@@ -2098,7 +2102,7 @@ function resumePendingScan(id) {
 
 function showVerifyErrorView(scan) {
   state.currentPendingScanId = scan.id;
-  state.receiptFile          = _pendingScansFiles[scan.id] || null;
+  state.receiptFile          = _pendingScansFiles[scan.id] || state.receiptFile || null;
 
   const imgEl  = document.getElementById("verify-img");
   const pdfEl  = document.getElementById("verify-pdf");
@@ -2130,6 +2134,10 @@ function showVerifyErrorView(scan) {
   panel.scrollLeft = 0;
 
   const msgEl = document.getElementById("verify-error-msg");
+  const titleEl = document.getElementById("verify-error-title");
+  if (titleEl) titleEl.textContent = scan.errorCode === 'suspicious_visual_injection'
+    ? "Suspicious receipt"
+    : "Not a receipt";
   if (msgEl) msgEl.textContent = scan.errorMessage || "This file doesn't appear to be a receipt.";
 
   document.getElementById("verify-divider")?.classList.add("hidden");
@@ -2519,6 +2527,15 @@ async function analyzeScanReceipt() {
   } catch (e) {
     // Cancelled request — silently ignore, the user has already moved on.
     if (e.name === "AbortError" || abort.signal.aborted) return;
+    if (e.errorCode === 'not_a_receipt' || e.errorCode === 'suspicious_visual_injection') {
+      if (spinnerEl) spinnerEl.classList.add("hidden");
+      showVerifyErrorView({
+        id: null,
+        errorCode: e.errorCode,
+        errorMessage: e.message,
+      });
+      return;
+    }
     showToast(e.retryable ? e.message : "Failed: " + e.message, true);
     if (statusEl)  statusEl.textContent = "Analysis failed";
     if (spinnerEl) spinnerEl.classList.add("hidden");

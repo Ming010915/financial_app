@@ -8,12 +8,49 @@ from datetime import date
 
 from services import classifier
 from services.gemini_utils import generate_with_fallback
-from services.prompts import build_receipt_prompt, TRANSACTION_SCHEMA
+from services.prompts import (
+    build_receipt_prompt,
+    build_receipt_safety_prompt,
+    RECEIPT_SAFETY_SCHEMA,
+    TRANSACTION_SCHEMA,
+)
 from config import GEMINI_MODELS, ASK_BELOW
 
 
 class NotAReceiptError(ValueError):
     pass
+
+
+class SuspiciousReceiptError(ValueError):
+    def __init__(self, message: str, reasons: list[str] | None = None):
+        super().__init__(message)
+        self.reasons = reasons or []
+
+
+def _ensure_safe_to_parse(client, image_part):
+    """Fail closed if the image contains visual prompt-injection cues."""
+    from google.genai import types
+
+    config = types.GenerateContentConfig(
+        response_mime_type = "application/json",
+        response_schema    = RECEIPT_SAFETY_SCHEMA,
+    )
+    response = generate_with_fallback(lambda model: client.models.generate_content(
+        model    = model,
+        contents = [build_receipt_safety_prompt(), image_part],
+        config   = config,
+    ), GEMINI_MODELS)
+    safety = json.loads(response.text)
+    if safety.get("safe_to_parse") is not True:
+        reasons = safety.get("reasons") or []
+        if not isinstance(reasons, list):
+            reasons = [str(reasons)]
+        detail = "; ".join(str(r) for r in reasons if r) or "instruction-like text was detected"
+        raise SuspiciousReceiptError(
+            "This receipt contains possible AI/OCR override instructions and was not "
+            f"automatically processed. Reason: {detail}",
+            reasons,
+        )
 
 
 def scan_receipt(image_data: bytes, mime_type: str,
@@ -29,6 +66,7 @@ def scan_receipt(image_data: bytes, mime_type: str,
     prompt     = build_receipt_prompt(payment_methods or [])
     client     = get_genai_client()
     image_part = types.Part.from_bytes(data=image_data, mime_type=mime_type)
+    _ensure_safe_to_parse(client, image_part)
     config     = types.GenerateContentConfig(
         response_mime_type = "application/json",
         response_schema    = TRANSACTION_SCHEMA,
@@ -44,6 +82,13 @@ def scan_receipt(image_data: bytes, mime_type: str,
         raise NotAReceiptError(
             "This file doesn't appear to be a receipt. "
             "Please upload an image or PDF of a receipt, invoice, or bill."
+        )
+    if extracted.get("suspicious_visual_injection") is True:
+        reason = extracted.get("suspicious_reason") or "instruction-like text was detected"
+        raise SuspiciousReceiptError(
+            "This receipt contains possible AI/OCR override instructions and was not "
+            f"automatically processed. Reason: {reason}",
+            [str(reason)],
         )
 
     extracted.setdefault("transaction_type", "expense")
