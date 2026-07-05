@@ -46,11 +46,13 @@
       <div class="mb-4">
         <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-2">Category</div>
         <div id="hf-cat" class="flex flex-wrap gap-1.5"></div>
+        <div id="hf-cat-archived" class="hidden flex flex-wrap gap-1.5 mt-1.5 pt-1.5 border-t border-dashed border-[#e8e9ea]"></div>
       </div>
       <!-- Payment -->
       <div class="mb-4">
         <div class="text-xs font-semibold text-[#44474a] uppercase tracking-wider mb-2">Payment method</div>
         <div id="hf-payment" class="flex flex-wrap gap-1.5"></div>
+        <div id="hf-payment-archived" class="hidden flex flex-wrap gap-1.5 mt-1.5 pt-1.5 border-t border-dashed border-[#e8e9ea]"></div>
       </div>
       <!-- Budget -->
       <div class="mb-4">
@@ -352,8 +354,8 @@
           <input id="edit-merchant" type="text"
                  class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
         </div>
-        <!-- Amount + Currency -->
-        <div class="grid grid-cols-3 gap-2 mb-3">
+        <!-- Amount + Currency + Date -->
+        <div class="grid grid-cols-5 gap-2 mb-3">
           <div class="col-span-2">
             <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Amount</label>
             <div class="relative">
@@ -364,11 +366,29 @@
             </div>
             <p id="edit-amount-converted" class="hidden mt-1 text-xs text-gray-400"></p>
           </div>
-          <div>
-            <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">CCY</label>
+          <div class="col-span-1">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs font-semibold text-[#44474a]">CCY</label>
+              <button type="button" onclick="toggleInlineAddCurrency('edit')" class="text-[10px] text-[#006b55] font-bold leading-none">+</button>
+            </div>
             <select id="edit-currency"
                     class="w-full px-1 py-2.5 border border-[#c5c6ca] rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white text-center"
                     onchange="updateEditCurrencyRate(this.value)"></select>
+          </div>
+          <div class="col-span-2">
+            <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Date</label>
+            <input id="edit-date" type="date"
+                   class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+          </div>
+        </div>
+        <!-- Inline add currency -->
+        <div id="edit-inline-add-currency-wrap" class="hidden -mt-2 mb-3">
+          <div class="flex gap-2 items-center">
+            <input id="edit-icu-code" type="text" placeholder="e.g. THB" maxlength="5"
+                   class="w-24 px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white"
+                   oninput="this.value=this.value.toUpperCase()" />
+            <button type="button" onclick="saveInlineCurrency('edit')" class="px-3 py-2 bg-[#006b55] text-white rounded-xl text-sm font-bold">Add</button>
+            <button type="button" onclick="toggleInlineAddCurrency('edit')" class="px-2 py-2 border border-[#c5c6ca] text-[#44474a] rounded-xl text-sm">✕</button>
           </div>
         </div>
         <!-- Exchange rate row -->
@@ -381,12 +401,6 @@
                  class="flex-1 min-w-0 px-2 py-1 border border-[#6dfad2] rounded-xl text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
           <span id="edit-rate-note" class="text-[10px] text-emerald-500 flex-shrink-0"></span>
         </div>
-        <!-- Date -->
-        <div class="mb-3">
-          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Date</label>
-          <input id="edit-date" type="date"
-                 class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
-        </div>
         <!-- Items -->
         <div class="mb-4">
           <div class="flex items-center justify-between mb-2">
@@ -397,15 +411,26 @@
           <div class="flex items-center gap-2 mb-1 px-1">
             <span class="flex-1 text-[10px] text-[#44474a]">Name</span>
             <span class="w-12 text-[10px] text-[#44474a] text-center">Qty</span>
-            <span class="w-24 text-[10px] text-[#44474a] text-center">Price</span>
+            <span class="w-24 text-[10px] text-[#44474a] text-right pr-1">Price</span>
             <span class="w-7"></span>
           </div>
           <div id="edit-items-list" class="space-y-2"></div>
         </div>
         <!-- Category -->
         <div class="mb-3">
-          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Category</label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-semibold text-[#44474a]">Category</label>
+            <button type="button" onclick="toggleInlineAddCategory('edit')" class="text-xs text-[#006b55] font-bold">+ Add</button>
+          </div>
           <div id="edit-cat-buttons" class="flex flex-wrap gap-1.5"></div>
+          <div id="edit-inline-add-category-form" class="hidden mt-2 flex gap-2 items-center">
+            <input id="edit-iac-emoji" type="text" placeholder="📦" maxlength="2"
+                   class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+            <input id="edit-iac-name" type="text" placeholder="Category name"
+                   class="flex-1 px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+            <button type="button" onclick="saveInlineCategory('edit')" class="px-3 py-2 bg-[#006b55] text-white rounded-xl text-sm font-bold">Add</button>
+            <button type="button" onclick="toggleInlineAddCategory('edit')" class="px-2 py-2 border border-[#c5c6ca] text-[#44474a] rounded-xl text-sm">✕</button>
+          </div>
         </div>
         <!-- Notes -->
         <div class="mb-3">
@@ -415,11 +440,32 @@
         </div>
         <!-- Event Budget tag -->
         <div class="mb-3 hidden" id="edit-budget-wrap">
-          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Event Budget <span class="text-[10px] font-normal">(optional)</span></label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-semibold text-[#44474a]">Event Budget <span class="text-[10px] font-normal">(optional)</span></label>
+            <button type="button" onclick="toggleInlineEventBudget('edit')" class="text-xs text-[#006b55] font-bold">+ New event</button>
+          </div>
           <select id="edit-budget-tag"
                   class="w-full px-3 py-2.5 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white">
             <option value="">— No event budget —</option>
           </select>
+          <div id="edit-inline-event-budget-form" class="hidden mt-2 p-3 bg-[#f8f9fa] rounded-2xl border border-[#e8e9ea] space-y-2">
+            <input id="edit-ief-name" type="text" placeholder="Event name (e.g. Trip to Thailand)"
+                   class="w-full px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+            <div class="relative">
+              <span id="edit-ief-sym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[#44474a] text-sm font-semibold pointer-events-none">€</span>
+              <input id="edit-ief-amount" type="text" inputmode="decimal" placeholder="Budget limit"
+                     oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1')"
+                     class="w-full pl-7 pr-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input id="edit-ief-start" type="date" placeholder="Start (opt.)" class="w-full px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+              <input id="edit-ief-end" type="date" placeholder="End (opt.)" class="w-full px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+            </div>
+            <div class="flex gap-2">
+              <button type="button" onclick="saveInlineEventBudget('edit')" class="flex-1 py-2 bg-[#006b55] text-white rounded-xl text-sm font-bold">Create &amp; Select</button>
+              <button type="button" onclick="toggleInlineEventBudget('edit')" class="px-3 py-2 border border-[#c5c6ca] text-[#44474a] rounded-xl text-sm font-semibold">Cancel</button>
+            </div>
+          </div>
         </div>
         <!-- Location -->
         <div class="mb-3" id="edit-location-wrap">
@@ -439,8 +485,19 @@
         </div>
         <!-- Payment Method -->
         <div class="mb-3">
-          <label class="text-xs font-semibold text-[#44474a] mb-1.5 block">Payment Method</label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-semibold text-[#44474a]">Payment Method</label>
+            <button type="button" onclick="toggleInlineAddPayment('edit')" class="text-xs text-[#006b55] font-bold">+ Add</button>
+          </div>
           <div id="edit-payment-buttons" class="flex flex-wrap gap-1.5"></div>
+          <div id="edit-inline-add-payment-form" class="hidden mt-2 flex gap-2 items-center">
+            <input id="edit-iap-emoji" type="text" placeholder="💳" maxlength="2"
+                   class="w-12 px-2 py-2 border border-[#c5c6ca] rounded-xl text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+            <input id="edit-iap-name" type="text" placeholder="e.g. Revolut"
+                   class="flex-1 px-3 py-2 border border-[#c5c6ca] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] bg-white" />
+            <button type="button" onclick="saveInlinePayment('edit')" class="px-3 py-2 bg-[#006b55] text-white rounded-xl text-sm font-bold">Add</button>
+            <button type="button" onclick="toggleInlineAddPayment('edit')" class="px-2 py-2 border border-[#c5c6ca] text-[#44474a] rounded-xl text-sm">✕</button>
+          </div>
         </div>
         <!-- Buttons -->
         <div class="grid grid-cols-2 gap-3">

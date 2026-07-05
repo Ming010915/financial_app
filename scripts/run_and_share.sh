@@ -13,9 +13,12 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Start the Flask app in the background
+# Start the Flask app in the background.
+# PYTHONWARNINGS silences the benign "leaked semaphore" warning that
+# joblib/loky prints when Ctrl+C kills the process before its worker
+# pool finishes its normal cleanup.
 echo "Starting python app.py..."
-python app.py &
+PYTHONWARNINGS="ignore::UserWarning:multiprocessing.resource_tracker" python app.py &
 APP_PID=$!
 
 # Give the app a moment to bind to the port
