@@ -116,8 +116,8 @@ def api_classify():
     if not name:
         return jsonify({"error": "Name is required"}), 400
 
-    local_cents, local_ovrs = classifier.parse_client_centroids(body)
-    pred, conf, emb, top3   = classifier.do_classify(name, local_cents, local_ovrs)
+    local_cents, local_ovrs        = classifier.parse_client_centroids(body)
+    pred, conf, emb, top3, is_ovr  = classifier.do_classify(name, local_cents, local_ovrs)
     classifier.embedding_cache[name] = emb
 
     cent = local_cents if local_cents is not None else classifier.centroids
@@ -128,6 +128,7 @@ def api_classify():
         "needs_review": conf < ASK_BELOW,
         "top3":         top3,
         "categories":   list(cent.keys()) + ["Others"],
+        "is_override":  is_ovr,
     })
 
 
@@ -137,7 +138,6 @@ def api_learn():
     body     = request.get_json(silent=True) or {}
     merchant = body.get("merchant", "").strip()
     category = body.get("category", "").strip()
-    original = body.get("original_category", "").strip()
 
     if not merchant or not category:
         return jsonify({"error": "merchant and category required"}), 400
@@ -145,11 +145,15 @@ def api_learn():
     local_cents, local_ovrs = classifier.parse_client_centroids(body)
     ovrs = local_ovrs if local_ovrs is not None else classifier.overrides
 
-    emb = classifier.embedding_cache.pop(merchant, None)
-    if emb is None:
-        _, _, emb, _ = classifier.do_classify(merchant, local_cents, ovrs)
+    classifier.embedding_cache.pop(merchant, None)
+    # Compare against a fresh classification rather than a client-reported
+    # "original category" — the client's value can be stale (e.g. the user
+    # picks a category before the debounced auto-classify call for the
+    # current merchant text has resolved), which under-saves overrides and
+    # leaves the merchant's classification dependent on centroid drift.
+    pred, _, emb, _, _ = classifier.do_classify(merchant, local_cents, ovrs)
 
-    if original and category != original:
+    if category != pred:
         ovrs[merchant.lower()] = category
 
     # Skip centroid update when an override exists — the override already

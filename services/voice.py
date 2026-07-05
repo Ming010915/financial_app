@@ -136,19 +136,22 @@ def _finalize_extracted(extracted: dict) -> dict:
         extracted["needs_review"]       = False
         extracted["top3"]               = []
         extracted["categories"]         = INCOME_CATEGORIES
+        extracted["is_override"]        = False
     elif merchant:
-        pred, conf, emb, top3 = classifier.do_classify(merchant)
+        pred, conf, emb, top3, is_ovr = classifier.do_classify(merchant)
         classifier.embedding_cache[merchant] = emb
         extracted["predicted_category"] = pred
         extracted["confidence"]         = conf
         extracted["needs_review"]       = conf < ASK_BELOW
         extracted["top3"]               = top3
         extracted["categories"]         = list(classifier.centroids.keys()) + ["Others"]
+        extracted["is_override"]        = is_ovr
     else:
         extracted["predicted_category"] = "Others"
         extracted["confidence"]         = 0.0
         extracted["needs_review"]       = True
         extracted["top3"]               = []
         extracted["categories"]         = list(classifier.centroids.keys()) + ["Others"]
+        extracted["is_override"]        = False
 
     return extracted

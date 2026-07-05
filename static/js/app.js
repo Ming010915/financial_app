@@ -575,7 +575,6 @@ const BUILTIN_CURRENCIES = [
 const state = {
   categories:       [],
   selectedCategory: null,
-  originalCategory: null,
   selectedPayment:  null,
   isIncome:         false,
   isRecurring:      false,
@@ -1778,9 +1777,54 @@ function selectPayment(method, containerId) {
   }
 }
 
+// Re-classify a merchant against THIS browser's learned centroids + overrides.
+// The receipt/voice scans classify server-side with the shared model only, so
+// per-user corrections (e.g. an override mapping "kaufland" → Groceries) never
+// apply to them — call this before showing a scanned category so learned
+// categories stick. Returns { prediction, confidence } or null on failure.
+async function reclassifyLocally(merchant) {
+  if (!merchant) return null;
+  try {
+    const r = await fetch("/api/classify", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ name: merchant, ...getCentroids() }),
+    });
+    const c = await r.json();
+    if (c && !c.error && c.prediction) {
+      return { prediction: c.prediction, confidence: c.confidence, isOverride: !!c.is_override };
+    }
+  } catch (e) { /* fall back to the server prediction on failure */ }
+  return null;
+}
+
+// Renders the "Auto: 80% confidence" / "Override" pill under the category
+// buttons on the add-expense form, so the user can tell whether the chosen
+// category came from a merchant rule they taught before or the ML model's
+// nearest-centroid guess.
+function setCatConfidence(confEl, conf, isOverride, label) {
+  if (isOverride) {
+    confEl.textContent = `${label}: Override`;
+    confEl.className   = "text-xs text-[#006b55] dark:text-[#6dfad2] font-semibold";
+  } else {
+    const pct = Math.round((conf || 0) * 100);
+    confEl.textContent = `${label}: ${pct}% confidence`;
+    confEl.className   = `text-xs ${(conf || 0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
+  }
+  confEl.classList.remove("hidden");
+}
+
+// Debounces autoClassify() so edits to the merchant field (not just blur)
+// keep the category chip in sync — e.g. typing "Kaufland shop" then deleting
+// " shop" should fall back from a "Kaufland shop" override to a plain
+// "Kaufland" override instead of leaving the stale category selected.
+let _autoClassifyTimer = null;
+function scheduleAutoClassify() {
+  clearTimeout(_autoClassifyTimer);
+  _autoClassifyTimer = setTimeout(autoClassify, 350);
+}
+
 async function autoClassify() {
-  if (state.isReceipt) return;
-  if (state.isIncome)  return;
+  if (state.isIncome) return;
   const merchant = document.getElementById("f-merchant").value.trim();
   if (!merchant) return;
   try {
@@ -1789,14 +1833,13 @@ async function autoClassify() {
       body: JSON.stringify({ name: merchant, ...getCentroids() }),
     });
     const data = await r.json();
+    // Discard stale responses: if the merchant field changed while this
+    // request was in flight, a newer request already owns the result.
+    if (document.getElementById("f-merchant").value.trim() !== merchant) return;
     if (data.error || !data.prediction) return;
     selectCategory(data.prediction);
-    state.originalCategory = data.prediction;
     const confEl = document.getElementById("cat-confidence");
-    const pct    = Math.round(data.confidence * 100);
-    confEl.textContent = `Auto: ${pct}% confidence`;
-    confEl.className   = `text-xs hidden ${data.confidence >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
-    confEl.classList.remove("hidden");
+    setCatConfidence(confEl, data.confidence, !!data.is_override, "Auto");
   } catch (e) { /* silent */ }
 }
 
@@ -2649,9 +2692,14 @@ function resetForm() {
   state.recurringConfirmMode = false;
   state.recurringScope   = 'once';
   state.selectedCategory = null;
-  state.originalCategory = null;
   state.selectedPayment  = null;
   state.receiptItems     = [];
+  // A stale isReceipt/isVoice from a previous scan or voice entry would
+  // otherwise survive into a fresh manual "Add Expense" — silently blocking
+  // autoClassify() (it bails out early on isReceipt) and mislabeling the
+  // saved expense's source.
+  state.isReceipt        = false;
+  state.isVoice          = false;
   renderCatButtons(null);
   renderPaymentButtons(null, "payment-buttons");
   loadCustomBudgetSelect('f-budget-tag', null);
@@ -2951,7 +2999,7 @@ function cancelVerifyView() {
   showView(fromBackground ? 'home' : 'scan');
 }
 
-function confirmVerify() {
+async function confirmVerify() {
   if (!state.pendingReceiptData) return;
   const data = { ...state.pendingReceiptData };
   data.merchant = document.getElementById("v-merchant").value.trim();
@@ -2962,6 +3010,16 @@ function confirmVerify() {
   if (_verifyBlobUrl) { URL.revokeObjectURL(_verifyBlobUrl); _verifyBlobUrl = null; }
   const wrap = document.getElementById("verify-pdf-canvas-wrap");
   if (wrap) wrap.innerHTML = "";
+
+  // Re-classify the (possibly edited) merchant against this browser's learned
+  // overrides so a category the user taught previously sticks on the next scan.
+  const local = await reclassifyLocally(data.merchant);
+  if (local) {
+    data.predicted_category = local.prediction;
+    data.confidence         = local.confidence;
+    data.is_override        = local.isOverride;
+  }
+
   populateFormFromReceipt(data);
   showToast("Receipt verified successfully!");
 }
@@ -2999,13 +3057,9 @@ function populateFormFromReceipt(data) {
 
   const cat = data.predicted_category || "Others";
   selectCategory(cat);
-  state.originalCategory = cat;
 
   const confEl = document.getElementById("cat-confidence");
-  const pct    = Math.round((data.confidence || 0) * 100);
-  confEl.textContent = `Detected: ${pct}% confidence`;
-  confEl.className   = `text-xs ${(data.confidence||0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
-  confEl.classList.remove("hidden");
+  setCatConfidence(confEl, data.confidence, !!data.is_override, "Detected");
 
   renderAddFormItems();
   checkAmountMismatch();
@@ -3368,13 +3422,23 @@ function populateFormFromVoice(data) {
     renderIncomeCatButtons(cat);
   } else {
     selectCategory(cat);
-    state.originalCategory = cat;
 
     const confEl = document.getElementById("cat-confidence");
-    const pct    = Math.round((data.confidence || 0) * 100);
-    confEl.textContent = `Voice: ${pct}% confidence`;
-    confEl.className   = `text-xs ${(data.confidence || 0) >= 0.6 ? "text-emerald-500" : "text-amber-500"}`;
-    confEl.classList.remove("hidden");
+    setCatConfidence(confEl, data.confidence, !!data.is_override, "Voice");
+
+    // Voice extraction classifies server-side with the shared model only, so
+    // this browser's learned overrides (e.g. "kaufland" → Groceries) weren't
+    // applied. Re-classify locally and correct the chip if it changed — but
+    // only if the user hasn't already edited the merchant field meanwhile
+    // (checked by value, not selectedCategory, so a live edit that lands on
+    // the same category as the stale voice guess isn't mistaken for "unchanged").
+    reclassifyLocally(data.merchant).then(local => {
+      if (!local || state.isIncome) return;
+      if (document.getElementById("f-merchant").value.trim() !== data.merchant) return;
+      if (local.prediction === cat) return;
+      selectCategory(local.prediction);
+      setCatConfidence(confEl, local.confidence, local.isOverride, "Voice");
+    });
   }
 
   if (!isIncome) renderAddFormItems();
@@ -3496,7 +3560,6 @@ async function saveExpense() {
         body: JSON.stringify({
           merchant,
           category,
-          original_category: state.originalCategory || "",
           ...getCentroids(),
         }),
       }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids({ ...getCentroids(), ...d.centroids }); }).catch(() => {});
@@ -4484,7 +4547,7 @@ async function saveEdit() {
     if (!editIncome && category && category !== oldCat) {
       fetch("/api/learn", {
         method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ merchant, category, original_category: oldCat, ...getCentroids() }),
+        body: JSON.stringify({ merchant, category, ...getCentroids() }),
       }).then(r => r.json()).then(d => { if (d.centroids) saveCentroids({ ...getCentroids(), ...d.centroids }); }).catch(() => {});
     }
 

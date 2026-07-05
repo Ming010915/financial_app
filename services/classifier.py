@@ -139,7 +139,9 @@ def parse_client_centroids(body: dict):
 def do_classify(name: str, local_cents=None, local_ovrs=None):
     """
     Classify a merchant name.
-    Returns (prediction, confidence, embedding, top3_list).
+    Returns (prediction, confidence, embedding, top3_list, is_override) —
+    is_override is True when the prediction came from a learned merchant
+    override rather than the nearest-centroid model.
     """
     cent      = local_cents if local_cents is not None else centroids
     ovr       = local_ovrs  if local_ovrs  is not None else overrides
@@ -148,10 +150,10 @@ def do_classify(name: str, local_cents=None, local_ovrs=None):
 
     override = ovr.get(name.lower().strip())
     if override is not None:
-        return override, 1.0, embedding, [{"category": override, "score": 1.0}]
+        return override, 1.0, embedding, [{"category": override, "score": 1.0}], True
 
     if not cent:
-        return "Others", 0.0, embedding, []
+        return "Others", 0.0, embedding, [], False
 
     cat_names = list(cent.keys())
     matrix    = np.stack([v["centroid"] for v in cent.values()])
@@ -164,7 +166,7 @@ def do_classify(name: str, local_cents=None, local_ovrs=None):
         {"category": cat_names[int(i)], "score": round(float(sims[i]), 3)}
         for i in order[:3]
     ]
-    return pred, round(best_sim, 3), embedding, top3
+    return pred, round(best_sim, 3), embedding, top3, False
 
 
 def do_update(category: str, embedding: np.ndarray, local_cents=None):

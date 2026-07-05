@@ -50,7 +50,7 @@
       <label id="f-merchant-label" class="block text-sm font-semibold text-[#191c1d] mb-1.5">Merchant *</label>
       <input id="f-merchant" type="text" placeholder="e.g. Lidl, McDonald's" autocomplete="off"
              class="w-full px-4 py-3 border border-[#c5c6ca] rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b55] focus:border-transparent bg-white"
-             onblur="autoClassify()" />
+             onblur="autoClassify()" oninput="scheduleAutoClassify()" />
     </div>
 
     <div class="grid grid-cols-5 gap-2">
