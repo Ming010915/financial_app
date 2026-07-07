@@ -43,10 +43,11 @@ def process_voice_text(transcript: str, event_budgets: list[str] | None = None) 
     client = get_genai_client()
     tool   = types.Tool(function_declarations=[ADD_EXPENSE_FUNC])
 
-    today    = date.today().isoformat()
+    today          = date.today().isoformat()
+    wrapped_transcript = f"<user_transcript>\n{transcript}\n</user_transcript>"
     response = generate_with_fallback(lambda model: client.models.generate_content(
         model    = model,
-        contents = [build_voice_prompt(today, event_budgets or []), transcript],
+        contents = [build_voice_prompt(today, event_budgets or []), wrapped_transcript],
         config   = types.GenerateContentConfig(tools=[tool]),
     ), GEMINI_MODELS)
 
