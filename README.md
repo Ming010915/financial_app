@@ -295,6 +295,7 @@ Create a `.env` file in the project root. All AI features run through **Vertex A
 |----------|----------|-------------|
 | `GOOGLE_CLOUD_PROJECT` | **Yes** | Your GCP project ID. Enables receipt scanning, voice input, and AI spending insights. |
 | `GOOGLE_CLOUD_LOCATION` | No | Vertex AI region. Defaults to `us-central1`. |
+| `GOOGLE_CLOUD_STT_LOCATION` | No | Speech-to-Text v2 recognizer location for the Chirp 3 model. Defaults to `us`. Must be `us` or `eu` (Chirp 3 is not available in `global` or single regions). |
 | `GOOGLE_PLACES_API_KEY` | No | Google Maps Platform key (`AIza…`). Enables location autocomplete. Without it, the location field is a plain text input. |
 | `REQUIRE_PASSWORD` | No | Set to `true` (default) to protect the app with a password, or `false` to leave it open. |
 | `APP_PASSWORD` | No | The password shown on the login page. Only used when `REQUIRE_PASSWORD=true`. |
@@ -308,6 +309,7 @@ GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 
 # Optional
 GOOGLE_CLOUD_LOCATION=us-central1
+GOOGLE_CLOUD_STT_LOCATION=us
 GOOGLE_PLACES_API_KEY=AIza...
 
 # Access control

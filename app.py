@@ -21,7 +21,7 @@ import services.voice as voice
 from services.gemini_utils import ModelOverloadedError
 from config import (
     ASK_BELOW, CENTROIDS_FILE, MONTHLY_SPENDING_DATASET,
-    SERVER_PLACES_API_KEY, GOOGLE_CLOUD_PROJECT,
+    SERVER_PLACES_API_KEY, GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_STT_LOCATION,
     REQUIRE_PASSWORD, APP_PASSWORD, SECRET_KEY,
     get_genai_client,
 )
@@ -275,7 +275,7 @@ _STT_FINANCIAL_HINTS = [
 
 @app.route("/api/stt", methods=["POST"])
 def api_stt():
-    """Transcribe uploaded audio using Google Cloud Speech-to-Text."""
+    """Transcribe uploaded audio using Google Cloud Speech-to-Text (Chirp 3)."""
     if not GOOGLE_CLOUD_PROJECT:
         return jsonify({"error": "GOOGLE_CLOUD_PROJECT is not configured on the server."}), 500
 
@@ -288,25 +288,25 @@ def api_stt():
         return jsonify({"error": "Empty audio file"}), 400
 
     try:
-        from google.cloud import speech
-        client = speech.SpeechClient()
+        from google.cloud.speech_v2 import SpeechClient
+        from google.cloud.speech_v2.types import cloud_speech
 
-        mime = (file.content_type or "audio/webm").lower()
-        if "ogg" in mime:
-            encoding = speech.RecognitionConfig.AudioEncoding.OGG_OPUS
-        else:
-            encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS
-
-        config = speech.RecognitionConfig(
-            encoding=encoding,
-            sample_rate_hertz=48000,
-            language_code="en-US",
-            enable_automatic_punctuation=True,
+        client = SpeechClient(
+            client_options={"api_endpoint": f"{GOOGLE_CLOUD_STT_LOCATION}-speech.googleapis.com"}
         )
-        print(f"[STT] Sending {len(audio_data)} bytes ({mime}) to Google Cloud STT...")
+        config = cloud_speech.RecognitionConfig(
+            auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),
+            language_codes=["en-US"],
+            model="chirp_3",
+            features=cloud_speech.RecognitionFeatures(enable_automatic_punctuation=True),
+        )
+        print(f"[STT] Sending {len(audio_data)} bytes ({file.content_type}) to Google Cloud STT (Chirp 3)...")
         response = client.recognize(
-            config=config,
-            audio=speech.RecognitionAudio(content=audio_data),
+            request=cloud_speech.RecognizeRequest(
+                recognizer=f"projects/{GOOGLE_CLOUD_PROJECT}/locations/{GOOGLE_CLOUD_STT_LOCATION}/recognizers/_",
+                config=config,
+                content=audio_data,
+            )
         )
         transcript = " ".join(
             result.alternatives[0].transcript
@@ -361,8 +361,8 @@ def api_tts():
 
 @sock.route('/ws/voice_live')
 def voice_live_ws(ws):
-    """WebSocket: browser PCM audio → Google Cloud STT streaming → live transcript."""
-    from google.cloud import speech
+    """WebSocket: browser PCM audio → Google Cloud STT streaming (Chirp 3) → live transcript."""
+    from google.cloud.speech_v2.types import cloud_speech
 
     try:
         init     = json.loads(ws.receive())
@@ -382,32 +382,44 @@ def voice_live_ws(ws):
     audio_q    = queue.Queue()
     stop_event = threading.Event()
 
-    def audio_generator():
+    def request_generator():
+        streaming_config = cloud_speech.StreamingRecognitionConfig(
+            config=cloud_speech.RecognitionConfig(
+                explicit_decoding_config=cloud_speech.ExplicitDecodingConfig(
+                    encoding=cloud_speech.ExplicitDecodingConfig.AudioEncoding.LINEAR16,
+                    sample_rate_hertz=pcm_rate,
+                    audio_channel_count=1,
+                ),
+                language_codes=["en-US", "de-DE"],
+                model="chirp_3",
+                features=cloud_speech.RecognitionFeatures(enable_automatic_punctuation=True),
+                adaptation=cloud_speech.SpeechAdaptation(
+                    phrase_sets=[cloud_speech.SpeechAdaptation.AdaptationPhraseSet(
+                        inline_phrase_set=cloud_speech.PhraseSet(phrases=[
+                            {"value": phrase, "boost": 15.0} for phrase in _STT_FINANCIAL_HINTS
+                        ])
+                    )]
+                ),
+            ),
+            streaming_features=cloud_speech.StreamingRecognitionFeatures(interim_results=True),
+        )
+        yield cloud_speech.StreamingRecognizeRequest(
+            recognizer=f"projects/{GOOGLE_CLOUD_PROJECT}/locations/{GOOGLE_CLOUD_STT_LOCATION}/recognizers/_",
+            streaming_config=streaming_config,
+        )
         while not stop_event.is_set():
             chunk = audio_q.get()
             if chunk is None:
                 return
-            yield speech.StreamingRecognizeRequest(audio_content=chunk)
+            yield cloud_speech.StreamingRecognizeRequest(audio=chunk)
 
     def stt_thread():
         try:
-            client = speech.SpeechClient()
-            config = speech.RecognitionConfig(
-                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                sample_rate_hertz=pcm_rate,
-                language_code="en-US",
-                alternative_language_codes=["de-DE"],
-                enable_automatic_punctuation=True,
-                speech_contexts=[speech.SpeechContext(
-                    phrases=_STT_FINANCIAL_HINTS,
-                    boost=15.0,
-                )],
+            from google.cloud.speech_v2 import SpeechClient
+            client = SpeechClient(
+                client_options={"api_endpoint": f"{GOOGLE_CLOUD_STT_LOCATION}-speech.googleapis.com"}
             )
-            streaming_config = speech.StreamingRecognitionConfig(
-                config=config,
-                interim_results=True,
-            )
-            responses = client.streaming_recognize(streaming_config, audio_generator())
+            responses = client.streaming_recognize(requests=request_generator())
             for response in responses:
                 if stop_event.is_set():
                     break

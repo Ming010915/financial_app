@@ -14,6 +14,10 @@ SERVER_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "")
 GOOGLE_CLOUD_PROJECT  = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
 GOOGLE_CLOUD_LOCATION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
 
+# Speech-to-Text v2 recognizer location. Chirp 3 is only GA in the "us" and
+# "eu" multi-regions (not "global" or single regions like us-central1).
+GOOGLE_CLOUD_STT_LOCATION = os.environ.get("GOOGLE_CLOUD_STT_LOCATION", "eu")
+
 
 def get_genai_client():
     from google import genai
