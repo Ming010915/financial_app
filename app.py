@@ -265,14 +265,6 @@ def api_voice_extract():
 
 # ── Speech-to-Text API ───────────────────────────────────────────────────────
 
-# Phrases boosted in Google Cloud STT to improve recognition of financial terms.
-_STT_FINANCIAL_HINTS = [
-    # Currencies
-    "Euro", "Euros", "EUR", "Dollar", "Dollars", "USD",
-    "Pound", "Pounds", "GBP", "Swiss Franc", "CHF", "Yen", "JPY",
-    "cent", "cents", "pence"
-]
-
 @app.route("/api/stt", methods=["POST"])
 def api_stt():
     """Transcribe uploaded audio using Google Cloud Speech-to-Text (Chirp 3)."""
@@ -393,13 +385,6 @@ def voice_live_ws(ws):
                 language_codes=["en-US", "de-DE"],
                 model="chirp_3",
                 features=cloud_speech.RecognitionFeatures(enable_automatic_punctuation=True),
-                adaptation=cloud_speech.SpeechAdaptation(
-                    phrase_sets=[cloud_speech.SpeechAdaptation.AdaptationPhraseSet(
-                        inline_phrase_set=cloud_speech.PhraseSet(phrases=[
-                            {"value": phrase, "boost": 15.0} for phrase in _STT_FINANCIAL_HINTS
-                        ])
-                    )]
-                ),
             ),
             streaming_features=cloud_speech.StreamingRecognitionFeatures(interim_results=True),
         )
