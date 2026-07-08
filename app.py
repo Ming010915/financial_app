@@ -301,12 +301,7 @@ def api_stt():
             encoding=encoding,
             sample_rate_hertz=48000,
             language_code="en-US",
-            alternative_language_codes=["de-DE"],
             enable_automatic_punctuation=True,
-            speech_contexts=[speech.SpeechContext(
-                phrases=_STT_FINANCIAL_HINTS,
-                boost=15.0,
-            )],
         )
         print(f"[STT] Sending {len(audio_data)} bytes ({mime}) to Google Cloud STT...")
         response = client.recognize(
