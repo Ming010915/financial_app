@@ -1,0 +1,394 @@
+{
+  "n_cases": 20,
+  "field_accuracy": {
+    "transaction_type": 1.0,
+    "merchant": 1.0,
+    "total": 1.0,
+    "currency": 1.0,
+    "date": 1.0,
+    "event_hint": 1.0,
+    "self_correction": 1.0
+  },
+  "latency": {
+    "n": 20,
+    "mean_s": 3.256,
+    "p50_s": 3.456,
+    "p95_s": 4.248,
+    "max_s": 4.273
+  },
+  "per_case": [
+    {
+      "id": "simple_expense",
+      "transcript": "I spent twelve euros fifty at Lidl on groceries.",
+      "latency_s": 3.539,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "Lidl",
+        "total": 12.5,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "merchant_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "multi_item_itemized",
+      "transcript": "At REWE I bought bread for two euros twenty and milk for one euro thirty.",
+      "latency_s": 3.277,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "REWE",
+        "total": 3.5,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "merchant_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09",
+      "items_count": 2
+    },
+    {
+      "id": "income_salary",
+      "transcript": "I got paid two thousand one hundred euros salary today.",
+      "latency_s": 1.917,
+      "extracted": {
+        "transaction_type": "income",
+        "merchant": "Salary",
+        "total": 2100,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "relative_date_yesterday",
+      "transcript": "Yesterday I bought a coffee for four euros at Starbucks.",
+      "latency_s": 3.915,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "Starbucks",
+        "total": 4,
+        "currency": "EUR",
+        "date": "2026-07-08",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "merchant_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-08"
+    },
+    {
+      "id": "self_correction",
+      "transcript": "I bought vegetables \u2014 actually, I mean fruits \u2014 for six euros at the market.",
+      "latency_s": 3.493,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "market",
+        "total": 6,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09",
+      "self_correction_ok": true
+    },
+    {
+      "id": "event_hint_match",
+      "transcript": "Spent eighty euros on a hotel during my Thailand trip.",
+      "latency_s": 3.666,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "Hotel",
+        "total": 80,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": "Thailand 2026"
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09",
+      "event_hint_ok": true
+    },
+    {
+      "id": "foreign_currency",
+      "transcript": "I paid twenty dollars for a taxi in New York.",
+      "latency_s": 3.315,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "Taxi",
+        "total": 20,
+        "currency": "USD",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "no_store_item_only",
+      "transcript": "I spent five euros on a sandwich for lunch.",
+      "latency_s": 3.456,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "sandwich",
+        "total": 5,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "refund_income",
+      "transcript": "I received a fifteen euro refund from Zalando.",
+      "latency_s": 1.941,
+      "extracted": {
+        "transaction_type": "income",
+        "merchant": "Zalando",
+        "total": 15,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "filler_heavy",
+      "transcript": "Um so like I spent uh about ten euros at, um, REWE for snacks.",
+      "latency_s": 3.908,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "REWE",
+        "total": 10,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "merchant_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "two_days_ago",
+      "transcript": "Two days ago I bought a book for eight euros at Waterstones.",
+      "latency_s": 3.19,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "Waterstones",
+        "total": 8,
+        "currency": "EUR",
+        "date": "2026-07-07",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "merchant_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-07"
+    },
+    {
+      "id": "gbp_haircut",
+      "transcript": "I paid fifteen pounds for a haircut in London.",
+      "latency_s": 3.75,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "Haircut",
+        "total": 15,
+        "currency": "GBP",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "large_income_deposit",
+      "transcript": "I got my rent deposit back, three thousand euros.",
+      "latency_s": 2.465,
+      "extracted": {
+        "transaction_type": "income",
+        "merchant": "Rent deposit",
+        "total": 3000,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "business_lunch_bistro",
+      "transcript": "I spent thirty five euros on a business lunch at Le Bistro.",
+      "latency_s": 3.339,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "Le Bistro",
+        "total": 35,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "merchant_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "freelance_payment",
+      "transcript": "I received four hundred and fifty euros for a freelance design project.",
+      "latency_s": 1.916,
+      "extracted": {
+        "transaction_type": "income",
+        "merchant": "Freelance design project",
+        "total": 450,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "multi_self_correction",
+      "transcript": "I bought three coffees \u2014 no, actually two coffees \u2014 for six euros at Starbucks.",
+      "latency_s": 3.588,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "Starbucks",
+        "total": 6,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "merchant_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09",
+      "self_correction_ok": true
+    },
+    {
+      "id": "dividend_income",
+      "transcript": "I received twenty two euros in dividend payments from my investments.",
+      "latency_s": 2.524,
+      "extracted": {
+        "transaction_type": "income",
+        "merchant": "Dividend payments",
+        "total": 22,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "bilingual_filler_ikea",
+      "transcript": "So ich hab, ah, I spent about fifteen euros at IKEA for some candles.",
+      "latency_s": 4.248,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "IKEA",
+        "total": 15,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "merchant_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "small_amount_stamp",
+      "transcript": "I spent fifty cents on a stamp at the post office.",
+      "latency_s": 4.273,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "Post Office",
+        "total": 0.5,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09"
+    },
+    {
+      "id": "event_hint_no_match",
+      "transcript": "I bought a sandwich for six euros.",
+      "latency_s": 3.397,
+      "extracted": {
+        "transaction_type": "expense",
+        "merchant": "sandwich",
+        "total": 6,
+        "currency": "EUR",
+        "date": "2026-07-09",
+        "event_hint": null
+      },
+      "transaction_type_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "date_ok": true,
+      "expected_date": "2026-07-09",
+      "event_hint_ok": true
+    }
+  ]
+}

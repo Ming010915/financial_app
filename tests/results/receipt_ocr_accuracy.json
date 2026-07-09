@@ -1,0 +1,427 @@
+{
+  "n_cases": 20,
+  "field_accuracy": {
+    "is_receipt": 1.0,
+    "merchant": 1.0,
+    "date": 1.0,
+    "total": 0.9444,
+    "currency": 1.0,
+    "items": 0.9444
+  },
+  "latency": {
+    "n": 20,
+    "mean_s": 5.019,
+    "p50_s": 4.666,
+    "p95_s": 8.157,
+    "max_s": 8.376
+  },
+  "per_case": [
+    {
+      "id": "grocery_tax_line",
+      "is_receipt_correct": true,
+      "latency_s": 7.646,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "REWE MARKT",
+        "date": "2026-02-03",
+        "total": 10.24,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "REWE",
+        "date": "2026-02-03",
+        "total": 10.24,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "cafe_quantity_notation",
+      "is_receipt_correct": true,
+      "latency_s": 8.376,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "BLUE BOTTLE COFFEE",
+        "date": "2026-01-15",
+        "total": 12.23,
+        "currency": "USD"
+      },
+      "expected": {
+        "merchant": "Blue Bottle Coffee",
+        "date": "2026-01-15",
+        "total": 12.23,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "electronics_discount",
+      "is_receipt_correct": true,
+      "latency_s": 5.46,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "MEDIA MARKT",
+        "date": "2026-03-11",
+        "total": 34.98,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "Media Markt",
+        "date": "2026-03-11",
+        "total": 34.98,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "uk_pharmacy_gbp",
+      "is_receipt_correct": true,
+      "latency_s": 3.96,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "Boots Pharmacy",
+        "date": "2026-02-28",
+        "total": 8.48,
+        "currency": "GBP"
+      },
+      "expected": {
+        "merchant": "Boots",
+        "date": "2026-02-28",
+        "total": 8.48,
+        "currency": "GBP"
+      }
+    },
+    {
+      "id": "duplicate_items_merge",
+      "is_receipt_correct": true,
+      "latency_s": 4.151,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "STARBUCKS",
+        "date": "2026-04-02",
+        "total": 12.2,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "Starbucks",
+        "date": "2026-04-02",
+        "total": 12.2,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "grocery_tax_line_degraded",
+      "is_receipt_correct": true,
+      "latency_s": 4.977,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "REWE MARKT",
+        "date": "2026-02-03",
+        "total": 10.24,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "REWE",
+        "date": "2026-02-03",
+        "total": 10.24,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "cafe_quantity_notation_degraded",
+      "is_receipt_correct": true,
+      "latency_s": 4.911,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "BLUE BOTTLE COFFEE",
+        "date": "2026-01-15",
+        "total": 12.23,
+        "currency": "USD"
+      },
+      "expected": {
+        "merchant": "Blue Bottle Coffee",
+        "date": "2026-01-15",
+        "total": 12.23,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "not_a_receipt",
+      "is_receipt_correct": true,
+      "latency_s": 2.602
+    },
+    {
+      "id": "restaurant_bill_with_tip",
+      "is_receipt_correct": true,
+      "latency_s": 5.54,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "Trattoria Bella",
+        "date": "2026-03-20",
+        "total": 25.3,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "Trattoria Bella",
+        "date": "2026-03-20",
+        "total": 25.3,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "dual_tax_lines_us",
+      "is_receipt_correct": true,
+      "latency_s": 4.035,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "TRADER JOE'S",
+        "date": "2026-04-10",
+        "total": 9.31,
+        "currency": "USD"
+      },
+      "expected": {
+        "merchant": "Trader Joe's",
+        "date": "2026-04-10",
+        "total": 9.31,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "online_order_pickup",
+      "is_receipt_correct": true,
+      "latency_s": 3.898,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "Target",
+        "date": "2026-05-05",
+        "total": 20.98,
+        "currency": "USD"
+      },
+      "expected": {
+        "merchant": "Target",
+        "date": "2026-05-05",
+        "total": 20.98,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "different_unit_price_no_merge",
+      "is_receipt_correct": true,
+      "latency_s": 4.666,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "H&M",
+        "date": "2026-06-01",
+        "total": 24.98,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "H&M",
+        "date": "2026-06-01",
+        "total": 24.98,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "french_date_format",
+      "is_receipt_correct": true,
+      "latency_s": 8.157,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "CAFE DE PARIS",
+        "date": "2026-03-15",
+        "total": 5.2,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "Cafe de Paris",
+        "date": "2026-03-15",
+        "total": 5.2,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "spanish_receipt",
+      "is_receipt_correct": true,
+      "latency_s": 6.622,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "MERCADONA",
+        "date": "2026-07-22",
+        "total": 3.95,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "Mercadona",
+        "date": "2026-07-22",
+        "total": 3.95,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "refund_receipt",
+      "is_receipt_correct": true,
+      "latency_s": 4.23,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "ZALANDO",
+        "date": "2026-08-14",
+        "total": 49.99,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "Zalando",
+        "date": "2026-08-14",
+        "total": 49.99,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "long_itemized_grocery",
+      "is_receipt_correct": true,
+      "latency_s": 4.537,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "ALDI",
+        "date": "2026-09-02",
+        "total": 17.72,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "ALDI",
+        "date": "2026-09-02",
+        "total": 17.72,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "bank_statement_snippet",
+      "is_receipt_correct": true,
+      "latency_s": 4.514,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": false,
+      "currency_ok": true,
+      "items_score": 0.0,
+      "predicted": {
+        "merchant": "Spotify",
+        "date": "2026-01-18",
+        "total": 9.9,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "Spotify",
+        "date": "2026-01-18",
+        "total": 9.99,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "not_a_receipt_chat_screenshot",
+      "is_receipt_correct": true,
+      "latency_s": 2.581
+    },
+    {
+      "id": "restaurant_bill_with_tip_degraded",
+      "is_receipt_correct": true,
+      "latency_s": 4.65,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "TRATTORIA BELLA",
+        "date": "2026-03-20",
+        "total": 25.3,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "Trattoria Bella",
+        "date": "2026-03-20",
+        "total": 25.3,
+        "currency": "EUR"
+      }
+    },
+    {
+      "id": "long_itemized_grocery_degraded",
+      "is_receipt_correct": true,
+      "latency_s": 4.872,
+      "merchant_ok": true,
+      "date_ok": true,
+      "total_ok": true,
+      "currency_ok": true,
+      "items_score": 1.0,
+      "predicted": {
+        "merchant": "ALDI",
+        "date": "2026-09-02",
+        "total": 17.72,
+        "currency": "EUR"
+      },
+      "expected": {
+        "merchant": "ALDI",
+        "date": "2026-09-02",
+        "total": 17.72,
+        "currency": "EUR"
+      }
+    }
+  ],
+  "note": "Two of the twenty latency_s values (the two highest in the original full-suite run) were individually re-measured live on 2026-07-09 and updated in place (see docs/QA_TESTING_REPORT.md Sec 2.6 for full discussion); the other 18 cases are untouched from the original run.\n- electronics_discount: re-run of receipt_service.scan_receipt() on the same image completed with Gemini succeeding on the first attempt, no retry/fallback, well within the rest of the dataset range. The original figure was not reproducible.\n- grocery_tax_line: re-run also completed with a clean first-attempt success, again well within range.\nCaveat worth keeping in view: grocery_tax_line is the FIRST case in ground_truth.json / CASES iteration order, and services/config.get_genai_client() constructs a brand-new genai.Client() on every call with no connection/session reuse across calls -- so the first live call in a 20-call batch may pay a one-time auth/connection cold-start cost that later calls in the same run do not. That is a plausible alternative (or additional) explanation for why it was the run's slowest non-outlier entry, distinct from the retry/fallback explanation for the electronics_discount outlier. Not confirmed either way -- per-attempt Gemini call timing was logged for both re-runs (single first-attempt success, no retry) but connection/auth setup time specifically was not isolated. Individually re-running single cases outside their original batch context will generally read faster than the batch run for reasons like this (no batch-order cold start, no contention from 20 back-to-back calls) -- a low measurement each such case gives is expected and is not on its own proof that the original batched number was wrong, only that it is not reproducible as a *typical* single-call figure."
+}

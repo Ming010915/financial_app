@@ -1,0 +1,9 @@
+{
+  "ask_below": 0.8,
+  "flag_rate": 0.6111,
+  "recall_on_actual_errors": 0.75,
+  "flagged_and_wrong": 12,
+  "flagged_and_right": 10,
+  "unflagged_and_wrong": 4,
+  "unflagged_and_right": 10
+}

@@ -1,0 +1,462 @@
+{
+  "n_train_merchants": 139,
+  "n_test_merchants": 36,
+  "threshold": 0.75,
+  "accuracy": 0.5556,
+  "macro_f1": 0.558,
+  "avg_confidence_when_correct": 0.7937,
+  "avg_confidence_when_wrong": 0.7818,
+  "per_class": {
+    "Banking & Fees": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 1
+    },
+    "Entertainment & Subscriptions": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 2
+    },
+    "Food & Beverage": {
+      "precision": 0.833,
+      "recall": 1.0,
+      "f1": 0.909,
+      "support": 5
+    },
+    "Groceries": {
+      "precision": 0.25,
+      "recall": 0.5,
+      "f1": 0.333,
+      "support": 2
+    },
+    "Health & Wellness": {
+      "precision": 0.5,
+      "recall": 0.75,
+      "f1": 0.6,
+      "support": 4
+    },
+    "Home & Living": {
+      "precision": 1.0,
+      "recall": 0.333,
+      "f1": 0.5,
+      "support": 3
+    },
+    "Others": {
+      "precision": 0.5,
+      "recall": 0.25,
+      "f1": 0.333,
+      "support": 8
+    },
+    "Personal Care": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1": 0.667,
+      "support": 2
+    },
+    "Pet Supplies": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "Shopping": {
+      "precision": 0.375,
+      "recall": 0.6,
+      "f1": 0.462,
+      "support": 5
+    },
+    "Transport": {
+      "precision": 0.333,
+      "recall": 0.333,
+      "f1": 0.333,
+      "support": 3
+    }
+  },
+  "confusion_matrix": {
+    "Banking & Fees": {
+      "Transport": 1
+    },
+    "Entertainment & Subscriptions": {
+      "Entertainment & Subscriptions": 2
+    },
+    "Food & Beverage": {
+      "Food & Beverage": 5
+    },
+    "Groceries": {
+      "Others": 1,
+      "Groceries": 1
+    },
+    "Health & Wellness": {
+      "Health & Wellness": 3,
+      "Shopping": 1
+    },
+    "Home & Living": {
+      "Groceries": 1,
+      "Home & Living": 1,
+      "Food & Beverage": 1
+    },
+    "Others": {
+      "Shopping": 4,
+      "Others": 2,
+      "Transport": 1,
+      "Health & Wellness": 1
+    },
+    "Personal Care": {
+      "Personal Care": 1,
+      "Health & Wellness": 1
+    },
+    "Pet Supplies": {
+      "Pet Supplies": 1
+    },
+    "Shopping": {
+      "Health & Wellness": 1,
+      "Groceries": 1,
+      "Shopping": 3
+    },
+    "Transport": {
+      "Others": 1,
+      "Groceries": 1,
+      "Transport": 1
+    }
+  },
+  "misclassified_examples": [
+    {
+      "name": "ING",
+      "true": "Banking & Fees",
+      "pred": "Transport",
+      "confidence": 0.755,
+      "top3": [
+        {
+          "category": "Transport",
+          "score": 0.755
+        },
+        {
+          "category": "Home & Living",
+          "score": 0.739
+        },
+        {
+          "category": "Groceries",
+          "score": 0.737
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Marley Spoon",
+      "true": "Groceries",
+      "pred": "Others",
+      "confidence": 0.748,
+      "top3": [
+        {
+          "category": "Food & Beverage",
+          "score": 0.748
+        },
+        {
+          "category": "Shopping",
+          "score": 0.713
+        },
+        {
+          "category": "Home & Living",
+          "score": 0.713
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Specsavers",
+      "true": "Health & Wellness",
+      "pred": "Shopping",
+      "confidence": 0.808,
+      "top3": [
+        {
+          "category": "Shopping",
+          "score": 0.808
+        },
+        {
+          "category": "Personal Care",
+          "score": 0.785
+        },
+        {
+          "category": "Health & Wellness",
+          "score": 0.782
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "IKEA",
+      "true": "Home & Living",
+      "pred": "Groceries",
+      "confidence": 0.85,
+      "top3": [
+        {
+          "category": "Groceries",
+          "score": 0.85
+        },
+        {
+          "category": "Shopping",
+          "score": 0.826
+        },
+        {
+          "category": "Food & Beverage",
+          "score": 0.814
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Nespresso",
+      "true": "Home & Living",
+      "pred": "Food & Beverage",
+      "confidence": 0.794,
+      "top3": [
+        {
+          "category": "Food & Beverage",
+          "score": 0.794
+        },
+        {
+          "category": "Shopping",
+          "score": 0.774
+        },
+        {
+          "category": "Groceries",
+          "score": 0.764
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "FedEx",
+      "true": "Others",
+      "pred": "Shopping",
+      "confidence": 0.819,
+      "top3": [
+        {
+          "category": "Shopping",
+          "score": 0.819
+        },
+        {
+          "category": "Groceries",
+          "score": 0.814
+        },
+        {
+          "category": "Food & Beverage",
+          "score": 0.807
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Booking.com",
+      "true": "Others",
+      "pred": "Shopping",
+      "confidence": 0.779,
+      "top3": [
+        {
+          "category": "Shopping",
+          "score": 0.779
+        },
+        {
+          "category": "Transport",
+          "score": 0.773
+        },
+        {
+          "category": "Food & Beverage",
+          "score": 0.757
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Coursera",
+      "true": "Others",
+      "pred": "Shopping",
+      "confidence": 0.762,
+      "top3": [
+        {
+          "category": "Shopping",
+          "score": 0.762
+        },
+        {
+          "category": "Health & Wellness",
+          "score": 0.754
+        },
+        {
+          "category": "Transport",
+          "score": 0.745
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Trivago",
+      "true": "Others",
+      "pred": "Transport",
+      "confidence": 0.779,
+      "top3": [
+        {
+          "category": "Transport",
+          "score": 0.779
+        },
+        {
+          "category": "Groceries",
+          "score": 0.767
+        },
+        {
+          "category": "Food & Beverage",
+          "score": 0.764
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Lotto Bayern",
+      "true": "Others",
+      "pred": "Shopping",
+      "confidence": 0.767,
+      "top3": [
+        {
+          "category": "Shopping",
+          "score": 0.767
+        },
+        {
+          "category": "Food & Beverage",
+          "score": 0.766
+        },
+        {
+          "category": "Transport",
+          "score": 0.765
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Notar Schreiber",
+      "true": "Others",
+      "pred": "Health & Wellness",
+      "confidence": 0.753,
+      "top3": [
+        {
+          "category": "Health & Wellness",
+          "score": 0.753
+        },
+        {
+          "category": "Home & Living",
+          "score": 0.744
+        },
+        {
+          "category": "Personal Care",
+          "score": 0.736
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "CleanMate",
+      "true": "Personal Care",
+      "pred": "Health & Wellness",
+      "confidence": 0.779,
+      "top3": [
+        {
+          "category": "Health & Wellness",
+          "score": 0.779
+        },
+        {
+          "category": "Personal Care",
+          "score": 0.777
+        },
+        {
+          "category": "Home & Living",
+          "score": 0.774
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Hugendubel",
+      "true": "Shopping",
+      "pred": "Health & Wellness",
+      "confidence": 0.804,
+      "top3": [
+        {
+          "category": "Health & Wellness",
+          "score": 0.804
+        },
+        {
+          "category": "Home & Living",
+          "score": 0.799
+        },
+        {
+          "category": "Personal Care",
+          "score": 0.774
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Thalia",
+      "true": "Shopping",
+      "pred": "Groceries",
+      "confidence": 0.786,
+      "top3": [
+        {
+          "category": "Groceries",
+          "score": 0.786
+        },
+        {
+          "category": "Shopping",
+          "score": 0.771
+        },
+        {
+          "category": "Home & Living",
+          "score": 0.767
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Shell",
+      "true": "Transport",
+      "pred": "Others",
+      "confidence": 0.749,
+      "top3": [
+        {
+          "category": "Home & Living",
+          "score": 0.749
+        },
+        {
+          "category": "Groceries",
+          "score": 0.748
+        },
+        {
+          "category": "Shopping",
+          "score": 0.746
+        }
+      ],
+      "correct": false
+    },
+    {
+      "name": "Aral",
+      "true": "Transport",
+      "pred": "Groceries",
+      "confidence": 0.776,
+      "top3": [
+        {
+          "category": "Groceries",
+          "score": 0.776
+        },
+        {
+          "category": "Shopping",
+          "score": 0.766
+        },
+        {
+          "category": "Home & Living",
+          "score": 0.757
+        }
+      ],
+      "correct": false
+    }
+  ]
+}

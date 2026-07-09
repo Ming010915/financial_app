@@ -1,0 +1,235 @@
+[
+  {
+    "id": "simple_expense",
+    "transcript": "I spent twelve euros fifty at Lidl on groceries.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "merchant_contains": "lidl",
+      "total": 12.50,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "multi_item_itemized",
+    "transcript": "At REWE I bought bread for two euros twenty and milk for one euro thirty.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "merchant_contains": "rewe",
+      "total": 3.50,
+      "currency": "EUR",
+      "min_items": 2,
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "income_salary",
+    "transcript": "I got paid two thousand one hundred euros salary today.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "income",
+      "total": 2100.0,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "relative_date_yesterday",
+    "transcript": "Yesterday I bought a coffee for four euros at Starbucks.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "merchant_contains": "starbucks",
+      "total": 4.0,
+      "currency": "EUR",
+      "date_offset_days": -1
+    }
+  },
+  {
+    "id": "self_correction",
+    "transcript": "I bought vegetables — actually, I mean fruits — for six euros at the market.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "total": 6.0,
+      "currency": "EUR",
+      "date_offset_days": 0,
+      "should_not_contain_in_notes_or_items": "vegetable"
+    }
+  },
+  {
+    "id": "event_hint_match",
+    "transcript": "Spent eighty euros on a hotel during my Thailand trip.",
+    "event_budgets": ["Thailand 2026", "Berlin Weekend"],
+    "expected": {
+      "transaction_type": "expense",
+      "total": 80.0,
+      "currency": "EUR",
+      "event_hint": "Thailand 2026",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "foreign_currency",
+    "transcript": "I paid twenty dollars for a taxi in New York.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "total": 20.0,
+      "currency": "USD",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "no_store_item_only",
+    "transcript": "I spent five euros on a sandwich for lunch.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "total": 5.0,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "refund_income",
+    "transcript": "I received a fifteen euro refund from Zalando.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "income",
+      "total": 15.0,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "filler_heavy",
+    "transcript": "Um so like I spent uh about ten euros at, um, REWE for snacks.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "merchant_contains": "rewe",
+      "total": 10.0,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "two_days_ago",
+    "transcript": "Two days ago I bought a book for eight euros at Waterstones.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "merchant_contains": "waterstones",
+      "total": 8.0,
+      "currency": "EUR",
+      "date_offset_days": -2
+    }
+  },
+  {
+    "id": "gbp_haircut",
+    "transcript": "I paid fifteen pounds for a haircut in London.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "total": 15.0,
+      "currency": "GBP",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "large_income_deposit",
+    "transcript": "I got my rent deposit back, three thousand euros.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "income",
+      "total": 3000.0,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "business_lunch_bistro",
+    "transcript": "I spent thirty five euros on a business lunch at Le Bistro.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "merchant_contains": "bistro",
+      "total": 35.0,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "freelance_payment",
+    "transcript": "I received four hundred and fifty euros for a freelance design project.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "income",
+      "total": 450.0,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "multi_self_correction",
+    "transcript": "I bought three coffees — no, actually two coffees — for six euros at Starbucks.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "merchant_contains": "starbucks",
+      "total": 6.0,
+      "currency": "EUR",
+      "date_offset_days": 0,
+      "should_not_contain_in_notes_or_items": "three"
+    }
+  },
+  {
+    "id": "dividend_income",
+    "transcript": "I received twenty two euros in dividend payments from my investments.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "income",
+      "total": 22.0,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "bilingual_filler_ikea",
+    "transcript": "So ich hab, ah, I spent about fifteen euros at IKEA for some candles.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "merchant_contains": "ikea",
+      "total": 15.0,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "small_amount_stamp",
+    "transcript": "I spent fifty cents on a stamp at the post office.",
+    "event_budgets": [],
+    "expected": {
+      "transaction_type": "expense",
+      "total": 0.50,
+      "currency": "EUR",
+      "date_offset_days": 0
+    }
+  },
+  {
+    "id": "event_hint_no_match",
+    "transcript": "I bought a sandwich for six euros.",
+    "event_budgets": ["Thailand 2026"],
+    "expected": {
+      "transaction_type": "expense",
+      "total": 6.0,
+      "currency": "EUR",
+      "event_hint": null,
+      "date_offset_days": 0
+    }
+  }
+]

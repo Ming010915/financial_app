@@ -1,0 +1,9 @@
+participant_id,profile,A1,A2,A3,B4,B5,B6,B7,B8,B9,C10,NPS,C12,task1_status,task2_status,task3_status,task4_status,task5_status,task6_status,task7_status,task8_status,most_confusing_moment,ai_distrust_reason,requested_feature,privacy_concern
+P1,student_manual_tracker,,,,,,,,,,,,,,,,,,,,,,,,
+P2,student_manual_tracker,,,,,,,,,,,,,,,,,,,,,,,,
+P3,banking_app_user,,,,,,,,,,,,,,,,,,,,,,,,
+P4,banking_app_user,,,,,,,,,,,,,,,,,,,,,,,,
+P5,international_multicurrency,,,,,,,,,,,,,,,,,,,,,,,,
+P6,non_native_english,,,,,,,,,,,,,,,,,,,,,,,,
+P7,low_tech_comfort,,,,,,,,,,,,,,,,,,,,,,,,
+P8,power_user,,,,,,,,,,,,,,,,,,,,,,,,

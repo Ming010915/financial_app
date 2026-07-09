@@ -1,0 +1,25 @@
+{
+  "merchant": "Kfz-Zulassung",
+  "steps": [
+    {
+      "prediction": "Others",
+      "confidence": 0.557
+    },
+    {
+      "prediction": "Banking & Fees",
+      "confidence": 0.869
+    },
+    {
+      "prediction": "Banking & Fees",
+      "confidence": 0.941
+    },
+    {
+      "prediction": "Banking & Fees",
+      "confidence": 0.966
+    },
+    {
+      "prediction": "Banking & Fees",
+      "confidence": 0.978
+    }
+  ]
+}

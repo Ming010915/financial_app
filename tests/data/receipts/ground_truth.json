@@ -1,0 +1,568 @@
+[
+  {
+    "id": "grocery_tax_line",
+    "file": "grocery_tax_line.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "REWE",
+      "date": "2026-02-03",
+      "total": 10.24,
+      "currency": "EUR",
+      "payment_method": "Debit Card",
+      "items": [
+        {
+          "name": "Milch 1L",
+          "price": 1.29,
+          "quantity": 1
+        },
+        {
+          "name": "Brot Vollkorn",
+          "price": 2.49,
+          "quantity": 1
+        },
+        {
+          "name": "Bananen 1kg",
+          "price": 1.8,
+          "quantity": 1
+        },
+        {
+          "name": "Kaese Gouda",
+          "price": 3.99,
+          "quantity": 1
+        },
+        {
+          "name": "MwSt 7%",
+          "price": 0.67,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "cafe_quantity_notation",
+    "file": "cafe_quantity_notation.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Blue Bottle Coffee",
+      "date": "2026-01-15",
+      "total": 12.23,
+      "currency": "USD",
+      "payment_method": "Credit Card",
+      "items": [
+        {
+          "name": "Espresso",
+          "price": 7.0,
+          "quantity": 2
+        },
+        {
+          "name": "Croissant",
+          "price": 4.25,
+          "quantity": 1
+        },
+        {
+          "name": "Tax",
+          "price": 0.98,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "electronics_discount",
+    "file": "electronics_discount.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Media Markt",
+      "date": "2026-03-11",
+      "total": 34.98,
+      "currency": "EUR",
+      "payment_method": "Mobile Pay",
+      "items": [
+        {
+          "name": "USB-C Cable",
+          "price": 9.99,
+          "quantity": 1
+        },
+        {
+          "name": "Wireless Mouse",
+          "price": 24.99,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "uk_pharmacy_gbp",
+    "file": "uk_pharmacy_gbp.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Boots",
+      "date": "2026-02-28",
+      "total": 8.48,
+      "currency": "GBP",
+      "payment_method": "Cash",
+      "items": [
+        {
+          "name": "Paracetamol 500mg",
+          "price": 2.49,
+          "quantity": 1
+        },
+        {
+          "name": "Hand Cream",
+          "price": 5.99,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "duplicate_items_merge",
+    "file": "duplicate_items_merge.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Starbucks",
+      "date": "2026-04-02",
+      "total": 12.2,
+      "currency": "EUR",
+      "payment_method": "Credit Card",
+      "items": [
+        {
+          "name": "Latte Grande",
+          "price": 9.0,
+          "quantity": 2
+        },
+        {
+          "name": "Muffin",
+          "price": 3.2,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "grocery_tax_line_degraded",
+    "file": "grocery_tax_line_degraded.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "REWE",
+      "date": "2026-02-03",
+      "total": 10.24,
+      "currency": "EUR",
+      "payment_method": "Debit Card",
+      "items": [
+        {
+          "name": "Milch 1L",
+          "price": 1.29,
+          "quantity": 1
+        },
+        {
+          "name": "Brot Vollkorn",
+          "price": 2.49,
+          "quantity": 1
+        },
+        {
+          "name": "Bananen 1kg",
+          "price": 1.8,
+          "quantity": 1
+        },
+        {
+          "name": "Kaese Gouda",
+          "price": 3.99,
+          "quantity": 1
+        },
+        {
+          "name": "MwSt 7%",
+          "price": 0.67,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "cafe_quantity_notation_degraded",
+    "file": "cafe_quantity_notation_degraded.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Blue Bottle Coffee",
+      "date": "2026-01-15",
+      "total": 12.23,
+      "currency": "USD",
+      "payment_method": "Credit Card",
+      "items": [
+        {
+          "name": "Espresso",
+          "price": 7.0,
+          "quantity": 2
+        },
+        {
+          "name": "Croissant",
+          "price": 4.25,
+          "quantity": 1
+        },
+        {
+          "name": "Tax",
+          "price": 0.98,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "not_a_receipt",
+    "file": "not_a_receipt.png",
+    "ground_truth": {
+      "is_receipt": false
+    }
+  },
+  {
+    "id": "restaurant_bill_with_tip",
+    "file": "restaurant_bill_with_tip.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Trattoria Bella",
+      "date": "2026-03-20",
+      "total": 25.3,
+      "currency": "EUR",
+      "payment_method": "Credit Card",
+      "items": [
+        {
+          "name": "Spaghetti Carbonara",
+          "price": 14.5,
+          "quantity": 1
+        },
+        {
+          "name": "Tiramisu",
+          "price": 6.0,
+          "quantity": 1
+        },
+        {
+          "name": "Water 1L",
+          "price": 2.5,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "dual_tax_lines_us",
+    "file": "dual_tax_lines_us.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Trader Joe's",
+      "date": "2026-04-10",
+      "total": 9.31,
+      "currency": "USD",
+      "payment_method": "Debit Card",
+      "items": [
+        {
+          "name": "Almond Milk",
+          "price": 3.99,
+          "quantity": 1
+        },
+        {
+          "name": "Bananas",
+          "price": 1.5,
+          "quantity": 1
+        },
+        {
+          "name": "Bread",
+          "price": 2.99,
+          "quantity": 1
+        },
+        {
+          "name": "State Tax",
+          "price": 0.7,
+          "quantity": 1
+        },
+        {
+          "name": "Local Tax",
+          "price": 0.13,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "online_order_pickup",
+    "file": "online_order_pickup.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Target",
+      "date": "2026-05-05",
+      "total": 20.98,
+      "currency": "USD",
+      "payment_method": "Credit Card",
+      "items": [
+        {
+          "name": "Phone Charger",
+          "price": 15.99,
+          "quantity": 1
+        },
+        {
+          "name": "Notebook",
+          "price": 4.99,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "different_unit_price_no_merge",
+    "file": "different_unit_price_no_merge.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "H&M",
+      "date": "2026-06-01",
+      "total": 24.98,
+      "currency": "EUR",
+      "payment_method": "Mobile Pay",
+      "items": [
+        {
+          "name": "T-Shirt",
+          "price": 9.99,
+          "quantity": 1
+        },
+        {
+          "name": "T-Shirt",
+          "price": 14.99,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "french_date_format",
+    "file": "french_date_format.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Cafe de Paris",
+      "date": "2026-03-15",
+      "total": 5.2,
+      "currency": "EUR",
+      "payment_method": "Credit Card",
+      "items": [
+        {
+          "name": "Croissant",
+          "price": 2.2,
+          "quantity": 1
+        },
+        {
+          "name": "Cafe Allonge",
+          "price": 3.0,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "spanish_receipt",
+    "file": "spanish_receipt.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Mercadona",
+      "date": "2026-07-22",
+      "total": 3.95,
+      "currency": "EUR",
+      "payment_method": "Debit Card",
+      "items": [
+        {
+          "name": "Leche 1L",
+          "price": 0.95,
+          "quantity": 1
+        },
+        {
+          "name": "Pan de Molde",
+          "price": 1.2,
+          "quantity": 1
+        },
+        {
+          "name": "Manzanas 1kg",
+          "price": 1.8,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "refund_receipt",
+    "file": "refund_receipt.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Zalando",
+      "date": "2026-08-14",
+      "total": 49.99,
+      "currency": "EUR",
+      "payment_method": "Credit Card",
+      "items": [
+        {
+          "name": "Sneakers Size 42",
+          "price": 49.99,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "long_itemized_grocery",
+    "file": "long_itemized_grocery.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "ALDI",
+      "date": "2026-09-02",
+      "total": 17.72,
+      "currency": "EUR",
+      "payment_method": "Debit Card",
+      "items": [
+        {
+          "name": "Eggs 10pk",
+          "price": 2.49,
+          "quantity": 1
+        },
+        {
+          "name": "Milk 1L",
+          "price": 1.09,
+          "quantity": 1
+        },
+        {
+          "name": "Butter 250g",
+          "price": 2.29,
+          "quantity": 1
+        },
+        {
+          "name": "Yogurt 4pk",
+          "price": 1.99,
+          "quantity": 1
+        },
+        {
+          "name": "Apples 1kg",
+          "price": 2.19,
+          "quantity": 1
+        },
+        {
+          "name": "Chicken Breast 500g",
+          "price": 4.99,
+          "quantity": 1
+        },
+        {
+          "name": "Rice 1kg",
+          "price": 1.79,
+          "quantity": 1
+        },
+        {
+          "name": "Pasta 500g",
+          "price": 0.89,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "bank_statement_snippet",
+    "file": "bank_statement_snippet.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Spotify",
+      "date": "2026-01-18",
+      "total": 9.99,
+      "currency": "EUR",
+      "payment_method": null,
+      "items": [
+        {
+          "name": "Spotify Premium Subscription",
+          "price": 9.99,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "not_a_receipt_chat_screenshot",
+    "file": "not_a_receipt_chat_screenshot.png",
+    "ground_truth": {
+      "is_receipt": false
+    }
+  },
+  {
+    "id": "restaurant_bill_with_tip_degraded",
+    "file": "restaurant_bill_with_tip_degraded.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "Trattoria Bella",
+      "date": "2026-03-20",
+      "total": 25.3,
+      "currency": "EUR",
+      "payment_method": "Credit Card",
+      "items": [
+        {
+          "name": "Spaghetti Carbonara",
+          "price": 14.5,
+          "quantity": 1
+        },
+        {
+          "name": "Tiramisu",
+          "price": 6.0,
+          "quantity": 1
+        },
+        {
+          "name": "Water 1L",
+          "price": 2.5,
+          "quantity": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "long_itemized_grocery_degraded",
+    "file": "long_itemized_grocery_degraded.png",
+    "ground_truth": {
+      "is_receipt": true,
+      "merchant": "ALDI",
+      "date": "2026-09-02",
+      "total": 17.72,
+      "currency": "EUR",
+      "payment_method": "Debit Card",
+      "items": [
+        {
+          "name": "Eggs 10pk",
+          "price": 2.49,
+          "quantity": 1
+        },
+        {
+          "name": "Milk 1L",
+          "price": 1.09,
+          "quantity": 1
+        },
+        {
+          "name": "Butter 250g",
+          "price": 2.29,
+          "quantity": 1
+        },
+        {
+          "name": "Yogurt 4pk",
+          "price": 1.99,
+          "quantity": 1
+        },
+        {
+          "name": "Apples 1kg",
+          "price": 2.19,
+          "quantity": 1
+        },
+        {
+          "name": "Chicken Breast 500g",
+          "price": 4.99,
+          "quantity": 1
+        },
+        {
+          "name": "Rice 1kg",
+          "price": 1.79,
+          "quantity": 1
+        },
+        {
+          "name": "Pasta 500g",
+          "price": 0.89,
+          "quantity": 1
+        }
+      ]
+    }
+  }
+]

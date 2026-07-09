@@ -1,0 +1,12 @@
+{
+  "before": {
+    "prediction": "Others",
+    "confidence": 0.591,
+    "is_override": false
+  },
+  "after": {
+    "prediction": "Transport",
+    "confidence": 1.0,
+    "is_override": true
+  }
+}

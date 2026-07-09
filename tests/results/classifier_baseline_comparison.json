@@ -1,0 +1,7 @@
+{
+  "n_seeds": 20,
+  "majority_class_baseline_accuracy": 0.2222,
+  "cold_start_accuracy": 0.4667,
+  "warm_in_vocabulary_accuracy": 0.7827,
+  "note": "majority_class_baseline = always predicting the most common training category, the floor a classifier must clear to be worth anything. warm_in_vocabulary = accuracy on merchants that WERE part of the training centroids (the ceiling for this model size, since a real override takes an exact-match merchant straight to 100%)."
+}
