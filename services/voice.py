@@ -52,7 +52,8 @@ def process_voice_text(transcript: str, event_budgets: list[str] | None = None) 
     ), GEMINI_MODELS)
 
     extracted = {}
-    for part in response.candidates[0].content.parts:
+    parts = response.candidates[0].content.parts if response.candidates and response.candidates[0].content else None
+    for part in parts or []:
         if part.function_call:
             extracted = dict(part.function_call.args)
             break
@@ -84,7 +85,8 @@ def process_voice_input(audio_data: bytes, mime_type: str) -> dict:
     ), GEMINI_MODELS)
 
     extracted = {}
-    for part in response.candidates[0].content.parts:
+    parts = response.candidates[0].content.parts if response.candidates and response.candidates[0].content else None
+    for part in parts or []:
         if part.function_call:
             extracted = dict(part.function_call.args)
             break
