@@ -1032,6 +1032,9 @@ function syncDarkToggle() {
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function showView(name) {
+  // Leaving the voice view abandons any in-progress re-edit of a failed scan;
+  // that scan stays in notifications untouched.
+  if (name !== "voice") _voiceEditScanId = null;
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
   document.getElementById("view-" + name).classList.add("active");
@@ -2253,8 +2256,9 @@ function updateNotificationBadge() {
   const scans          = getPendingScans();
   const readyCount     = scans.filter(s => s.status === 'ready').length;
   const processingCount = scans.filter(s => s.status === 'processing').length;
+  const errorCount     = scans.filter(s => s.status === 'error').length;
   const dueCount       = getDueRecurring().length;
-  const total          = readyCount + dueCount;
+  const total          = readyCount + errorCount + dueCount;
   if (total > 0) {
     badge.textContent = total > 9 ? '9+' : String(total);
     badge.classList.remove('hidden');
@@ -2541,15 +2545,16 @@ function notifRetry(id) {
 }
 
 // Reopen a failed voice entry in the voice view so the user can check and edit
-// the transcript, then re-submit for extraction. The errored entry is removed —
-// re-submitting queues a fresh background job.
+// the transcript, then re-submit for extraction. The errored entry is kept until
+// the edited transcript is re-submitted, so backing out of the voice view leaves
+// the notification intact.
 function notifEditVoice(id) {
   const scan = getPendingScans().find(s => s.id === id);
   if (!scan || scan.type !== 'voice') return;
   const transcript = scan.transcript || '';
   closeNotifications();
-  dismissPendingScan(id);
   openVoiceTranscriptEditor(transcript);
+  _voiceEditScanId = id;
 }
 
 function clearAllNotifications() {
@@ -3126,10 +3131,23 @@ let _voiceFinalized    = false;
 let _voiceOriginal     = '';
 let _voiceCancelled    = false;
 let _voiceAbort        = null;
+let _voiceFlushTimer   = null;
+// Id of the failed scan being re-edited in the voice view, if any. Dismissed
+// only once the edited transcript is actually re-submitted.
+let _voiceEditScanId   = null;
+// True while the textarea still mirrors our own writes (i.e. the user hasn't
+// typed into it yet), so late-arriving transcript chunks are safe to merge in.
+let _voiceAutoSynced   = true;
+
+function _setVoiceTranscriptBox(text) {
+  const box = document.getElementById('vc-transcript');
+  if (box) box.value = text;
+  _voiceAutoSynced = true;
+}
 
 // ── Voice view UI helpers ─────────────────────────────────────────────────────
 function _vvSetState(state) {
-  // state: 'idle' | 'recording' | 'processing'
+  // state: 'idle' | 'recording' | 'paused'
   const btn      = document.getElementById('voice-btn');
   const micIcon  = document.getElementById('vv-mic-icon');
   const stopIcon = document.getElementById('vv-stop-icon');
@@ -3139,7 +3157,7 @@ function _vvSetState(state) {
   const status   = document.getElementById('voice-status');
 
   // The transcript-confirmation card is its own display (shown via
-  // showVoiceConfirm); the idle/recording/processing states never use it.
+  // showVoiceConfirm); the idle/recording states never use it.
   document.getElementById('voice-confirm')?.classList.add('hidden');
   document.getElementById('vv-mic-wrap')?.classList.remove('hidden');
   if (label) label.classList.remove('hidden');
@@ -3153,15 +3171,6 @@ function _vvSetState(state) {
     ringIn?.classList.remove('hidden');
     if (label)  label.textContent  = 'Tap to stop';
     if (status) status.textContent = 'Listening…';
-  } else if (state === 'processing') {
-    btn?.classList.remove('voice-recording');
-    btn?.classList.add('voice-idle');
-    micIcon?.classList.remove('hidden');
-    stopIcon?.classList.add('hidden');
-    ringOut?.classList.add('hidden');
-    ringIn?.classList.add('hidden');
-    if (label)  label.textContent  = 'Processing…';
-    if (status) status.textContent = 'Analyzing with AI…';
   } else if (state === 'paused') {
     document.getElementById('vv-mic-wrap')?.classList.add('hidden');
     if (label) label.classList.add('hidden');
@@ -3190,8 +3199,17 @@ function _vvSetState(state) {
 function teardownVoiceCapture() {
   if (_audioProcessor) { _audioProcessor.disconnect(); _audioProcessor = null; }
   if (_audioCtx)       { try { _audioCtx.close(); } catch {} _audioCtx = null; }
-  if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
-    try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
+  if (_liveWS) {
+    // Detach handlers first — this teardown can run before the server's
+    // flush finished (e.g. resuming or submitting early), and a stale
+    // onclose firing finalizeVoiceTranscript() again would stomp a new
+    // recording that's just about to start.
+    _liveWS.onmessage = null;
+    _liveWS.onclose   = null;
+    _liveWS.onerror   = null;
+    if (_liveWS.readyState === WebSocket.OPEN) {
+      try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
+    }
     try { _liveWS.close(); } catch {}
   }
   _liveWS = null;
@@ -3204,6 +3222,8 @@ function cancelVoiceView() {
   // pending finalize from firing after the user has navigated away.
   _voiceCancelled = true;
   _voiceFinalized = true;
+  clearTimeout(_voiceFlushTimer);
+  _voiceFlushTimer = null;
   _voiceAbort?.abort();
   _voiceAbort = null;
   _isRecording = false;
@@ -3266,12 +3286,18 @@ async function startVoiceRecording() {
             _interimTranscript  = '';
             if (fin) fin.textContent = _liveTranscript;
             if (itr) itr.textContent = '';
+            // Keep the edit box current as trailing finals arrive after stop —
+            // but only while it still holds our own text, not the user's edits.
+            if (!_voiceFinalized && _voiceAutoSynced) _setVoiceTranscriptBox(_liveTranscript);
           } else {
             _interimTranscript = msg.transcript;
             if (fin) fin.textContent = _liveTranscript;
             if (itr) itr.textContent = (_liveTranscript ? ' ' : '') + _interimTranscript;
           }
           if (sub) { sub.classList.remove('hidden'); sub.scrollTop = sub.scrollHeight; }
+        } else if (msg.type === 'done') {
+          // Server has flushed every trailing final result — nothing more is coming.
+          finalizeVoiceTranscript();
         } else if (msg.error) {
           console.warn('[STT] error:', msg.error);
           showToast('Transcription error: ' + msg.error, true);
@@ -3299,21 +3325,32 @@ function stopVoiceRecording() {
   if (_audioCtx)       { try { _audioCtx.close(); } catch {} _audioCtx = null; }
   if (_voiceStream)    { _voiceStream.getTracks().forEach(t => t.stop()); _voiceStream = null; }
 
-  // Fold any in-flight interim result into the final transcript before closing.
-  if (_interimTranscript) {
-    _liveTranscript   += (_liveTranscript ? ' ' : '') + _interimTranscript;
-    _interimTranscript = '';
-  }
-
-  _vvSetState('processing');
+  // The mic is already off, so there's nothing to gain by making the user
+  // stare at "Processing…" — show what's been transcribed so far right away
+  // and keep listening in the background for the last word or two.
+  showVoiceConfirmOptimistic();
 
   if (_liveWS && _liveWS.readyState === WebSocket.OPEN) {
     try { _liveWS.send(JSON.stringify({ type: 'stop' })); } catch {}
-    // Give STT stream a moment to flush any remaining final results.
-    setTimeout(() => finalizeVoiceTranscript(), 1500);
+    // The server answers with `done` once it has forwarded the last final
+    // result; finalize on that. This timer only covers the server never
+    // replying, and must outlast the server's own flush budget (12s flush +
+    // 2s forced-stop grace, see FLUSH_TIMEOUT_SECS in app.py).
+    clearTimeout(_voiceFlushTimer);
+    _voiceFlushTimer = setTimeout(() => finalizeVoiceTranscript(), 16000);
   } else {
     finalizeVoiceTranscript();
   }
+}
+
+// Show the editable transcript panel immediately with whatever's been heard
+// so far (finals + any in-flight interim). The websocket and finalize timer
+// keep running in the background; finalizeVoiceTranscript() reconciles once
+// the server confirms nothing more is coming.
+function showVoiceConfirmOptimistic() {
+  const preview = (_liveTranscript + (_interimTranscript ? (_liveTranscript ? ' ' : '') + _interimTranscript : '')).trim();
+  if (preview) _setVoiceTranscriptBox(preview);
+  _vvSetState('paused');
 }
 
 // Read the final live transcript and show the editable confirmation panel.
@@ -3321,11 +3358,29 @@ function stopVoiceRecording() {
 function finalizeVoiceTranscript() {
   if (_voiceFinalized) return;
   _voiceFinalized = true;
+  clearTimeout(_voiceFlushTimer);
+  _voiceFlushTimer = null;
+
+  // A final result always clears the interim it superseded, so anything left
+  // here is speech the stream never finalized — keep it rather than lose it.
+  if (_interimTranscript) {
+    _liveTranscript   += (_liveTranscript ? ' ' : '') + _interimTranscript;
+    _interimTranscript = '';
+  }
+
   teardownVoiceCapture();
 
   if (_voiceCancelled) { _voiceCancelled = false; return; }
 
-  const original = (_liveTranscript || '').trim();
+  let original = (_liveTranscript || '').trim();
+  // Interim results are volatile by design — a later (possibly empty) one
+  // can overwrite _interimTranscript before Google ever finalizes it, e.g.
+  // for a short, fast phrase with no trailing pause. If that happens after
+  // showVoiceConfirmOptimistic() already showed the user real words, trust
+  // what's on screen rather than telling them nothing was heard.
+  if (!original && _voiceAutoSynced) {
+    original = (document.getElementById('vc-transcript')?.value || '').trim();
+  }
   if (!original) {
     showToast('No speech detected. Please try again.', true);
     _vvSetState('idle');
@@ -3334,8 +3389,10 @@ function finalizeVoiceTranscript() {
 
   _voiceOriginal = original;
 
-  const box = document.getElementById('vc-transcript');
-  if (box) box.value = original;
+  // showVoiceConfirmOptimistic() already displayed this text as soon as
+  // recording stopped; only (re)write the box if the user hasn't started
+  // editing it since, so we never clobber an in-progress edit.
+  if (_voiceAutoSynced) _setVoiceTranscriptBox(original);
 
   _vvSetState('paused');
 }
@@ -3343,9 +3400,18 @@ function finalizeVoiceTranscript() {
 // Resume recording — capture any edits from the textarea first, then re-open mic.
 async function resumeVoiceRecording() {
   const edited = (document.getElementById('vc-transcript')?.value || '').trim();
+
+  // May still be waiting on the previous stop's server flush (the optimistic
+  // display shows this panel before that completes) — stop waiting on it and
+  // close out the old stream before opening a new one.
+  clearTimeout(_voiceFlushTimer);
+  _voiceFlushTimer = null;
+  teardownVoiceCapture();
+
   _liveTranscript    = edited;
   _interimTranscript = '';
   _voiceFinalized    = false;
+  _voiceAutoSynced   = true;
 
   document.getElementById('voice-confirm')?.classList.add('hidden');
 
@@ -3367,7 +3433,16 @@ function submitVoiceTranscript() {
   const transcript = (document.getElementById('vc-transcript')?.value || '').trim();
   if (!transcript) { showToast('Transcript is empty — please record something first.', true); return; }
 
+  // May still be waiting on the server's flush (optimistic display shows the
+  // panel before that completes) — we're submitting now, so stop listening.
+  _voiceFinalized = true;
+  clearTimeout(_voiceFlushTimer);
+  _voiceFlushTimer = null;
+  teardownVoiceCapture();
+
   queueBackgroundVoice(transcript);
+  // The failed entry this transcript came from is superseded by the fresh job.
+  if (_voiceEditScanId) dismissPendingScan(_voiceEditScanId);
   resetVoiceBtn();
   showView('home');
   showToast('Extracting details in background…');
@@ -3387,8 +3462,7 @@ function openVoiceTranscriptEditor(transcript) {
   _voiceOriginal     = transcript;
 
   showView('voice');
-  const box = document.getElementById('vc-transcript');
-  if (box) box.value = transcript;
+  _setVoiceTranscriptBox(transcript);
   _vvSetState('paused');
 }
 
@@ -3438,7 +3512,11 @@ async function _runBackgroundVoice(id, transcript, abort) {
     delete _pendingVoiceAborts[id];
 
     updateNotificationBadge();
-    showToast(msg, true);
+    // The original transcript is preserved on the scan either way (e.g. when
+    // the AI decides the words didn't describe a real transaction) — let the
+    // user jump straight back into editing it instead of hunting through
+    // notifications for the "Check & edit" button.
+    showToast(msg + ' Tap to edit.', true, () => notifEditVoice(id));
   }
 }
 
@@ -3450,6 +3528,13 @@ function resetVoiceBtn() {
   _audioCtx          = null;
   _audioProcessor    = null;
   _voiceStream       = null;
+  _voiceOriginal     = '';
+  _voiceAutoSynced   = true;
+  // Clear any leftover text from a previous session — otherwise a new
+  // recording whose preview happens to be empty when stopped (STT hasn't
+  // replied yet) would leave the *previous* transcript on screen instead.
+  const box = document.getElementById('vc-transcript');
+  if (box) box.value = '';
   _vvSetState('idle');
 }
 
@@ -5036,13 +5121,18 @@ function friendlyError(e, context = 'voice') {
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
+// Optional onClick makes the toast itself an action — e.g. jumping straight
+// back into a failed voice transcript instead of leaving the user to find it
+// in notifications first. Plain toasts stay non-interactive (click-through).
 let toastTimer = null;
-function showToast(msg, isError = false) {
-  const t = document.getElementById("toast");
+function showToast(msg, isError = false, onClick = null) {
+  const t         = document.getElementById("toast");
+  const clickable = typeof onClick === 'function';
   t.textContent = msg;
-  t.className   = `fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold text-white text-center max-w-xs slide-up pointer-events-none ${isError ? "bg-red-600" : "bg-gray-900"}`;
+  t.className   = `fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold text-white text-center max-w-xs slide-up ${clickable ? 'pointer-events-auto cursor-pointer underline decoration-dotted underline-offset-4' : 'pointer-events-none'} ${isError ? "bg-red-600" : "bg-gray-900"}`;
+  t.onclick = clickable ? () => { clearTimeout(toastTimer); t.className = "hidden"; t.onclick = null; onClick(); } : null;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.className = "hidden"; }, 2800);
+  toastTimer = setTimeout(() => { t.className = "hidden"; t.onclick = null; }, clickable ? 5000 : 2800);
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -6190,6 +6280,10 @@ function linkDateRange(startId, endId) {
 
 async function init() {
   await hydrateKvCache(); // must resolve before anything below reads kv-backed data
+
+  // Once the user types into the live-voice transcript box, stop overwriting
+  // it with late-arriving transcript chunks from the background flush.
+  document.getElementById('vc-transcript')?.addEventListener('input', () => { _voiceAutoSynced = false; });
 
   const now = new Date();
   document.getElementById("header-date").textContent = now.toLocaleDateString("en-US", {

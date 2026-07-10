@@ -1,0 +1,26 @@
+[
+  {
+    "id": "mic_test_counting",
+    "transcript": "Testing, one two three."
+  },
+  {
+    "id": "mic_test_hello",
+    "transcript": "Hello, hello, can you hear me?"
+  },
+  {
+    "id": "question_to_app",
+    "transcript": "How much did I spend on groceries last month?"
+  },
+  {
+    "id": "background_chatter",
+    "transcript": "Yeah I know, she said she'd call back later, so whatever."
+  },
+  {
+    "id": "filler_only",
+    "transcript": "Um, uh, so, yeah, okay."
+  },
+  {
+    "id": "future_intent_not_a_purchase",
+    "transcript": "I should probably go to Lidl tomorrow and pick up some milk."
+  }
+]

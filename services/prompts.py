@@ -226,6 +226,15 @@ def build_voice_prompt(today: str, event_budgets: list[str] | None = None) -> st
         "the replacement.\n\n"
         "Call the add_expense function with the details you hear. "
         "Rules:\n"
+        "- Set 'is_transaction' to true ONLY if the speaker actually described a purchase, "
+        "a bill, or money they received. Set it to false for anything else — a microphone "
+        "test ('testing, one two three', 'hello, can you hear me'), silence or noise, "
+        "background conversation, a question aimed at the app, or any speech that does not "
+        "describe a transaction that really happened. Numbers alone are not a transaction: "
+        "'one two three' is counting, not an amount. If 'is_transaction' is false, leave all "
+        "other fields null or empty and do not attempt to guess a merchant or a total. "
+        "Never turn a non-transaction into an expense by treating stray words as a merchant "
+        "name or stray digits as a price.\n"
         "- Set 'transaction_type' to 'income' if the user is describing money they "
         "RECEIVED (e.g. salary, paycheck, freelance payment, client payment, refund, "
         "gift received, rental income, dividend, interest). "
@@ -384,8 +393,28 @@ TRANSACTION_SCHEMA = {
     "required": ["merchant"],
 }
 
+# Voice reuses the transaction schema, swapping the image-specific `is_receipt`
+# gate for a spoken-note equivalent: not every recording describes a purchase.
+VOICE_TRANSACTION_SCHEMA = {
+    **TRANSACTION_SCHEMA,
+    "properties": {
+        "is_transaction": {
+            "type": "boolean",
+            "description": (
+                "True if the speaker described a real purchase, bill, or money received. "
+                "False for anything else — a microphone test ('testing one two three'), "
+                "silence, background chatter, a question to the app, or any speech that "
+                "does not describe a transaction that actually happened. "
+                "If false, leave all other fields null/empty."
+            ),
+        },
+        **{k: v for k, v in TRANSACTION_SCHEMA["properties"].items() if k != "is_receipt"},
+    },
+    "required": ["is_transaction", "merchant"],
+}
+
 ADD_EXPENSE_FUNC = {
     "name": "add_expense",
     "description": "Record a financial transaction — either a purchase/expense or received income",
-    "parameters": TRANSACTION_SCHEMA,
+    "parameters": VOICE_TRANSACTION_SCHEMA,
 }

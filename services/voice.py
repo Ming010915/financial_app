@@ -36,6 +36,28 @@ def summarize_transcript(transcript: str) -> str:
     return summary or transcript
 
 
+def _extracted_from(response, source: str) -> dict:
+    """
+    Pull the add_expense arguments out of a Gemini function-calling response.
+    Raises NoExpenseFoundError if the model declined to call the function, or
+    called it only to report that the speech described no transaction.
+    """
+    extracted = {}
+    parts = response.candidates[0].content.parts if response.candidates and response.candidates[0].content else None
+    for part in parts or []:
+        if part.function_call:
+            extracted = dict(part.function_call.args)
+            break
+
+    if not extracted:
+        raise NoExpenseFoundError(f"no expense found in {source}")
+
+    if extracted.pop("is_transaction", True) is False:
+        raise NoExpenseFoundError(f"no expense found in {source}")
+
+    return extracted
+
+
 def process_voice_text(transcript: str, event_budgets: list[str] | None = None) -> dict:
     """
     Extract expense details from a (user-confirmed) transcript via function
@@ -56,17 +78,7 @@ def process_voice_text(transcript: str, event_budgets: list[str] | None = None) 
         config   = types.GenerateContentConfig(tools=[tool]),
     ), GEMINI_MODELS)
 
-    extracted = {}
-    parts = response.candidates[0].content.parts if response.candidates and response.candidates[0].content else None
-    for part in parts or []:
-        if part.function_call:
-            extracted = dict(part.function_call.args)
-            break
-
-    if not extracted:
-        raise NoExpenseFoundError("no expense found in transcript")
-
-    return _finalize_extracted(extracted)
+    return _finalize_extracted(_extracted_from(response, "transcript"))
 
 
 def process_voice_input(audio_data: bytes, mime_type: str) -> dict:
@@ -89,17 +101,7 @@ def process_voice_input(audio_data: bytes, mime_type: str) -> dict:
         config   = types.GenerateContentConfig(tools=[tool]),
     ), GEMINI_MODELS)
 
-    extracted = {}
-    parts = response.candidates[0].content.parts if response.candidates and response.candidates[0].content else None
-    for part in parts or []:
-        if part.function_call:
-            extracted = dict(part.function_call.args)
-            break
-
-    if not extracted:
-        raise NoExpenseFoundError("no expense found in audio")
-
-    return _finalize_extracted(extracted)
+    return _finalize_extracted(_extracted_from(response, "audio"))
 
 
 INCOME_CATEGORIES = [

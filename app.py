@@ -383,15 +383,19 @@ def voice_live_ws(ws):
     audio_q     = queue.Queue()
     stop_event  = threading.Event()   # client is done / connection closed
     client_done = threading.Event()   # client sent an explicit 'stop'
+    ws_lock     = threading.Lock()    # ws.send() is called from both this thread and stt_thread
 
     # Google Cloud STT v2 closes a streaming session with
     # "409 Stream timed out after receiving no more client requests" when it
     # goes idle, and enforces a hard ~5-minute cap per stream. To avoid ever
     # surfacing that to the user we (a) feed silence during audio gaps to keep
     # the stream warm, and (b) proactively restart the stream before the cap.
-    STREAM_RESTART_SECS = 240        # restart well before Google's ~5-min limit
-    IDLE_KEEPALIVE_SECS = 3          # send silence if no audio for this long
-    SILENCE_CHUNK       = bytes(int(pcm_rate * 0.1) * 2)  # 100ms of 16-bit mono
+    STREAM_RESTART_SECS   = 240        # restart well before Google's ~5-min limit
+    IDLE_KEEPALIVE_SECS   = 3          # send silence if no audio for this long
+    FLUSH_TIMEOUT_SECS    = 12         # generous cap for Google to flush trailing finals after stop
+    TRAILING_SILENCE_SECS = 0.8        # silence fed before closing so a short, fast utterance
+                                        # with no natural pause still gets endpointed and finalized
+    SILENCE_CHUNK         = bytes(int(pcm_rate * 0.1) * 2)  # 100ms of 16-bit mono
 
     def streaming_config():
         return cloud_speech.StreamingRecognitionConfig(
@@ -439,7 +443,8 @@ def voice_live_ws(ws):
         except Exception as e:
             print(f"[STT] Client init error: {e}")
             try:
-                ws.send(json.dumps({'error': str(e)}))
+                with ws_lock:
+                    ws.send(json.dumps({'error': str(e)}))
             except Exception:
                 pass
             stop_event.set()
@@ -460,7 +465,8 @@ def voice_live_ws(ws):
                         is_final   = result.is_final
                         print(f"[STT] {'Final' if is_final else 'Interim'}: {transcript!r}")
                         try:
-                            ws.send(json.dumps({'transcript': transcript, 'is_final': is_final}))
+                            with ws_lock:
+                                ws.send(json.dumps({'transcript': transcript, 'is_final': is_final}))
                         except Exception:
                             stop_event.set()
                             return
@@ -476,6 +482,7 @@ def voice_live_ws(ws):
     worker = threading.Thread(target=stt_thread, daemon=True)
     worker.start()
 
+    clean_stop = False
     try:
         while True:
             raw = ws.receive()
@@ -487,13 +494,44 @@ def voice_live_ws(ws):
                     audio_q.put(base64.b64decode(msg['data']))
                 elif msg.get('type') == 'stop':
                     print("[STT] Stop received from client.")
+                    clean_stop = True
                     break
             except Exception as e:
                 print(f"[STT] Error parsing message: {e}")
     finally:
-        stop_event.set()
+        # A short, fast utterance spoken right up until the client taps stop
+        # gives Google's endpointer no silence to detect — without it, the
+        # last phrase may only ever surface as an interim result, never a
+        # final. Feed a little trailing silence before closing the stream so
+        # it gets a chance to finalize.
+        if clean_stop:
+            for _ in range(int(TRAILING_SILENCE_SECS / 0.1)):
+                audio_q.put(SILENCE_CHUNK)
+        # Closing the audio queue ends the request stream, which makes Google
+        # emit a final result for whatever is still buffered. On a clean stop
+        # client_done already lets the worker's loop end itself once that final
+        # result is forwarded, so we must NOT set stop_event here — doing so
+        # races the worker's per-response check and can cut off a final result
+        # that has already arrived but not yet been sent. On a dropped
+        # connection there is nobody left to forward to, so tear down immediately.
         audio_q.put(None)
-        worker.join(timeout=5)
+        if not clean_stop:
+            stop_event.set()
+        worker.join(timeout=FLUSH_TIMEOUT_SECS if clean_stop else 5)
+        if worker.is_alive():
+            # Google still hasn't flushed after a generous budget — give up
+            # rather than hang the request forever, but only now force it down.
+            print("[STT] Flush timed out waiting for trailing finals; forcing stop.")
+            stop_event.set()
+            worker.join(timeout=2)
+        if clean_stop:
+            # Tells the client the transcript is complete, so it can finalize
+            # immediately instead of guessing at a flush delay.
+            try:
+                with ws_lock:
+                    ws.send(json.dumps({'type': 'done'}))
+            except Exception:
+                pass
         print("[STT] Session ended.")
 
 

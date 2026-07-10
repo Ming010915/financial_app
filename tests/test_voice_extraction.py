@@ -24,6 +24,9 @@ from tests.conftest import skip_without_live_api
 from tests.helpers import latency_stats, save_result
 
 FIXTURES = json.loads((Path(__file__).resolve().parent / "data" / "voice_fixtures.json").read_text())
+NON_TRANSACTION_FIXTURES = json.loads(
+    (Path(__file__).resolve().parent / "data" / "voice_non_transaction_fixtures.json").read_text()
+)
 
 
 def _amount_close(a, b, tol=0.05):
@@ -106,3 +109,73 @@ def test_voice_extraction_field_accuracy(live_api_available):
 
     assert result["field_accuracy"]["transaction_type"] >= 0.9
     assert result["field_accuracy"]["total"] >= 0.8
+
+
+# ── Non-transaction rejection ────────────────────────────────────────────────
+
+class _FakeFunctionCall:
+    def __init__(self, args):
+        self.args = args
+
+
+class _FakePart:
+    def __init__(self, args=None):
+        self.function_call = _FakeFunctionCall(args) if args is not None else None
+
+
+class _FakeResponse:
+    """Mimics the shape voice._extracted_from() reads off a Gemini response."""
+    def __init__(self, parts):
+        content = type("Content", (), {"parts": parts})()
+        self.candidates = [type("Candidate", (), {"content": content})()]
+
+
+def test_extracted_from_rejects_is_transaction_false():
+    """A function call that reports no transaction must not become an expense."""
+    response = _FakeResponse([_FakePart({"is_transaction": False, "merchant": ""})])
+    with pytest.raises(voice_service.NoExpenseFoundError):
+        voice_service._extracted_from(response, "transcript")
+
+
+def test_extracted_from_rejects_missing_function_call():
+    response = _FakeResponse([_FakePart()])
+    with pytest.raises(voice_service.NoExpenseFoundError):
+        voice_service._extracted_from(response, "audio")
+
+
+def test_extracted_from_strips_gate_field_on_accept():
+    """is_transaction is a routing flag, not an expense field — it must not leak downstream."""
+    response = _FakeResponse([_FakePart({"is_transaction": True, "merchant": "Lidl", "total": 12.5})])
+    extracted = voice_service._extracted_from(response, "transcript")
+    assert extracted == {"merchant": "Lidl", "total": 12.5}
+
+
+def test_extracted_from_accepts_when_gate_field_absent():
+    """A model that omits is_transaction but supplies real fields still extracts."""
+    response = _FakeResponse([_FakePart({"merchant": "REWE", "total": 3.5})])
+    assert voice_service._extracted_from(response, "transcript")["merchant"] == "REWE"
+
+
+@pytest.mark.live_api
+@skip_without_live_api()
+def test_voice_rejects_non_transaction_speech(live_api_available):
+    """Speech that describes no purchase — mic tests, questions, chatter — must not
+    be logged as an expense. Regression: 'testing 1 2 3' extracted as a valid entry."""
+    rejected = []
+    for case in NON_TRANSACTION_FIXTURES:
+        try:
+            extracted = voice_service.process_voice_text(case["transcript"])
+        except voice_service.NoExpenseFoundError:
+            rejected.append({"id": case["id"], "rejected": True})
+        else:
+            rejected.append({"id": case["id"], "rejected": False, "extracted": {
+                k: extracted.get(k) for k in ("merchant", "total", "currency")
+            }})
+
+    rate = sum(r["rejected"] for r in rejected) / len(rejected)
+    result = {"n_cases": len(NON_TRANSACTION_FIXTURES), "rejection_rate": round(rate, 4), "per_case": rejected}
+    save_result("voice_non_transaction_rejection", result)
+    print("\nNon-transaction rejection:", json.dumps(result, indent=2))
+
+    leaked = [r["id"] for r in rejected if not r["rejected"]]
+    assert not leaked, f"non-transaction speech extracted as an expense: {leaked}"
