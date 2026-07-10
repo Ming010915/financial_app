@@ -2116,7 +2116,7 @@ async function _runBackgroundScan(id, file, abort) {
         scan.errorMessage = e.message;
       } else {
         scan.status       = 'error';
-        scan.errorMessage = e.message || 'Analysis failed';
+        scan.errorMessage = friendlyError(e, 'receipt');
       }
       savePendingScans(scans);
     }
@@ -2126,7 +2126,7 @@ async function _runBackgroundScan(id, file, abort) {
     if (e.errorCode === 'not_a_receipt') {
       showToast('Not a receipt — tap to view', true);
     } else {
-      showToast('Scan failed: ' + (e.message || 'unknown error'), true);
+      showToast(friendlyError(e, 'receipt'), true);
     }
   }
 }
@@ -2384,9 +2384,26 @@ function notifCard(scan) {
   }
 
   if (scan.status === 'error') {
-    const title = isVoice
-      ? (scan.transcript ? `"${esc(scan.transcript.slice(0, 40))}${scan.transcript.length > 40 ? '…' : ''}"` : 'Voice input')
-      : esc(scan.fileName || 'Receipt');
+    // Voice errors keep the transcript, so let the user reopen it to check /
+    // edit the wording before re-running AI extraction — not just blind retry.
+    if (isVoice) {
+      const title = scan.transcript ? `"${esc(scan.transcript.slice(0, 40))}${scan.transcript.length > 40 ? '…' : ''}"` : 'Voice input';
+      return `<div class="flex items-start gap-3 p-3 bg-[#fff5f5] border border-red-100 rounded-2xl">
+        ${thumb}
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-[#191c1d] truncate mb-0.5">${title}</div>
+          <div class="text-xs text-red-500 mb-2">${esc(scan.errorMessage || 'Extraction failed')} · ${timeAgo(scan.createdAt)}</div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="event.stopPropagation();notifEditVoice('${scan.id}')"
+              class="text-xs font-bold text-white bg-[#006b55] hover:bg-[#004d3f] px-2.5 py-1 rounded-xl flex-shrink-0 whitespace-nowrap transition-colors">Check &amp; edit</button>
+            <button onclick="event.stopPropagation();notifRetry('${scan.id}')"
+              class="text-xs font-bold text-[#006b55] px-2.5 py-1 rounded-xl border border-[#006b55] flex-shrink-0 whitespace-nowrap">Retry</button>
+          </div>
+        </div>
+        ${dismissBtn}
+      </div>`;
+    }
+    const title = esc(scan.fileName || 'Receipt');
     return `<div class="flex items-center gap-3 p-3 bg-[#fff5f5] border border-red-100 rounded-2xl">
       ${thumb}
       <div class="flex-1 min-w-0">
@@ -2508,9 +2525,12 @@ function notifDismiss(id) {
 }
 
 function notifRetry(id) {
+  const isVoice = getPendingScans().find(s => s.id === id)?.type === 'voice';
   showConfirm({
     title:   'Retry this scan?',
-    message: 'This will re-run AI extraction on this receipt.',
+    message: isVoice
+      ? 'This will re-run AI extraction on the same transcript.'
+      : 'This will re-run AI extraction on this receipt.',
     okLabel: 'Retry',
     okColor: 'bg-[#006b55] hover:bg-[#004d3f]',
     onOk: async () => {
@@ -2518,6 +2538,18 @@ function notifRetry(id) {
       renderNotifications();
     },
   });
+}
+
+// Reopen a failed voice entry in the voice view so the user can check and edit
+// the transcript, then re-submit for extraction. The errored entry is removed —
+// re-submitting queues a fresh background job.
+function notifEditVoice(id) {
+  const scan = getPendingScans().find(s => s.id === id);
+  if (!scan || scan.type !== 'voice') return;
+  const transcript = scan.transcript || '';
+  closeNotifications();
+  dismissPendingScan(id);
+  openVoiceTranscriptEditor(transcript);
 }
 
 function clearAllNotifications() {
@@ -2573,7 +2605,8 @@ async function analyzeScanReceipt() {
   } catch (e) {
     // Cancelled request — silently ignore, the user has already moved on.
     if (e.name === "AbortError" || abort.signal.aborted) return;
-    showToast(e.retryable ? e.message : "Failed: " + e.message, true);
+    const msg = e.errorCode === "not_a_receipt" ? e.message : friendlyError(e, "receipt");
+    showToast(msg, true);
     if (statusEl)  statusEl.textContent = "Analysis failed";
     if (spinnerEl) spinnerEl.classList.add("hidden");
     // Offer retry inline
@@ -3340,6 +3373,25 @@ function submitVoiceTranscript() {
   showToast('Extracting details in background…');
 }
 
+// Open the voice view straight into the editable-transcript ("paused") state,
+// pre-filled with an existing transcript — used when reopening a failed voice
+// extraction from notifications so the user can check/edit before retrying.
+function openVoiceTranscriptEditor(transcript) {
+  // No live capture is in progress; guard the finalize path and seed state so
+  // "Continue" (resume recording) picks up from the edited text.
+  _voiceCancelled    = false;
+  _voiceFinalized    = true;
+  _isRecording       = false;
+  _liveTranscript    = transcript;
+  _interimTranscript = '';
+  _voiceOriginal     = transcript;
+
+  showView('voice');
+  const box = document.getElementById('vc-transcript');
+  if (box) box.value = transcript;
+  _vvSetState('paused');
+}
+
 function queueBackgroundVoice(transcript) {
   const id = generateId();
   _pendingVoiceAborts[id] = new AbortController();
@@ -3379,13 +3431,14 @@ async function _runBackgroundVoice(id, transcript, abort) {
   } catch (e) {
     if (e.name === 'AbortError' || abort.signal.aborted) return;
 
+    const msg   = friendlyError(e, 'voice');
     const scans = getPendingScans();
     const item  = scans.find(s => s.id === id);
-    if (item) { item.status = 'error'; item.errorMessage = e.message || 'Extraction failed'; savePendingScans(scans); }
+    if (item) { item.status = 'error'; item.errorMessage = msg; savePendingScans(scans); }
     delete _pendingVoiceAborts[id];
 
     updateNotificationBadge();
-    showToast('Voice extraction failed: ' + (e.message || 'unknown error'), true);
+    showToast(msg, true);
   }
 }
 
@@ -4963,6 +5016,23 @@ async function postWithOverloadRetry(url, body, { onRetry, maxRetries = 3, signa
     err.errorCode  = resp.error_code || null;
     throw err;
   }
+}
+
+// ── Error copy ────────────────────────────────────────────────────────────────
+// Turns a thrown request error into user-facing copy. The server sends a stable
+// `error_code` for expected failures; we own the wording here so messages stay in
+// the user's language instead of leaking internal detail. `context` picks the
+// right generic fallback when there's no known code.
+const ERROR_COPY = {
+  no_expense_found: 'Couldn’t catch an expense there. Try again with the amount and where you spent it — like “12 euros at the bakery”.',
+  voice_failed:     'Something went wrong adding that. Tap Retry to try again.',
+  receipt_failed:   'Couldn’t read that receipt. Tap Retry to try again.',
+};
+function friendlyError(e, context = 'voice') {
+  if (e?.errorCode && ERROR_COPY[e.errorCode]) return ERROR_COPY[e.errorCode];
+  // Overload errors already carry a user-friendly, actionable message.
+  if (e?.retryable && e?.message) return e.message;
+  return context === 'receipt' ? ERROR_COPY.receipt_failed : ERROR_COPY.voice_failed;
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────

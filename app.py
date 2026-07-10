@@ -8,6 +8,7 @@ import json
 import os
 import queue
 import threading
+import time
 import urllib.request
 import urllib.parse
 
@@ -193,8 +194,9 @@ def api_scan_receipt():
         return jsonify({"error": str(e), "error_code": "not_a_receipt"}), 422
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
-    except Exception as e:
-        return jsonify({"error": f"Receipt processing failed: {str(e)}"}), 500
+    except Exception:
+        app.logger.exception("scan_receipt failed")
+        return jsonify({"error_code": "receipt_failed"}), 500
 
 
 # ── Voice input API ───────────────────────────────────────────────────────────
@@ -215,10 +217,13 @@ def api_voice_input():
     try:
         data = voice.process_voice_input(audio_data, file.content_type or "audio/webm")
         return jsonify({"success": True, "data": data})
+    except voice.NoExpenseFoundError:
+        return jsonify({"error_code": "no_expense_found"}), 422
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
-    except Exception as e:
-        return jsonify({"error": f"Voice processing failed: {str(e)}"}), 500
+    except Exception:
+        app.logger.exception("voice_input failed")
+        return jsonify({"error_code": "voice_failed"}), 500
 
 
 @app.route("/api/voice_summary", methods=["POST"])
@@ -236,8 +241,9 @@ def api_voice_summary():
         return jsonify({"success": True, "original": transcript, "summary": summary})
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
-    except Exception as e:
-        return jsonify({"error": f"Transcript summary failed: {str(e)}"}), 500
+    except Exception:
+        app.logger.exception("voice_summary failed")
+        return jsonify({"error_code": "voice_failed"}), 500
 
 
 @app.route("/api/voice_extract", methods=["POST"])
@@ -257,10 +263,13 @@ def api_voice_extract():
     try:
         data = voice.process_voice_text(transcript, event_budgets=event_budgets)
         return jsonify({"success": True, "data": data})
+    except voice.NoExpenseFoundError:
+        return jsonify({"error_code": "no_expense_found"}), 422
     except ModelOverloadedError as e:
         return jsonify({"error": str(e), "retryable": True}), 503
-    except Exception as e:
-        return jsonify({"error": f"Voice processing failed: {str(e)}"}), 500
+    except Exception:
+        app.logger.exception("voice_extract failed")
+        return jsonify({"error_code": "voice_failed"}), 500
 
 
 # ── Speech-to-Text API ───────────────────────────────────────────────────────
@@ -371,11 +380,21 @@ def voice_live_ws(ws):
             pass
         return
 
-    audio_q    = queue.Queue()
-    stop_event = threading.Event()
+    audio_q     = queue.Queue()
+    stop_event  = threading.Event()   # client is done / connection closed
+    client_done = threading.Event()   # client sent an explicit 'stop'
 
-    def request_generator():
-        streaming_config = cloud_speech.StreamingRecognitionConfig(
+    # Google Cloud STT v2 closes a streaming session with
+    # "409 Stream timed out after receiving no more client requests" when it
+    # goes idle, and enforces a hard ~5-minute cap per stream. To avoid ever
+    # surfacing that to the user we (a) feed silence during audio gaps to keep
+    # the stream warm, and (b) proactively restart the stream before the cap.
+    STREAM_RESTART_SECS = 240        # restart well before Google's ~5-min limit
+    IDLE_KEEPALIVE_SECS = 3          # send silence if no audio for this long
+    SILENCE_CHUNK       = bytes(int(pcm_rate * 0.1) * 2)  # 100ms of 16-bit mono
+
+    def streaming_config():
+        return cloud_speech.StreamingRecognitionConfig(
             config=cloud_speech.RecognitionConfig(
                 explicit_decoding_config=cloud_speech.ExplicitDecodingConfig(
                     encoding=cloud_speech.ExplicitDecodingConfig.AudioEncoding.LINEAR16,
@@ -388,44 +407,71 @@ def voice_live_ws(ws):
             ),
             streaming_features=cloud_speech.StreamingRecognitionFeatures(interim_results=True),
         )
+
+    def request_generator():
+        """Yield one config request, then audio — ending (to trigger a restart)
+        once STREAM_RESTART_SECS elapses, and injecting silence during gaps so
+        Google never sees an idle stream."""
         yield cloud_speech.StreamingRecognizeRequest(
             recognizer=f"projects/{GOOGLE_CLOUD_PROJECT}/locations/{GOOGLE_CLOUD_STT_LOCATION}/recognizers/_",
-            streaming_config=streaming_config,
+            streaming_config=streaming_config(),
         )
+        started = time.monotonic()
         while not stop_event.is_set():
-            chunk = audio_q.get()
+            if time.monotonic() - started >= STREAM_RESTART_SECS:
+                return  # let stt_thread open a fresh stream
+            try:
+                chunk = audio_q.get(timeout=IDLE_KEEPALIVE_SECS)
+            except queue.Empty:
+                yield cloud_speech.StreamingRecognizeRequest(audio=SILENCE_CHUNK)
+                continue
             if chunk is None:
+                client_done.set()
                 return
             yield cloud_speech.StreamingRecognizeRequest(audio=chunk)
 
     def stt_thread():
+        from google.cloud.speech_v2 import SpeechClient
         try:
-            from google.cloud.speech_v2 import SpeechClient
             client = SpeechClient(
                 client_options={"api_endpoint": f"{GOOGLE_CLOUD_STT_LOCATION}-speech.googleapis.com"}
             )
-            responses = client.streaming_recognize(requests=request_generator())
-            for response in responses:
-                if stop_event.is_set():
-                    break
-                for result in response.results:
-                    if not result.alternatives:
-                        continue
-                    transcript = result.alternatives[0].transcript
-                    is_final   = result.is_final
-                    print(f"[STT] {'Final' if is_final else 'Interim'}: {transcript!r}")
-                    try:
-                        ws.send(json.dumps({'transcript': transcript, 'is_final': is_final}))
-                    except Exception:
-                        stop_event.set()
-                        return
         except Exception as e:
-            print(f"[STT] Stream error: {e}")
+            print(f"[STT] Client init error: {e}")
             try:
                 ws.send(json.dumps({'error': str(e)}))
             except Exception:
                 pass
             stop_event.set()
+            return
+
+        # Each iteration is one streaming session; we transparently restart until
+        # the client stops or the connection closes.
+        while not stop_event.is_set() and not client_done.is_set():
+            try:
+                responses = client.streaming_recognize(requests=request_generator())
+                for response in responses:
+                    if stop_event.is_set():
+                        break
+                    for result in response.results:
+                        if not result.alternatives:
+                            continue
+                        transcript = result.alternatives[0].transcript
+                        is_final   = result.is_final
+                        print(f"[STT] {'Final' if is_final else 'Interim'}: {transcript!r}")
+                        try:
+                            ws.send(json.dumps({'transcript': transcript, 'is_final': is_final}))
+                        except Exception:
+                            stop_event.set()
+                            return
+            except Exception as e:
+                # An idle/duration timeout while the client is still recording is
+                # recoverable — loop and open a fresh stream instead of alarming
+                # the user. Only report if the client isn't actively recording.
+                if stop_event.is_set() or client_done.is_set():
+                    return
+                print(f"[STT] Stream ended, restarting: {e}")
+                continue
 
     worker = threading.Thread(target=stt_thread, daemon=True)
     worker.start()

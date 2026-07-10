@@ -12,6 +12,11 @@ from services.prompts import build_voice_prompt, ADD_EXPENSE_FUNC, build_summary
 from config import GEMINI_MODELS, ASK_BELOW
 
 
+class NoExpenseFoundError(ValueError):
+    """Extraction ran successfully but no expense was found in what the user said."""
+    pass
+
+
 def summarize_transcript(transcript: str) -> str:
     """
     Turn a raw speech-to-text transcript into a short, clean summary of the
@@ -59,7 +64,7 @@ def process_voice_text(transcript: str, event_budgets: list[str] | None = None) 
             break
 
     if not extracted:
-        raise ValueError("Gemini could not extract expense details from the transcript")
+        raise NoExpenseFoundError("no expense found in transcript")
 
     return _finalize_extracted(extracted)
 
@@ -92,7 +97,7 @@ def process_voice_input(audio_data: bytes, mime_type: str) -> dict:
             break
 
     if not extracted:
-        raise ValueError("Gemini could not extract expense details from the audio")
+        raise NoExpenseFoundError("no expense found in audio")
 
     return _finalize_extracted(extracted)
 
