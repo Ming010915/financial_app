@@ -42,9 +42,20 @@ def _preload_classifier_model():
     that test's own latency (this is exactly what inflated the receipt-OCR
     and voice-extraction latency numbers in earlier runs — the "first call"
     included Gemini's response time AND an unrelated one-time local model
-    load). Mirrors production by paying it once, up front, for everyone."""
+    load). Mirrors production by paying it once, up front, for everyone.
+
+    get_model() alone only constructs the SentenceTransformer (loads
+    weights) — it doesn't run an actual encode(), which has its own
+    first-call cost (tokenizer/backend warm-up). Without a real encode()
+    here, whichever performance test happens to run first
+    (test_classifier_do_classify_latency, by file order) absorbs that cost
+    across its own timed samples, making it look slower than
+    /api/classify's later, already-warm samples — an artifact of test
+    order, not a real latency difference. Calling do_classify() here pays
+    that cost once, before any test's clock starts."""
     from services import classifier
     classifier.get_model()
+    classifier.do_classify("warmup merchant", local_cents=classifier.centroids, local_ovrs={})
 
 
 def skip_without_live_api():

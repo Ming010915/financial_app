@@ -66,9 +66,12 @@ def new_confusion() -> dict:
 
 def latency_stats(samples_seconds: list[float]) -> dict:
     """p50/p95/mean/max over a small sample of wall-clock latencies. With the
-    small n typical of live-API eval runs (5-10 calls), p95 is really "close
-    to the max" rather than a statistically tight tail estimate — reported as
-    such, not as a production SLO measurement."""
+    small n typical of these eval runs (20 calls, sometimes on a shared/noisy
+    dev machine), p95 is really "close to the max" rather than a
+    statistically tight tail estimate, so a single contention spike can swing
+    it several-fold between runs. Tests gate on mean_s instead, which is more
+    stable at this sample size; p95_s/max_s are still reported for context,
+    not as a production SLO measurement."""
     if not samples_seconds:
         return {"n": 0, "mean_s": None, "p50_s": None, "p95_s": None, "max_s": None}
     xs = sorted(samples_seconds)
