@@ -1,6 +1,103 @@
-# Flo — AI-Powered Personal Finance Tracker
+# Flo: AI-Powered Personal Finance Tracker
 
-A mobile-style expense and income tracker with on-device merchant categorisation, receipt scanning, voice input, AI spending insights, location autocomplete, custom budgets, recurring expenses, and advanced history filtering — powered by Google Gemini via Vertex AI and Google Cloud Speech APIs.
+A mobile-style expense and income tracker with on-device merchant categorisation, receipt scanning, voice input, AI spending insights, location autocomplete, custom budgets, recurring expenses, and advanced history filtering, powered by Google Gemini via Vertex AI and Google Cloud Speech APIs.
+
+---
+
+## Setup & Running
+
+Dependencies are declared in [`requirements.txt`](requirements.txt). Pick whichever setup you already have:
+
+| | Command |
+|---|---|
+| **pip** | `pip install -r requirements.txt && ./scripts/run_and_share.sh` |
+| **conda** | `conda create -n flo python=3.14 && conda activate flo && pip install -r requirements.txt && ./scripts/run_and_share.sh` |
+| **Docker** | `docker build -t flo . && docker run -p 8080:8080 --env-file .env flo` |
+
+pip/conda serve on http://localhost:5000 (plus a public tunnel URL); Docker on http://localhost:8080.
+
+- **[`./scripts/run_and_share.sh`](scripts/run_and_share.sh)** starts the Flask app and exposes it via [`lt`](https://github.com/localtunnel/localtunnel) (fixed URL, default) or `TUNNEL=cloudflared` ([random URL](https://developers.cloudflare.com/cloudflare-tunnel/), no reminder page), printing a QR code for mobile access. Override the subdomain with `LT_SUBDOMAIN`. Requires `lt`/`cloudflared` plus `qrencode` or Python `qrcode` on `PATH`.
+- **Docker** builds a self-contained image ([`Dockerfile`](Dockerfile)) with the HuggingFace model baked in, running gunicorn (threaded, `--timeout 0` so WebSockets survive). For Cloud Run, set `GOOGLE_CLOUD_PROJECT`, grant the service account the Vertex AI User role; it binds to `$PORT` (default `8080`).
+
+### Environment variables
+
+Create a `.env` file in the project root. All AI features run through **Vertex AI**; no Google API key string is needed for Gemini.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GOOGLE_CLOUD_PROJECT` | **Yes** | Your GCP project ID. Enables receipt scanning, voice input, and AI spending insights. |
+| `GOOGLE_CLOUD_LOCATION` | No | Vertex AI region. Defaults to `us-central1`. |
+| `GOOGLE_CLOUD_STT_LOCATION` | No | Speech-to-Text v2 recognizer location for the Chirp 3 model. Defaults to `eu`. Must be `us` or `eu` (Chirp 3 is not available in `global` or single regions). |
+| `GOOGLE_PLACES_API_KEY` | No | Google Maps Platform key (`AIza…`). Enables location autocomplete. Without it, the location field is a plain text input. |
+| `REQUIRE_PASSWORD` | No | Set to `true` (default) to protect the app with a password, or `false` to leave it open. |
+| `APP_PASSWORD` | No | The password shown on the login page. Only used when `REQUIRE_PASSWORD=true`. |
+| `SECRET_KEY` | No | Signs the session cookie. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. A new random key is generated on each restart if not set (logs everyone out on restart). |
+
+Example `.env`:
+
+```bash
+# Required
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+
+# Optional
+GOOGLE_CLOUD_LOCATION=us-central1
+GOOGLE_CLOUD_STT_LOCATION=eu
+GOOGLE_PLACES_API_KEY=AIza...
+
+# Access control
+REQUIRE_PASSWORD=true
+APP_PASSWORD=your-secret-password
+SECRET_KEY=your-random-hex-string
+```
+
+### Authentication
+
+Gemini calls go through **Vertex AI** and use Google's [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials); no API key required.
+
+**Local development**: run once after installing the [Google Cloud SDK](https://cloud.google.com/sdk/docs/install):
+
+```bash
+gcloud auth application-default login
+```
+
+This saves credentials to `~/.config/gcloud/application_default_credentials.json`. The SDK picks them up automatically on every subsequent run.
+
+**GCP deployment (Cloud Run, GKE, Compute Engine, etc.)**: credentials are provided automatically by the compute metadata server. No extra setup needed beyond ensuring the service account has the required roles and the APIs are enabled:
+
+```bash
+gcloud services enable aiplatform.googleapis.com speech.googleapis.com texttospeech.googleapis.com
+```
+
+Required IAM roles:
+- `roles/aiplatform.user`: Gemini / Vertex AI (receipt OCR, voice extraction, AI overview)
+- `roles/speech.client` (or `roles/editor`): Google Cloud Speech-to-Text
+- `roles/cloudtexttospeech.client` (or `roles/editor`): Google Cloud Text-to-Speech
+
+### Data Export / Import
+
+From the **Settings** view:
+
+- **Export JSON**: downloads `flo-expenses-YYYY-MM-DD.json` (full transaction array).
+- **Export CSV**: downloads `flo-expenses-YYYY-MM-DD.csv`.
+- **Import JSON**: merges a previously exported JSON backup into IndexedDB, skipping duplicate IDs.
+
+### Testing
+
+Automated tests live in [`tests/`](tests/) and run with `pytest`, which isn't pinned in `requirements.txt`:
+
+```bash
+pip install pytest
+pytest tests/ -v -s
+```
+
+Deterministic tests (classifier accuracy, API behaviour, access control) always run. Tests marked `live_api` call real Gemini/Vertex AI models and are skipped automatically unless `GOOGLE_CLOUD_PROJECT` and ADC credentials are configured (see [Authentication](#authentication) above). Synthetic receipt fixtures (including adversarial prompt-injection variants) can be regenerated with:
+
+```bash
+python tests/data/generate_receipts.py
+python tests/data/generate_injection_receipts.py
+```
+
+Coverage spans the merchant classifier, receipt OCR, voice extraction, and the AI spending insight (RAG) pipeline, including their resistance to prompt-injection attempts embedded in receipt images or transcripts. Results are written to `tests/results/*.json`; methodology and findings are written up in [`tests/QA_TESTING_REPORT.md`](tests/QA_TESTING_REPORT.md).
 
 ---
 
@@ -34,7 +131,9 @@ The server is **mostly stateless with respect to user data**. Expenses, personal
 
 The AI spending overview uses a **client-side RAG pipeline**: monthly summaries are computed and stored client-side, similarity search runs in the browser, and only the Gemini generation call goes to the server. The generated insight is cached client-side and invalidated whenever expenses change.
 
-Gemini calls try each model in `GEMINI_MODELS` ([config.py](config.py)) in order — currently `gemini-3.5-flash` then `gemini-2.5-flash` — falling through automatically if one is unavailable.
+Gemini calls try each model in `GEMINI_MODELS` ([config.py](config.py)) in order, currently `gemini-3.5-flash` then `gemini-2.5-flash`, falling through automatically if one is unavailable.
+
+Every Gemini prompt that mixes trusted instructions with untrusted user-supplied content (receipt images, voice transcripts, retrieved spending history) explicitly marks that content as data, not instructions, and is tested against prompt-injection attempts (see [Testing](#testing)).
 
 [1] Selected by comparing candidates from the [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard).
 
@@ -45,14 +144,14 @@ Gemini calls try each model in `GEMINI_MODELS` ([config.py](config.py)) in order
 | View | Purpose |
 |------|---------|
 | **Home** | Monthly total with trend badge, budget progress, today/week/remaining stats, custom budget cards, 7-day bar chart, income/balance card, category breakdown, 5 most recent transactions; widgets are reorderable and hideable |
-| **Add Method** | Entry-point picker — choose Scan Receipt, Voice Log, Manual Entry, or Add Income |
+| **Add Method** | Entry-point picker: choose Scan Receipt, Voice Log, Manual Entry, or Add Income |
 | **Add** | Manual form with auto-classification, income/expense toggle, currency conversion, optional budget tag, and Google Places location autocomplete |
 | **Scan** | Receipt scan via camera or file; zoomable receipt preview; background queueing of pending scans |
 | **Voice** | Real-time voice recording with live transcript, AI transcript cleanup, and structured field extraction |
 | **Verify** | Pre-fill confirmation screen after a receipt scan or voice entry; editable line items |
 | **History** | Full chronological transaction list grouped by date; text search; filter sheet (category, payment method, time range, type, sort, custom budget); tap to open / edit / delete detail sheet; toggle to a monthly **calendar view** |
 | **Summary** | Spending by category (doughnut chart), last-7-days line chart, and an **AI spending insight** generated with local historical context |
-| **Settings** | Hub for app configuration — links to Preferences, Budgets, Categories, and Payment Methods; dark mode toggle; JSON/CSV export & import |
+| **Settings** | Hub for app configuration: links to Preferences, Budgets, Categories, and Payment Methods; dark mode toggle; JSON/CSV export & import |
 | **Preferences** | Default currency · custom currency codes |
 | **Budgets** | Monthly budget limit · custom **Event** budgets (name, amount, optional date range, color) · custom **Category** budgets (per-category limit, color) |
 | **Categories** | Add / remove expense categories · add / remove income categories · manage exact-match merchant override rules · reset AI model |
@@ -74,7 +173,7 @@ Gemini calls try each model in `GEMINI_MODELS` ([config.py](config.py)) in order
 ### 2. Manual Expense / Income Entry
 
 1. User opens the **Add Method** picker and selects **Manual Entry** or **Add Income**.
-2. User types a **merchant / source name** and leaves the field — for expenses, the client posts its own centroids to `POST /api/classify`.
+2. User types a **merchant / source name** and leaves the field. For expenses, the client posts its own centroids to `POST /api/classify`.
 3. The server embeds the name, computes cosine similarity against the **client-supplied** centroids, and returns a prediction, confidence (0–1), top-3 candidates, and `needs_review` flag.
 4. If confidence is below `ASK_BELOW = 0.80`, the frontend highlights the category selector for manual confirmation.
 5. User fills in amount, currency (with live FX conversion if not the default), date, category, payment method, optional notes, location, and optionally tags the transaction to a **custom budget**.
@@ -84,7 +183,7 @@ Gemini calls try each model in `GEMINI_MODELS` ([config.py](config.py)) in order
 
 1. User selects **Scan Receipt** from the Add Method picker, then takes a photo or picks an image/PDF from the gallery. Receipts can also be queued as **pending scans** from the Home screen; the full-resolution file is kept in IndexedDB so an in-flight scan survives a page refresh.
 2. `POST /api/scan_receipt` sends the file (multipart/form-data) to the server, which calls Gemini via Vertex AI (see `GEMINI_MODELS` fallback).
-3. The server forwards the file with a structured prompt that requests a strict JSON receipt schema.
+3. The server forwards the file with a structured prompt that requests a strict JSON receipt schema. The prompt also instructs Gemini to treat the printed merchant, total, and item prices as the transaction record and to ignore any text on the document that claims a printed value should be replaced, a defense against receipts crafted to inject instructions into the extraction.
 4. Gemini returns extracted fields (merchant, date, total, currency, payment method, items, location). Missing date defaults to today. A printed tax/VAT/GST line (e.g. "Tax", "MwSt", "USt") is extracted as its own line item rather than folded into another item or dropped; per-item discounts are subtracted into that item's price and summarised in `notes`.
 5. The extracted merchant is classified by the same ML pipeline.
 6. The **Verify** screen shows pre-filled fields and editable line items for user confirmation before saving. Once saved, the original receipt image is kept permanently in IndexedDB (keyed by expense id) so History can display it later.
@@ -99,9 +198,13 @@ Voice recording uses the browser's **AudioContext** to capture 16 kHz PCM audio,
 3. Interim results (partial phrases) and final results are sent back over the WebSocket in real-time, displayed as live subtitles in the UI.
 
 After the user stops recording, the transcript goes through a three-step pipeline:
-1. `POST /api/voice_summary` — Gemini cleans the raw transcript (fixes mis-hearings, drops filler, resolves self-corrections) and returns a concise purchase note.
+1. `POST /api/voice_summary`: Gemini cleans the raw transcript (fixes mis-hearings, drops filler, resolves self-corrections) and returns a concise purchase note.
 2. The clean summary is shown for the user to confirm or edit.
-3. `POST /api/voice_extract` — Gemini extracts structured expense/income fields from the confirmed text via function calling.
+3. `POST /api/voice_extract`: Gemini extracts structured expense/income fields from the confirmed text via function calling. The transcript is treated as untrusted spoken content: the model is instructed to ignore phrases that look like instructions or authority claims (e.g. "ignore previous instructions", "system override") rather than acting on them, and to distinguish a genuine spoken self-correction (a small adjustment to the same transaction) from an attempt to swap in an unrelated merchant, amount, or transaction type.
+
+If the speech didn't describe a real transaction at all (a microphone test, silence, background chatter), the model reports `is_transaction: false`, the server responds with `error_code: "no_expense_found"`, and the frontend lets the user jump back into editing the transcript instead of creating a bogus entry.
+
+If the transcript mentions a named trip or occasion (e.g. "Bangkok trip"), Gemini can match it against the user's active **event budgets** and return an `event_hint`; the Verify/Add form pre-selects that budget tag automatically when a match is found.
 
 The extracted merchant runs through the classifier identically to a receipt scan, and the pre-filled fields land on the **Verify** screen.
 
@@ -115,24 +218,24 @@ Each `POST /api/learn` carries the client's current centroids/overrides:
    new_centroid = (old_centroid · n + embedding) / (n + 1)
    ```
    The result is L2-normalised and `n` is incremented.
-3. If the user **corrected** the predicted category, the lowercased merchant name is added to `overrides` — future classifications of that exact name return the corrected category with confidence 1.0. (Centroid updates are skipped when an override already covers the merchant.)
+3. If the user **corrected** the predicted category, the lowercased merchant name is added to `overrides`; future classifications of that exact name return the corrected category with confidence 1.0. (Centroid updates are skipped when an override already covers the merchant.)
 4. The updated `{categories, overrides}` payload is returned and written back under the `flo_centroids` key.
 
 ### 6. Custom Budgets
 
 Custom budgets are defined in the **Budgets** settings view and stored under the `flo_custom_budgets` key.
 
-- **Event budgets** — a name, a spend limit, an optional date range (start / end), and a color. Spending is summed from all expense transactions tagged with the budget's ID in the chosen date window.
-- **Category budgets** — a name, a spend limit, a target category, and a color. Spending is summed from all expense transactions in that category for the current month.
-- Transactions can be tagged to a budget at the time of entry via the optional **budget tag** drop-down in the Add / Edit form (stored as `budgetId` on the transaction).
+- **Event budgets**: a name, a spend limit, an optional date range (start / end), and a color. Spending is summed from all expense transactions tagged with the budget's ID in the chosen date window.
+- **Category budgets**: a name, a spend limit, a target category, and a color. Spending is summed from all expense transactions in that category for the current month.
+- Transactions can be tagged to a budget at the time of entry via the optional **budget tag** drop-down in the Add / Edit form (stored as `budgetId` on the transaction), or automatically from a voice entry that names a matching event (see [Voice Input](#4-voice-input)).
 - The Home screen shows a **Custom Budgets widget** with a progress bar per budget; the History filter sheet lets the user filter by budget.
 
 ### 7. Location Autocomplete
 
-When `GOOGLE_PLACES_API_KEY` is set, the server proxies all Google Places calls — the API key never reaches the browser. The Add / Edit forms offer:
+When `GOOGLE_PLACES_API_KEY` is set, the server proxies all Google Places calls; the API key never reaches the browser. The Add / Edit forms offer:
 
-- **Near me** — uses `navigator.geolocation`, posts to `/api/places/nearby`, and lists nearby establishments.
-- **Type-ahead** — debounced text search posted to `/api/places/text_search`, biased to the cached position.
+- **Near me**: uses `navigator.geolocation`, posts to `/api/places/nearby`, and lists nearby establishments.
+- **Type-ahead**: debounced text search posted to `/api/places/text_search`, biased to the cached position.
 
 ### 8. Currency Conversion
 
@@ -142,33 +245,34 @@ The home/summary views aggregate across multi-currency transactions. The fronten
 
 The **Summary** view generates a personalised insight by comparing the current month's spending to similar past months. The pipeline runs entirely in the browser until the final generation call:
 
-1. **Auto-archiving** — on load, `rebuildSummariesFromExpenses()` computes per-category totals for every completed past month from the expense history and upserts them into `flo_summaries`. No manual archiving step is required.
-2. **Manual archive** — the Summary view also exposes an **Archive current month** action that immediately snapshots the current month's breakdown into `flo_summaries`, useful for mid-month comparisons.
-3. **Similarity retrieval** — `retrieveSimilarSummaries()` projects the current spending onto a normalised category vector and computes cosine similarity against stored month vectors entirely in JavaScript. The top-2 nearest neighbours are passed as `retrieved_json` to the server.
-4. `GET /api/summary/overview` receives the current spending breakdown, days elapsed, and pre-retrieved context, then asks Gemini to write a 2–3 sentence insight comparing this month to the retrieved months.
-5. The insight and the periods it was based on are displayed in the AI card, and cached under `flo_ai_overview_cache` so reopening Summary doesn't re-call Gemini. The cache is cleared whenever expenses change (`saveExpenses()`), so the next visit regenerates a fresh insight.
+1. **Auto-archiving**: on load, `rebuildSummariesFromExpenses()` computes per-category totals for every completed past month from the expense history and upserts them into `flo_summaries`. No manual archiving step is required.
+2. **Manual archive**: the Summary view also exposes an **Archive current month** action that immediately snapshots the current month's breakdown into `flo_summaries`, useful for mid-month comparisons.
+3. **Similarity retrieval**: `retrieveSimilarSummaries()` projects the current spending onto a normalised category vector and computes cosine similarity against stored month vectors entirely in JavaScript. The top-2 nearest neighbours are passed as `retrieved_json` to the server.
+4. `GET /api/summary/overview` receives the current spending breakdown, days elapsed, and pre-retrieved context, then asks Gemini to write a 2-3 sentence insight comparing this month to the retrieved months. The prompt marks the retrieved history and budget context as untrusted data and tells the model not to treat embedded instructions or implausible outlier figures within it as legitimate.
+5. As a safety net independent of prompt wording, the server checks that every € figure in the generated text is close to a number derivable from the trusted input data (or a simple sum/difference of two such numbers). If not, it retries once with a stricter instruction, then falls back to a deterministic, no-LLM-call summary built only from the current month's figures, so a fabricated or injected figure can never reach the user.
+6. The insight and the periods it was based on are displayed in the AI card, and cached under `flo_ai_overview_cache` so reopening Summary doesn't re-call Gemini. The cache is cleared whenever expenses change (`saveExpenses()`), so the next visit regenerates a fresh insight.
 
 ### 10. Gemini Retry & Model Fallback
 
 All Gemini calls go through `services/gemini_utils.py`:
 
-- **`generate_with_retry`** — retries once on transient overload/rate-limit errors with exponential backoff, then raises `ModelOverloadedError` (which surfaces as an HTTP 503 with `"retryable": true`).
-- **`generate_with_fallback`** — tries each model in `GEMINI_MODELS` in order (`gemini-3.5-flash` → `gemini-2.5-flash`), falling through on failure, so a degraded model never blocks the user.
+- **`generate_with_retry`**: retries once on transient overload/rate-limit errors with exponential backoff, then raises `ModelOverloadedError` (which surfaces as an HTTP 503 with `"retryable": true`).
+- **`generate_with_fallback`**: tries each model in `GEMINI_MODELS` in order (`gemini-3.5-flash` → `gemini-2.5-flash`), falling through on failure, so a degraded model never blocks the user.
 
 ### 11. Recurring Expenses
 
 Recurring templates are managed from **Settings → Recurring Expenses** and stored under `flo_recurring`. Each template has a merchant, amount, currency, category, optional payment method/notes, and a `day_of_month` (clamped to the last day of shorter months).
 
 1. On every app load, `getDueRecurring()` filters templates that are enabled, not yet generated for the current month (`last_generated` ≠ this year-month), not currently snoozed, and whose `day_of_month` has passed.
-2. Due templates do **not** auto-insert an expense — they surface in the **Notifications** panel for the user to **Confirm** (records this month's expense and marks it generated), **Modify** (opens the Add form pre-filled, with a choice to apply the change just this once or to the template going forward), or **Remind later** (snoozes for a chosen number of days via `snoozed_until`).
+2. Due templates do **not** auto-insert an expense; they surface in the **Notifications** panel for the user to **Confirm** (records this month's expense and marks it generated), **Modify** (opens the Add form pre-filled, with a choice to apply the change just this once or to the template going forward), or **Remind later** (snoozes for a chosen number of days via `snoozed_until`).
 3. A confirmed occurrence is written to `flo_expenses` with `source: "recurring"`, `confidence: 1.0`, and no FX rate conversion.
 
 ### 12. Notifications Center
 
 The bell icon in the header opens a single panel that merges two kinds of pending work (previously split across the Home screen and a separate processing indicator):
 
-- **Pending scans** (`flo_pending_scans`) — receipts and voice inputs queued for background AI extraction, grouped by status: *Processing* (spinner), *Ready to Review* (tap to open **Verify**), and *Failed* (tap **Retry**). A spinner badge on the bell reflects any scan still processing.
-- **Recurring Due** — see [Recurring Expenses](#11-recurring-expenses) above, with inline Confirm / Modify / Remind-later actions.
+- **Pending scans** (`flo_pending_scans`): receipts and voice inputs queued for background AI extraction, grouped by status: *Processing* (spinner), *Ready to Review* (tap to open **Verify**), and *Failed* (tap **Retry**). A spinner badge on the bell reflects any scan still processing.
+- **Recurring Due**: see [Recurring Expenses](#11-recurring-expenses) above, with inline Confirm / Modify / Remind-later actions.
 
 The badge count is `ready scans + due recurring items`; opening/closing the panel and any state change re-renders it live.
 
@@ -176,7 +280,7 @@ The badge count is `ready scans + due recurring items`; opening/closing the pane
 
 ## Data Stored
 
-### Server — `dataset/centroids.json`
+### Server: `dataset/centroids.json`
 
 The shared base model used to bootstrap new clients. After bootstrap, each browser maintains its own copy under `flo_centroids`.
 
@@ -193,13 +297,13 @@ The shared base model used to bootstrap new clients. After bootstrap, each brows
 
 ---
 
-### Browser — IndexedDB
+### Browser: IndexedDB
 
 All persistent client-side state lives in one IndexedDB database, `flo_files` (see `static/js/app.js`), with three object stores:
 
 | Store | Keyed by | Contents |
 |-------|----------|----------|
-| `kv_store` | string key | Everything that used to live in `localStorage` — expenses, centroids, budgets, preferences, caches, etc. (see table below). Read via an in-memory `_kvCache` hydrated once at boot (`hydrateKvCache()`) so reads stay synchronous; writes go to IndexedDB in the background. |
+| `kv_store` | string key | Everything that used to live in `localStorage`: expenses, centroids, budgets, preferences, caches, etc. (see table below). Read via an in-memory `_kvCache` hydrated once at boot (`hydrateKvCache()`) so reads stay synchronous; writes go to IndexedDB in the background. |
 | `pending_files` | scan id | Full-resolution `File`/`Blob` for a receipt scan still queued/processing, so a page refresh doesn't lose the upload mid-scan. |
 | `expense_receipts` | expense id | The original receipt image, kept permanently once an expense is saved, so History can redisplay it later. |
 
@@ -265,7 +369,7 @@ A JSON array of transaction objects. Each object has:
 | `POST` | `/api/scan_receipt` | Scans a receipt image or PDF; multipart with `file` or `image` |
 | `POST` | `/api/voice_input` | Processes a recorded audio blob via Gemini function calling; multipart with `audio` |
 | `POST` | `/api/voice_summary` | Summarises a raw live transcript into a clean purchase note; form field `transcript` |
-| `POST` | `/api/voice_extract` | Extracts expense fields from a confirmed transcript (text only); form field `transcript` |
+| `POST` | `/api/voice_extract` | Extracts expense fields from a confirmed transcript (text only); form fields `transcript`, optional `event_budgets` (JSON array of active event-budget names to match against) |
 | `POST` | `/api/stt` | Single-shot speech-to-text via Google Cloud STT; multipart with `audio` |
 | `POST` | `/api/tts` | Synthesises text to MP3 audio via Google Cloud TTS; JSON body `{text, language_code?, voice_name?}` |
 | `WS`   | `/ws/voice_live` | Streaming speech-to-text via Google Cloud STT; sends PCM chunks, receives `{transcript, is_final}` |
@@ -277,110 +381,6 @@ A JSON array of transaction objects. Each object has:
 
 ---
 
-## Setup & Running
-
-Dependencies are declared in [`requirements.txt`](requirements.txt).
-
-```bash
-pip install -r requirements.txt
-python app.py
-# Open http://localhost:5000
-```
-
-### Environment variables
-
-Create a `.env` file in the project root. All AI features run through **Vertex AI** — no Google API key string is needed for Gemini.
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GOOGLE_CLOUD_PROJECT` | **Yes** | Your GCP project ID. Enables receipt scanning, voice input, and AI spending insights. |
-| `GOOGLE_CLOUD_LOCATION` | No | Vertex AI region. Defaults to `us-central1`. |
-| `GOOGLE_CLOUD_STT_LOCATION` | No | Speech-to-Text v2 recognizer location for the Chirp 3 model. Defaults to `us`. Must be `us` or `eu` (Chirp 3 is not available in `global` or single regions). |
-| `GOOGLE_PLACES_API_KEY` | No | Google Maps Platform key (`AIza…`). Enables location autocomplete. Without it, the location field is a plain text input. |
-| `REQUIRE_PASSWORD` | No | Set to `true` (default) to protect the app with a password, or `false` to leave it open. |
-| `APP_PASSWORD` | No | The password shown on the login page. Only used when `REQUIRE_PASSWORD=true`. |
-| `SECRET_KEY` | No | Signs the session cookie. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. A new random key is generated on each restart if not set (logs everyone out on restart). |
-
-Example `.env`:
-
-```bash
-# Required
-GOOGLE_CLOUD_PROJECT=your-gcp-project-id
-
-# Optional
-GOOGLE_CLOUD_LOCATION=us-central1
-GOOGLE_CLOUD_STT_LOCATION=us
-GOOGLE_PLACES_API_KEY=AIza...
-
-# Access control
-REQUIRE_PASSWORD=true
-APP_PASSWORD=your-secret-password
-SECRET_KEY=your-random-hex-string
-```
-
-### Authentication
-
-Gemini calls go through **Vertex AI** and use Google's [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials) — no API key required.
-
-**Local development** — run once after installing the [Google Cloud SDK](https://cloud.google.com/sdk/docs/install):
-
-```bash
-gcloud auth application-default login
-```
-
-This saves credentials to `~/.config/gcloud/application_default_credentials.json`. The SDK picks them up automatically on every subsequent run.
-
-**GCP deployment (Cloud Run, GKE, Compute Engine, etc.)** — credentials are provided automatically by the compute metadata server. No extra setup needed beyond ensuring the service account has the required roles and the APIs are enabled:
-
-```bash
-gcloud services enable aiplatform.googleapis.com speech.googleapis.com texttospeech.googleapis.com
-```
-
-Required IAM roles:
-- `roles/aiplatform.user` — Gemini / Vertex AI (receipt OCR, voice extraction, AI overview)
-- `roles/speech.client` (or `roles/editor`) — Google Cloud Speech-to-Text
-- `roles/cloudtexttospeech.client` (or `roles/editor`) — Google Cloud Text-to-Speech
-
-### Docker / Cloud Run
-
-A [`Dockerfile`](Dockerfile) is included for containerised deployment. The HuggingFace model is baked into the image to avoid cold-start downloads. The container runs **gunicorn** with a threaded worker to support WebSocket connections.
-
-```bash
-docker build -t flo .
-docker run -p 8080:8080 --env-file .env flo
-```
-
-For Cloud Run, set `GOOGLE_CLOUD_PROJECT` as an environment variable and grant the service account the Vertex AI User role. The gunicorn command in the `Dockerfile` binds to `$PORT` (default `8080`) and sets `--timeout 0` so long-lived Gemini Live WebSocket connections are not killed.
-
-### Share over a tunnel
-
-[`scripts/run_and_share.sh`](scripts/run_and_share.sh) starts the app, exposes it through a public tunnel, and prints a QR code for quick mobile access:
-
-```bash
-./scripts/run_and_share.sh
-```
-
-By default it uses [`lt`](https://github.com/localtunnel/localtunnel) with a fixed subdomain, giving a **stable URL** (`https://myfloapp-tum.loca.lt`) across runs. Override the subdomain with `LT_SUBDOMAIN`, or switch to a [`cloudflared`](https://developers.cloudflare.com/cloudflare-tunnel/) quick tunnel (no reminder page, but a **random URL** each run) with `TUNNEL=cloudflared`:
-
-```bash
-LT_SUBDOMAIN=my-custom-name ./scripts/run_and_share.sh   # fixed lt URL
-TUNNEL=cloudflared ./scripts/run_and_share.sh            # random, no reminder page
-```
-
-Requires one of those tunnel tools plus one of `qrencode` / Python `qrcode` on `PATH`.
-
-> With `lt`, browser visitors may see localtunnel's reminder page once per public IP (every 7 days). Programmatic callers can bypass it with a `bypass-tunnel-reminder` request header (any value) or a non-standard `User-Agent`. Those are request headers, so they don't help a fresh browser navigation — use `TUNNEL=cloudflared` to avoid the page entirely (at the cost of a fixed URL).
-
-### Data Export / Import
-
-From the **Settings** view:
-
-- **Export JSON** — downloads `flo-expenses-YYYY-MM-DD.json` (full transaction array).
-- **Export CSV** — downloads `flo-expenses-YYYY-MM-DD.csv`.
-- **Import JSON** — merges a previously exported JSON backup into IndexedDB, skipping duplicate IDs.
-
----
-
 ## Project Layout
 
 ```
@@ -389,19 +389,33 @@ financial_app/
 ├── config.py                 Env vars, model names, thresholds, file paths
 ├── requirements.txt          Pip dependencies (used locally and by Docker)
 ├── Dockerfile                Container build for Cloud Run / Docker
+├── pytest.ini                 Pytest config (markers, test paths)
 ├── scripts/
 │   └── run_and_share.sh      Local + localtunnel + QR sharing helper
 ├── services/
 │   ├── classifier.py         SentenceTransformer + nearest-centroid + online learning
 │   ├── receipt.py            Gemini receipt OCR → structured JSON
 │   ├── voice.py              Gemini voice → transcript summary → function-call → expense fields
-│   ├── summary.py            Gemini overview generation (context supplied by client)
+│   ├── summary.py            Gemini overview generation (context supplied by client) + numeric-grounding safety net
 │   ├── gemini_utils.py       Retry + model-fallback helpers for Gemini calls
 │   └── prompts.py            Centralised Gemini prompts and function-call schemas
 ├── dataset/
 │   ├── centroids.json        Shared base model (generated)
 │   ├── monthly_spending_2024.csv   Seed dataset for initial centroids
 │   └── student_germany_finance_2025_2026.json  Sample transaction export (not read by the app; for demoing import)
+├── tests/
+│   ├── conftest.py               Shared fixtures (live_api gating, model warm-up)
+│   ├── helpers.py                 Shared test utilities
+│   ├── test_classifier_accuracy.py, test_classifier_learning.py   Merchant classifier evals
+│   ├── test_receipt_ocr.py        Receipt OCR accuracy against synthetic golden set
+│   ├── test_voice_extraction.py   Voice function-calling extraction accuracy
+│   ├── test_rag_insight.py        AI spending insight groundedness
+│   ├── test_multimodal_injection.py   Prompt-injection resistance (receipts + voice)
+│   ├── test_api_deterministic.py  Flask API / access-control tests
+│   ├── test_performance.py        Latency benchmarks
+│   ├── data/                      Golden-set generators and fixtures (receipts, voice transcripts, RAG scenarios)
+│   ├── results/                   JSON output from the latest test run
+│   └── QA_TESTING_REPORT.md       Methodology and results write-up
 ├── templates/
 │   ├── index.html            Single-page app shell
 │   ├── login.html            Password-gate login page
@@ -443,3 +457,5 @@ financial_app/
 | `google-cloud-texttospeech` | Google Cloud Text-to-Speech (available via API) |
 | `python-dotenv` | `.env` loading for environment variables |
 | `qrcode` | Terminal QR for the localtunnel sharing script |
+
+`pytest` (not pinned in `requirements.txt`, installed separately, see [Testing](#testing)) runs the suite in `tests/`.
